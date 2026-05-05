@@ -123,7 +123,7 @@ Create all of these in the **company name** (not your personal email) so ownersh
 
 > **Note:** ElevenLabs Conversational AI now handles speech-to-text natively, so we no longer need OpenAI Whisper. Skip this step.
 
-### 2.4 — ElevenLabs (Conversational AI + voice)
+### 2.4 — ElevenLabs (Conversational AI + voice pool)
 
 1. Go to [elevenlabs.io/sign-up](https://elevenlabs.io/sign-up)
 2. Sign up with company email
@@ -131,25 +131,51 @@ Create all of these in the **company name** (not your personal email) so ownersh
    - **Creator ($22/mo)** for development and light use
    - **Pro ($99/mo)** for full 5-PM production cadence
    - Confirm the plan includes Conversational AI minutes — this is the real-time voice product, separate from standard TTS
-4. Go to **Voices → Voice Library** → browse and click "Add to VoiceLab" on **2-3 candidate voices** that sound like a residential client
-5. Test each voice using the "Generate" feature with a sample line like *"I just don't understand why this is happening to us. We trusted you guys."*
-6. Pick the winner. Copy its **Voice ID** from the voice details panel
-7. Go to **Conversational AI → Agents → Create Agent**:
+
+#### 2.4a — Confirm the 10 voice IDs are in your VoiceLab
+
+The voice pool is defined in `/content/voices/` with 10 pre-selected voice IDs, all verified to exist in the company's ElevenLabs library as of 2026-05-05. The IDs are:
+
+```
+pNInz6obpgDQGcFmaJgB   Adam       (M)  Dominant, Firm
+hpp4J3VqNfWAUOO0d1Us   Bella      (F)  Professional, Bright, Warm
+nPczCjzI2devNBz1zQrb   Brian      (M)  Deep, Resonant and Comforting
+iP95p4xoKVk53GoZ742B   Chris      (M)  Charming, Down-to-Earth
+cjVigY5qzO86Huf0OWal   Eric       (M)  Smooth, Trustworthy
+cgSgspJ2msm6clMCkdW9   Jessica    (F)  Playful, Bright, Warm
+TX3LPaxmHKxFdv7VOQHJ   Liam       (M)  Energetic, Confident
+XrExE9yKIg1WjnnlVkGX   Matilda    (F)  Knowledgable, Professional
+CwhRBWXzGAHq8TQ4Fs17   Roger      (M)  Laid-Back, Casual, Resonant
+EXAVITQu4vr4xnSDxMaL   Sarah      (F)  Mature, Reassuring, Confident
+```
+
+These are all premade ElevenLabs voices and should already be in your default library. Verify in **Voice Library** in the ElevenLabs dashboard. If any are missing, search by name and add them.
+
+For each voice, listen to the preview URL in its profile file (e.g., the URL in `content/voices/01-adam-dominant-male.md`) and confirm the voice's character matches the DISC alignment in the metadata. Adjust if needed before going live.
+
+#### 2.4b — Create the Conversational AI agent
+
+Go to **Conversational AI → Agents → Create Agent**:
    - **Name:** `Training Simulator — Client Persona`
-   - **Voice:** select your chosen voice
+   - **Voice:** Pick any voice from the pool as the default. The backend will override per session.
    - **LLM:** **Claude** (native integration; supply your `ANTHROPIC_API_KEY` when prompted)
    - **System prompt:** placeholder text (we override per-session via the SDK)
    - **Enable interruption detection**
-   - **Webhooks:** subscribe to `turn`, `interruption`, `conversation_started`, `conversation_ended` events; URL will be set in Part 9 once backend is deployed (use `http://localhost:3001/api/elevenlabs/webhook` for dev)
+   - **Webhooks:** subscribe to `turn`, `interruption`, `conversation_started`, `conversation_ended` events; URL will be set in Part 9 once backend is deployed (use ngrok URL for dev — see Part 5)
    - Save and copy the **Agent ID**
    - Copy the **Webhook Signing Secret** from the agent's webhook config
-8. Go to **My Account → API Keys** → copy your API key
+
+> **Note on per-session voice override:** ElevenLabs CAI may support voice override via `conversation_initiation_data` (Path A — preferred). If during development the dev firm finds voice override is not supported per-conversation on the current API, fall back to creating one agent per voice in the pool (Path B — more agents to manage but always works). See [docs/superpowers/plans/2026-05-05-master-plan.md](docs/superpowers/plans/2026-05-05-master-plan.md) Phase 3 for both paths.
+
+#### 2.4c — Get your account API key
+
+Go to **My Account → API Keys** → copy your API key.
 
 **You'll get:**
 - `ELEVENLABS_API_KEY`
-- `ELEVENLABS_VOICE_ID`
 - `ELEVENLABS_AGENT_ID`
 - `ELEVENLABS_WEBHOOK_SECRET`
+- (No single `ELEVENLABS_VOICE_ID` — voice pool is in `/content/voices/`)
 
 ### 2.5 — Railway (backend hosting)
 
@@ -499,14 +525,20 @@ This is the one-time setup you did in Part 2.4. Before continuing, verify:
 
 ### 5.5 — Build the ElevenLabs Service Layer
 
+- [ ] `server/src/services/voice-selector.ts`:
+  - Reads `/content/voices/*.md` at startup, parses frontmatter (voice_id, gender, age, active flag, DISC compatibility list)
+  - `selectVoiceForSession(scenarioSlug, clientDiscCode): { voiceId, voiceName }` implementing the three-tier priority:
+    1. Scenario-pinned override (if scenario file has `## Voice Override` section)
+    2. DISC-aligned random — filter pool by `active=true` AND DISC compatibility, pick randomly
+    3. Forced random — if admin toggle set on the scenario, ignore DISC filter
 - [ ] `server/src/services/elevenlabs-cai.ts`:
-  - `getSignedUrlForSession(sessionId, scenarioSlug, clientDiscCode): Promise<{ signedUrl: string, agentId: string }>` — calls the ElevenLabs API to mint a per-session signed URL. The signed URL embeds a `conversation_initiation_data` object with our assembled persona prompt as the system prompt override.
+  - `getSignedUrlForSession(sessionId, scenarioSlug, clientDiscCode): Promise<{ signedUrl: string, agentId: string, voiceId: string, voiceName: string }>` — calls `selectVoiceForSession()`, then ElevenLabs API to mint a per-session signed URL. The signed URL embeds a `conversation_initiation_data` object with persona prompt override AND voice override (Path A) — or selects the agent mapped to that voice (Path B fallback).
   - `verifyWebhookSignature(body, signature): boolean` — HMAC-SHA256 verification against `ELEVENLABS_WEBHOOK_SECRET`
 
 ### 5.6 — Build the Session API
 
 - [ ] `server/src/routes/sessions.ts`:
-  - `POST /api/sessions` — accepts `{ scenarioSlug, clientDiscCode }`, creates a `sessions` row, calls `getSignedUrlForSession()`, returns `{ sessionId, signedUrl, agentId }`
+  - `POST /api/sessions` — accepts `{ scenarioSlug, clientDiscCode }`, creates a `sessions` row (storing chosen `voice_id` + `voice_name`), calls `getSignedUrlForSession()`, returns `{ sessionId, signedUrl, agentId, voiceName }`
   - `POST /api/sessions/:id/end` — marks ended, fetches turns + events, calls `generateCoaching()`, saves to `coaching` table, returns the debrief
   - `GET /api/sessions/:id` — full session with turns + events + coaching
   - `GET /api/sessions` — admin: all; pm: own only
@@ -698,9 +730,10 @@ cd ../client && npm install recharts
 - [ ] `client/src/pages/AdminDashboardPage.tsx` — summary cards, table of all PMs with scores
 - [ ] `client/src/pages/AdminUserDetailPage.tsx` — one PM's full history with score-over-time line chart
 - [ ] `client/src/pages/AdminSessionDetailPage.tsx` — full transcript + coaching for any session
-- [ ] `client/src/pages/AdminScenariosPage.tsx` — edit scenario titles/descriptions/body
+- [ ] `client/src/pages/AdminScenariosPage.tsx` — edit scenario titles/descriptions/body; pin a voice or enable "forced random"
 - [ ] `client/src/pages/AdminUsersPage.tsx` — add/edit users, set DISC, reset password
 - [ ] `client/src/pages/AdminRubricPage.tsx` — edit rubric items and weights (must total 100%)
+- [ ] `client/src/pages/AdminVoicesPage.tsx` — list voice pool, play preview audio, toggle active/inactive, show usage stats per voice
 - [ ] `client/src/pages/AdminExportPage.tsx` — download Excel button
 
 ### 7.5 — Test It

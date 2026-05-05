@@ -121,9 +121,16 @@ Before writing any prompts or configuring scenarios, collect:
 
 **Backend:**
 
+- [ ] `server/src/services/voice-selector.ts`:
+  - Loads `/content/voices/*.md` at startup; parses YAML frontmatter for voice_id, gender, age, active flag, DISC compatibility list
+  - `selectVoiceForSession(scenarioSlug, clientDiscCode): { voiceId, voiceName }` implementing the three-tier priority:
+    1. Scenario-pinned override (if scenario file declares `## Voice Override`)
+    2. DISC-aligned random — filter pool by `active=true` AND DISC compatibility match, pick randomly
+    3. Forced random — admin scenario flag bypasses DISC filter
 - [ ] `server/src/services/elevenlabs-cai.ts`:
-  - `getSignedUrlForSession(sessionId, scenarioSlug, clientDiscCode): Promise<string>` — calls ElevenLabs API to mint a per-session signed URL with a `conversation_initiation_data` override containing the assembled persona prompt
-- [ ] `POST /api/sessions` updated to: create session row + return signed URL + `agentId`
+  - `getSignedUrlForSession(sessionId, scenarioSlug, clientDiscCode): Promise<{ signedUrl, agentId, voiceId, voiceName }>` — calls voice selector, then ElevenLabs API to mint a per-session signed URL with `conversation_initiation_data` containing both persona prompt AND voice override (Path A)
+  - **Path A vs Path B (verify during 1-day spike):** Path A passes voice override per conversation. Path B falls back to one CAI agent per voice (10 agents) if voice override per-conversation isn't supported.
+- [ ] `POST /api/sessions` updated to: create session row (with `voice_id`, `voice_name`) + return signed URL + `agentId` + `voiceName`
 - [ ] `POST /api/elevenlabs/webhook` — receives ElevenLabs events:
   - Verifies HMAC signature using `ELEVENLABS_WEBHOOK_SECRET`
   - Persists transcript fragments to `turns` table (one row per completed user/agent turn)
@@ -168,6 +175,8 @@ Before writing any prompts or configuring scenarios, collect:
 - When a high-D AI client persona interrupts the PM, an `events` row is recorded with `type=agent_interrupted_user` (logged, not penalized)
 - The full transcript persists to `turns` table even if the browser closes mid-session
 - `/end` returns coaching that explicitly references the interruption count when relevant
+- **Voice selection works:** running the same scenario+DISC twice in a row produces different voices on at least some attempts (DISC-aligned random working)
+- **Voice persistence:** `sessions.voice_id` and `sessions.voice_name` populated on every session
 
 ---
 
@@ -223,9 +232,10 @@ Before writing any prompts or configuring scenarios, collect:
   - Table of all PMs with: name, DISC profile, total sessions, avg score, last active date
   - Click PM → filtered session history with scores over time (line chart via recharts)
 - [ ] Session detail modal/page: full transcript + coaching debrief for any session
-- [ ] `client/src/pages/AdminScenariosPage.tsx` — edit scenario title, description, desired outcomes (inline form)
+- [ ] `client/src/pages/AdminScenariosPage.tsx` — edit scenario title, description, desired outcomes; **pin a specific voice or set "forced random" mode**
 - [ ] `client/src/pages/AdminUsersPage.tsx` — add/edit PM users: name, email, DISC profile; reset password
 - [ ] `client/src/pages/AdminRubricPage.tsx` — edit rubric item names, weights, descriptions
+- [ ] `client/src/pages/AdminVoicesPage.tsx` — list voice pool with preview audio buttons; toggle voices active/inactive; show usage stats (how many sessions used each voice)
 - [ ] `server/src/services/excel.ts` — `regenerateExcel()` that writes `data/sessions.xlsx` with tabs:
   - **All Sessions** — one row per session: PM name, DISC, scenario, score, date
   - **Per-PM sheets** — one sheet per PM with their session history

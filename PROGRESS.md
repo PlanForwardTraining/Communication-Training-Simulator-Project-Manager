@@ -44,14 +44,14 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 ### 2.3 — OpenAI (no longer required)
 - [x] *Skipped — ElevenLabs Conversational AI handles speech-to-text natively*
 
-### 2.4 — ElevenLabs (Conversational AI + voice)
+### 2.4 — ElevenLabs (Conversational AI + voice pool)
 - [ ] Sign up at elevenlabs.io with company email
 - [ ] Pick a plan that includes Conversational AI (Creator or Pro)
-- [ ] Browse Voice Library, add 2-3 candidate voices to VoiceLab
-- [ ] Test each voice with a sample line
-- [ ] Pick winning voice, copy its Voice ID
+- [ ] Confirm all 10 voices in `/content/voices/` are present in your Voice Library (premade — should already be there)
+- [ ] Listen to each voice's preview URL to confirm DISC alignment
+- [ ] Adjust voice metadata in `/content/voices/*.md` if any voice's character differs from its description
 - [ ] Create Conversational AI Agent named "Training Simulator — Client Persona"
-- [ ] Configure agent voice
+- [ ] Pick any voice as default (overridden per-session)
 - [ ] Configure agent LLM as Claude (supply Anthropic API key)
 - [ ] Set placeholder system prompt
 - [ ] Enable interruption detection
@@ -60,7 +60,7 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [ ] Copy Agent ID
 - [ ] Copy Webhook Signing Secret
 - [ ] Copy main API key
-- [ ] Save all 4 values in password manager
+- [ ] Save all 3 values in password manager
 
 ### 2.5 — Railway
 - [ ] Sign up at railway.app using company GitHub org
@@ -174,9 +174,13 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [ ] Agent's webhook URL reachable (use ngrok for local dev)
 - [ ] Agent LLM is set to Claude
 
-### 5.5 — ElevenLabs Service Layer
+### 5.5 — Voice Selector + ElevenLabs Service Layer
+- [ ] `server/src/services/voice-selector.ts`:
+  - [ ] Reads `/content/voices/*.md` frontmatter at startup
+  - [ ] Implements 3-tier priority: scenario-pinned → DISC-aligned random → forced random
+  - [ ] Returns `{ voiceId, voiceName }` per session
 - [ ] `server/src/services/elevenlabs-cai.ts`:
-  - [ ] `getSignedUrlForSession()` mints per-session URL with persona override
+  - [ ] `getSignedUrlForSession()` mints per-session URL with persona AND voice override
   - [ ] `verifyWebhookSignature()` HMAC-SHA256 check
 
 ### 5.6 — Session API
@@ -279,9 +283,10 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [ ] `AdminDashboardPage.tsx`
 - [ ] `AdminUserDetailPage.tsx`
 - [ ] `AdminSessionDetailPage.tsx`
-- [ ] `AdminScenariosPage.tsx`
+- [ ] `AdminScenariosPage.tsx` (with voice pin + forced-random options)
 - [ ] `AdminUsersPage.tsx`
 - [ ] `AdminRubricPage.tsx`
+- [ ] `AdminVoicesPage.tsx` (preview audio, toggle active, usage stats)
 - [ ] `AdminExportPage.tsx`
 
 ### 7.5 — Verify

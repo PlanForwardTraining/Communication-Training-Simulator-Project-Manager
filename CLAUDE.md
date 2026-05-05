@@ -79,6 +79,7 @@ Admin Dashboard (same React app, role-gated route)
 ├── content/                    # ★ Source-of-truth training content (markdown, owner-editable)
 │   ├── scenarios/              # 5 scenario files (01-schedule-delay.md, etc.)
 │   ├── disc-profiles/          # 8 DISC client persona files (01-D-dominance.md, etc.)
+│   ├── voices/                 # 10 voice profiles (ID + DISC compatibility metadata)
 │   └── coaching-rubric/        # Categories, weights, scoring levels
 │
 ├── client/                     # React frontend (Vite)
@@ -148,8 +149,8 @@ Admin Dashboard (same React app, role-gated route)
 users         (id, name, email, password_hash, disc_profile, role, created_at)
 scenarios     (id, slug, title, description, body_markdown, active, updated_at)
 disc_profiles (id, code, name, body_markdown)
-sessions      (id, user_id, scenario_id, client_disc_id, elevenlabs_conversation_id,
-               started_at, ended_at, total_score)
+sessions      (id, user_id, scenario_id, client_disc_id, voice_id, voice_name,
+               elevenlabs_conversation_id, started_at, ended_at, total_score)
 turns         (id, session_id, speaker, content, started_at_ms, ended_at_ms, created_at)
 events        (id, session_id, type, speaker, details_json, occurred_at)
                 -- type: 'user_interrupted_agent', 'agent_interrupted_user',
@@ -223,6 +224,8 @@ cd server && npm run build
 **Voice conversation is real-time and phone-call-like.** PM speaks naturally without pressing a button; ElevenLabs Conversational AI handles continuous mic, voice activity detection, streaming speech-to-text, streaming Claude responses, and streaming text-to-speech. PM and AI client can speak over each other; **interruptions are detected and logged as events** for use in coaching.
 
 **Interruption tracking is a first-class feature.** Every time the PM speaks while the AI client is mid-utterance, an `events` row is recorded. The Active Listening rubric category specifically scores PM→client interruptions, weighted by the client's DISC profile (interrupting an S or C client is penalized more heavily than interrupting a D). The AI client *can* interrupt the PM in profile-appropriate ways (a high-D realistically does talk over people) — those events are logged but do not count against the PM's score.
+
+**Voice variety is a first-class feature.** A voice pool lives in `/content/voices/` (one markdown file per voice with ElevenLabs ID + DISC compatibility metadata). Every session, the backend selects a voice using a three-tier priority: (1) scenario-pinned override, (2) DISC-aligned random from the active pool *(default)*, (3) admin-toggled forced random. The PM never picks the voice. Same scenario+DISC combination will sound different on different days, which both adds realism and prevents PMs from "memorizing" how a particular client sounds. The `sessions` table records `voice_id` and `voice_name` so admin reporting can show who trained against which voices over time.
 
 **PMs cannot change their own DISC profile.** Only admin can set/update. Enforced at the API layer.
 
