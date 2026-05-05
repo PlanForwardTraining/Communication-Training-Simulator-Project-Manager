@@ -1,0 +1,60 @@
+# ============================================
+# SECRETS — never commit these
+# ============================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ============================================
+# Node / npm
+# ============================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ============================================
+# Build artifacts
+# ============================================
+dist/
+build/
+.next/
+.cache/
+*.tsbuildinfo
+
+# ============================================
+# Runtime data (databases, audio, exports)
+# ============================================
+data/*.db
+data/*.db-journal
+data/*.db-shm
+data/*.db-wal
+data/*.xlsx
+data/audio/
+
+# ============================================
+# OS files
+# ============================================
+.DS_Store
+Thumbs.db
+.directory
+
+# ============================================
+# Editors / IDEs
+# ============================================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.shared.json
+.idea/
+*.swp
+*.swo
+*~
+
+# ============================================
+# Logs
+# ============================================
+logs/
+*.log

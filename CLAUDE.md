@@ -225,6 +225,19 @@ Placeholder content for the first three has been drafted in `/content/` so devel
 
 ---
 
+## Documentation Sync Rule (IMPORTANT)
+
+[REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md) and [PROGRESS.md](PROGRESS.md) are **paired files** that must stay in sync at all times:
+
+- **REBUILD_ME_GUIDE.md** is the reference manual — explanations, commands, context
+- **PROGRESS.md** is the trackable checklist — every actionable step from the guide as `- [ ]`
+
+**The rule:** Any time a step is **added, removed, renamed, or reordered** in one file, the same change must be made in the other in the same edit. They are two views of the same source of truth.
+
+**For AI assistants helping with this project:** When the user asks you to modify either file, you MUST also update the other file to match. Do not edit one without the other. If a change applies only to the explanatory prose in REBUILD_ME_GUIDE.md and does not change any actionable step, no PROGRESS.md update is needed — but be explicit when reporting that.
+
+**For humans editing manually:** If you add a `- [ ]` step to PROGRESS.md, also add it to the matching section of REBUILD_ME_GUIDE.md (and vice versa). The section anchors in PROGRESS.md (e.g., `#part-4--build-the-backend-foundation-phase-1`) must match the heading slugs in the guide.
+
 ## Phase Summary
 
 | Phase | What Gets Built | Est. Dev Time |

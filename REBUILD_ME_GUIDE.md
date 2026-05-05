@@ -256,6 +256,8 @@ git push
 
 ### 3.5 — Create `.env.example` Files
 
+> **Note:** A root-level `.env`, `.env.example`, and `.gitignore` were already created at the start of the project so API keys can be stored before development begins. When the `server/` folder is initialized in Phase 1, copy the values from the root `.env` into a new `server/.env` (same variable names) and delete the root `.env`. The `client/.env` is created fresh in Phase 4.
+
 Create two example files (these go in git so the next developer knows what's needed):
 
 **`server/.env.example`:**
