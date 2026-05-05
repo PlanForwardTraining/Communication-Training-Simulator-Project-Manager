@@ -132,9 +132,11 @@ Create all of these in the **company name** (not your personal email) so ownersh
    - **Pro ($99/mo)** for full 5-PM production cadence
    - Confirm the plan includes Conversational AI minutes — this is the real-time voice product, separate from standard TTS
 
-#### 2.4a — Confirm the 10 voice IDs are in your VoiceLab
+#### 2.4a — Confirm the 20 voice IDs are in your VoiceLab
 
-The voice pool is defined in `/content/voices/` with 10 pre-selected voice IDs, all verified to exist in the company's ElevenLabs library as of 2026-05-05. The IDs are:
+The voice pool is defined in `/content/voices/` with 20 voices, all verified to exist in the company's ElevenLabs library as of 2026-05-05.
+
+**Original 10 (premade ElevenLabs voices):**
 
 ```
 pNInz6obpgDQGcFmaJgB   Adam       (M)  Dominant, Firm
@@ -149,7 +151,22 @@ CwhRBWXzGAHq8TQ4Fs17   Roger      (M)  Laid-Back, Casual, Resonant
 EXAVITQu4vr4xnSDxMaL   Sarah      (F)  Mature, Reassuring, Confident
 ```
 
-These are all premade ElevenLabs voices and should already be in your default library. Verify in **Voice Library** in the ElevenLabs dashboard. If any are missing, search by name and add them.
+**Added 10 (custom voices added by owner):**
+
+```
+inGcvmoPgbvKUk9uCvHu   Adam M     (M)  subdued / sad
+cNYrMw9glwJZXR8RwbuR   Belle      (F)  Empathetic Customer Service
+kdnRe2koJdOK4Ovxn2DI   Eryn       (F)  Genuine, Friendly and Natural
+h2I5OFX58E5TL5AitYwR   Joey Patel (M)  Friendly Customer Support
+hGQkZQUA5RiOXIw7P9iO   Kiora      (F)  Authentic, Natural Conversation
+1SM7GgM6IMuvQlz2BwM3   Mark       (M)  Casual, Relaxed and Light
+ljX1ZrXuDIIRVcmiVSyR   Michael    (M)  Genuine and Approachable
+ZauUyVXAz5znrgRuElJ5   Russell    (M)  Young, Outgoing and Excited
+lAxf5ma5HGtzxC434SWT   Tori       (F)  casual, young
+uwJhTSUhU9LVyeRjWtiC   Vexa       (F)  Expressive Outbound Sales
+```
+
+The premade voices come with the default library. The custom 10 were added on 2026-05-05. Verify all 20 are present in **Voice Library** in the ElevenLabs dashboard.
 
 For each voice, listen to the preview URL in its profile file (e.g., the URL in `content/voices/01-adam-dominant-male.md`) and confirm the voice's character matches the DISC alignment in the metadata. Adjust if needed before going live.
 
