@@ -57,6 +57,11 @@ Admin Dashboard (same React app, role-gated route)
 
 ```
 /
+├── content/                    # ★ Source-of-truth training content (markdown, owner-editable)
+│   ├── scenarios/              # 5 scenario files (01-schedule-delay.md, etc.)
+│   ├── disc-profiles/          # 8 DISC client persona files (01-D-dominance.md, etc.)
+│   └── coaching-rubric/        # Categories, weights, scoring levels
+│
 ├── client/                     # React frontend (Vite)
 │   ├── src/
 │   │   ├── pages/
@@ -182,7 +187,9 @@ cd server && npm run build
 
 ## Key Design Decisions & Constraints
 
-**DISC Profiles:** The app supports Primary (D, I, S, C) and combination profiles (D/C, I/S, etc.). Each profile has a dedicated prompt file in `server/src/prompts/disc-personas/`. The PM's own DISC profile informs the coaching — the AI highlights gaps between the PM's natural style and what the client needed.
+**Content lives in `/content/`, code lives in `/server/`.** All training content (scenarios, DISC profiles, coaching rubric) is markdown in `/content/`. The backend reads from `/content/` at runtime to assemble prompts in `server/src/prompts/`. This separation lets the business owner edit content directly (or via the admin UI in Phase 5) without touching code.
+
+**DISC Profiles:** The app supports Primary (D, I, S, C) and four combination profiles (D/I, D/C, I/S, S/C). Each profile is a markdown file in `/content/disc-profiles/`. The PM's own DISC profile informs the coaching — the AI highlights gaps between the PM's natural style and what the client needed.
 
 **Voice conversation is turn-based, not streaming.** PM records → sends → gets AI audio back. This avoids complex WebSocket/streaming architecture in Phase 1 while still feeling conversational.
 
@@ -207,13 +214,14 @@ cd server && npm run build
 
 ## Content the Business Owner Provides (Blockers)
 
-These must be received before the relevant phase can be finalized:
+Placeholder content for the first three has been drafted in `/content/` so development is unblocked. The owner should review and replace with real company language before launch.
 
-- [ ] Five scenario titles, descriptions, and desired outcomes
-- [ ] DISC profile descriptions in the company's own language
-- [ ] Coaching rubric: categories, weights, what earns each score level
+- [x] Five scenario titles, descriptions, and desired outcomes — *placeholders in `/content/scenarios/`*
+- [x] DISC profile descriptions — *placeholders in `/content/disc-profiles/`*
+- [x] Coaching rubric: categories, weights, scoring levels — *placeholders in `/content/coaching-rubric/`*
 - [ ] Each PM's name, email, and DISC profile
 - [ ] Branding preferences (colors, logo)
+- [ ] Preferred ElevenLabs voice (developer to propose options)
 
 ---
 
