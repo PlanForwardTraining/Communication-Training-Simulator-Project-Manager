@@ -41,21 +41,26 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [ ] Create API key named `dev-key`
 - [ ] Save key in password manager
 
-### 2.3 — OpenAI (Whisper)
-- [ ] Sign up at platform.openai.com with company email
-- [ ] Add payment method, prepay $20
-- [ ] Set monthly hard usage limit (~$50)
-- [ ] Create API key named `dev-key`
-- [ ] Save key in password manager
+### 2.3 — OpenAI (no longer required)
+- [x] *Skipped — ElevenLabs Conversational AI handles speech-to-text natively*
 
-### 2.4 — ElevenLabs (TTS)
+### 2.4 — ElevenLabs (Conversational AI + voice)
 - [ ] Sign up at elevenlabs.io with company email
-- [ ] Pick a plan (Starter / Creator / Pro)
+- [ ] Pick a plan that includes Conversational AI (Creator or Pro)
 - [ ] Browse Voice Library, add 2-3 candidate voices to VoiceLab
 - [ ] Test each voice with a sample line
 - [ ] Pick winning voice, copy its Voice ID
-- [ ] Copy API key
-- [ ] Save key + voice ID in password manager
+- [ ] Create Conversational AI Agent named "Training Simulator — Client Persona"
+- [ ] Configure agent voice
+- [ ] Configure agent LLM as Claude (supply Anthropic API key)
+- [ ] Set placeholder system prompt
+- [ ] Enable interruption detection
+- [ ] Configure webhooks (subscribe to turn, interruption, conversation_started, conversation_ended)
+- [ ] Set webhook URL placeholder (will update to ngrok / production later)
+- [ ] Copy Agent ID
+- [ ] Copy Webhook Signing Secret
+- [ ] Copy main API key
+- [ ] Save all 4 values in password manager
 
 ### 2.5 — Railway
 - [ ] Sign up at railway.app using company GitHub org
@@ -77,9 +82,10 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 ### 2.9 — Final Inventory Check
 - [ ] GitHub org name + admin access confirmed
 - [ ] `ANTHROPIC_API_KEY` saved
-- [ ] `OPENAI_API_KEY` saved
 - [ ] `ELEVENLABS_API_KEY` saved
 - [ ] `ELEVENLABS_VOICE_ID` saved
+- [ ] `ELEVENLABS_AGENT_ID` saved
+- [ ] `ELEVENLABS_WEBHOOK_SECRET` saved
 - [ ] Railway login working
 - [ ] Vercel login working
 - [ ] `RESEND_API_KEY` saved *(if using)*
@@ -152,32 +158,46 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 🔗 [Guide reference](REBUILD_ME_GUIDE.md#part-5--build-ai-and-voice-services-phases-2--3)
 
 ### 5.1 — Install SDKs
-- [ ] Install `@anthropic-ai/sdk`, `openai`, `axios`, `form-data`, `multer`
+- [ ] Install `@anthropic-ai/sdk`, `axios` in server
 
 ### 5.2 — Prompt Layer
 - [ ] `server/src/prompts/loader.ts` (reads from `/content/`)
-- [ ] `server/src/prompts/persona-prompt.ts`
-- [ ] `server/src/prompts/coaching-prompt.ts`
+- [ ] `server/src/prompts/persona-prompt.ts` (with profile-appropriate interruption guidance)
+- [ ] `server/src/prompts/coaching-prompt.ts` (consumes events list, scores Active Listening)
 
-### 5.3 — Service Layer
-- [ ] `server/src/services/claude.ts` (sendConversationTurn + generateCoaching)
-- [ ] `server/src/services/whisper.ts` (transcribeAudio)
-- [ ] `server/src/services/elevenlabs.ts` (synthesizeSpeech)
+### 5.3 — Coaching Service
+- [ ] `server/src/services/claude.ts` (`generateCoaching` only — no in-call turn handling)
 
-### 5.4 — Session API
-- [ ] `POST /api/sessions` (create session)
-- [ ] `POST /api/sessions/:id/turns` (audio or text input)
-- [ ] `POST /api/sessions/:id/end` (generate coaching)
-- [ ] `GET /api/sessions/:id`
-- [ ] `GET /api/sessions` (filtered by role)
-- [ ] Static file serving for `/audio/` directory
+### 5.4 — Verify ElevenLabs CAI Agent Configured
+- [ ] `ELEVENLABS_AGENT_ID` in `.env`
+- [ ] `ELEVENLABS_WEBHOOK_SECRET` in `.env`
+- [ ] Agent's webhook URL reachable (use ngrok for local dev)
+- [ ] Agent LLM is set to Claude
 
-### 5.5 — Verify End-to-End in Postman
-- [ ] Create session via API
-- [ ] Send 3-4 text turns, AI client responds in character
-- [ ] Open returned `audioUrl` in browser, hear AI voice
-- [ ] Call `/end`, receive structured coaching JSON
-- [ ] Coaching references both DISC profiles by name
+### 5.5 — ElevenLabs Service Layer
+- [ ] `server/src/services/elevenlabs-cai.ts`:
+  - [ ] `getSignedUrlForSession()` mints per-session URL with persona override
+  - [ ] `verifyWebhookSignature()` HMAC-SHA256 check
+
+### 5.6 — Session API
+- [ ] `POST /api/sessions` returns `{ sessionId, signedUrl, agentId }`
+- [ ] `POST /api/sessions/:id/end` runs coaching pipeline
+- [ ] `GET /api/sessions/:id` returns full session with turns + events + coaching
+- [ ] `GET /api/sessions` filtered by role
+- [ ] `POST /api/elevenlabs/webhook`:
+  - [ ] Signature verification
+  - [ ] Persists `turn` events to `turns` table
+  - [ ] Persists `interruption` events to `events` table (with correct `type`)
+  - [ ] Updates `sessions.elevenlabs_conversation_id` on `conversation_started`
+
+### 5.7 — Verify End-to-End
+- [ ] Run `ngrok http 3001` and update agent webhook URL
+- [ ] Test conversation in ElevenLabs dashboard Test interface
+- [ ] AI responds in character via Claude
+- [ ] Interruption stops the AI mid-sentence
+- [ ] Webhooks arrive in backend logs
+- [ ] `turns` and `events` rows visible in SQLite
+- [ ] `POST /api/sessions/:id/end` returns coaching with `activeListening` score
 - [ ] **Phases 2-3 complete** — commit and push
 
 ---
@@ -188,7 +208,7 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 
 ### 6.1 — Initialize Frontend
 - [ ] Create Vite + React + TypeScript project in `client/`
-- [ ] Install React Router and axios
+- [ ] Install React Router, axios, `@11labs/react`
 - [ ] Install + configure Tailwind CSS
 - [ ] Configure `tailwind.config.js`
 - [ ] Update `src/index.css` with Tailwind directives
@@ -202,8 +222,8 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 
 ### 6.3 — Hooks
 - [ ] `client/src/hooks/useAuth.ts`
-- [ ] `client/src/hooks/useAudioRecorder.ts`
-- [ ] `client/src/hooks/useConversation.ts`
+- [ ] `client/src/hooks/useElevenLabsConversation.ts` (wraps `@11labs/react`)
+- [ ] `client/src/hooks/useSessionLifecycle.ts` (orchestrates start → conversation → end)
 
 ### 6.4 — Pages
 - [ ] `LoginPage.tsx`
@@ -214,9 +234,10 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [ ] `SessionHistoryPage.tsx`
 
 ### 6.5 — Shared Components
-- [ ] `VoiceRecorder.tsx`
-- [ ] `AudioPlayer.tsx`
-- [ ] `ConversationLog.tsx`
+- [ ] `StartSessionButton.tsx` (handles permission + session creation + CAI launch)
+- [ ] `CallStatusIndicator.tsx` (idle/listening/speaking/interrupted)
+- [ ] `ConversationLog.tsx` (live speaker bubbles from SDK callbacks)
+- [ ] `InterruptionBadge.tsx` (live interruption counter)
 - [ ] `ScoreCard.tsx`
 - [ ] `DiscBadge.tsx`
 
@@ -227,8 +248,11 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 ### 6.7 — Verify
 - [ ] Full flow works on desktop Chrome (login → simulate → debrief → history)
 - [ ] Full flow works on iPhone Safari
-- [ ] Microphone permission prompt appears
-- [ ] AI voice plays automatically
+- [ ] Microphone permission prompt handled gracefully
+- [ ] Conversation starts within ~2 seconds of clicking Start
+- [ ] AI begins speaking within ~1 second of PM finishing
+- [ ] PM can interrupt AI by speaking (AI stops mid-sentence)
+- [ ] Interruption counter visible in UI
 - [ ] **Phase 4 complete** — commit and push
 
 ---
@@ -280,16 +304,22 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [ ] Login works on iPhone Safari
 - [ ] Scenarios load with readable descriptions
 - [ ] DISC profiles load with readable descriptions
-- [ ] Microphone permission prompt appears (mobile + desktop)
-- [ ] Voice recording works on iPhone Safari
-- [ ] AI client audio plays automatically
-- [ ] Audio sounds like the chosen voice
+- [ ] Microphone permission prompt appears at session start
+- [ ] Conversation starts within ~2 seconds of clicking Start
+- [ ] Speaking naturally without buttons works
+- [ ] AI begins responding within ~1 second of PM finishing
+- [ ] AI voice sounds like chosen ElevenLabs voice
+- [ ] PM can interrupt AI by speaking (AI stops mid-sentence)
+- [ ] Interruption visibly counted in UI
 - [ ] AI stays in character (no mid-session coaching)
 - [ ] AI behavior matches selected DISC profile
+- [ ] High-D AI client occasionally interrupts PM appropriately
+- [ ] iPhone Safari: full call works without browser quirks
 - [ ] "End Session" requires confirmation
 - [ ] Coaching debrief loads and is readable
 - [ ] Coaching mentions PM's DISC and client's DISC by name
-- [ ] Score is between 0-100
+- [ ] Coaching includes Active Listening score with interruption commentary
+- [ ] Total score is between 0-100
 - [ ] Session history shows the just-completed session
 
 ### As Admin
@@ -302,11 +332,12 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [ ] Excel export downloads valid file with multiple tabs
 
 ### Edge Cases
-- [ ] Recording silence → graceful error, no crash
-- [ ] Network interruption mid-turn → graceful error
-- [ ] Closing browser mid-session — behavior decided and verified
+- [ ] PM stays silent 30+ seconds → AI responds gracefully (verify configured behavior)
+- [ ] Network interruption mid-call → SDK reports disconnect, UI shows reconnect option
+- [ ] Closing browser mid-session → `conversation_ended` webhook fires, session marked ended
 - [ ] PM blocked from admin URLs
 - [ ] Invalid JWT redirects to login
+- [ ] Webhook with invalid signature is rejected (401)
 
 ---
 
@@ -325,11 +356,17 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [ ] Set build and start commands
 - [ ] Add all env variables (with **production** values)
 - [ ] Generate new `JWT_SECRET` for prod (do not reuse dev)
+- [ ] Add `ELEVENLABS_AGENT_ID` and `ELEVENLABS_WEBHOOK_SECRET`
 - [ ] Add Volume mounted at `/data`
 - [ ] Deploy succeeds, service is running
 - [ ] Run `db:migrate` and `db:seed` on Railway
 - [ ] Test `/health` endpoint via curl
 - [ ] Copy production Railway URL
+
+### 9.2a — Update ElevenLabs Webhook to Production
+- [ ] Update agent webhook URL to `https://<railway-url>/api/elevenlabs/webhook`
+- [ ] Test conversation in ElevenLabs dashboard
+- [ ] Verify webhooks arrive in Railway logs
 
 ### 9.3 — Deploy Frontend (Vercel)
 - [ ] Import GitHub repo into Vercel
@@ -353,8 +390,7 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 
 ### 9.6 — Cost Alerts
 - [ ] Anthropic spending limit set
-- [ ] OpenAI usage limit set
-- [ ] ElevenLabs plan tier confirmed
+- [ ] ElevenLabs plan tier confirmed; conversation minutes dashboard reviewed
 - [ ] Railway usage alerts set
 - [ ] Vercel spend alerts set
 

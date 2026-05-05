@@ -4,6 +4,8 @@
 
 For each category, the AI evaluates the PM on a 1-5 scale. This file defines what each level looks like. The AI references these definitions when scoring AND when writing the coaching debrief.
 
+For Category 7 (Active Listening), the AI also receives the **interruption events log** captured during the live call — not just the transcript. This makes scoring quantitative rather than inferred.
+
 **General scale:**
 
 - **5 — Exceptional:** Best-in-class. Share this with the team as a model.
@@ -145,6 +147,39 @@ PM loses composure. Either: matches the client's emotional energy and escalates 
 
 ---
 
+---
+
+## Category 7: Active Listening (15%)
+
+**Measures:** Did the PM give the client space to speak fully — without interrupting, talking over, finishing the client's thoughts, or jumping to solutions before the client was ready?
+
+**Inputs the AI uses for this category:**
+- The events log (every PM→client interruption with timestamp)
+- The transcript (for sentence-finishing patterns and premature-solution patterns)
+- The client's DISC profile (S and C profiles weight interruptions more heavily; D and D/I tolerate more back-and-forth)
+
+**Adjustment for client DISC:**
+- **S, C, S/C, I/S clients:** any PM interruption is a serious miss. 1-2 interruptions caps this category at 3.
+- **D, D/I, D/C clients:** some PM interruption is acceptable in fast-paced exchanges. Up to 2 interruptions can still earn a 4.
+- All profiles: persistent interruption (4+) caps at 2 regardless of profile.
+
+**5 — Exceptional**
+Zero unwarranted interruptions. PM left clear pauses for the client to think and speak. PM held silence when the client needed processing time. PM never finished a client's sentence or jumped to solutions while the client was still venting.
+
+**4 — Above Standard**
+0-1 minor interruption (or 1-2 with a high-D client). PM gave appropriate space throughout. Any solution-jumping happened only after the client clearly finished their thought.
+
+**3 — Meets Standard**
+2-3 interruptions, mostly minor. Some moments where the PM moved to solutions a beat too early. PM recovered well when noticing.
+
+**2 — Below Standard**
+4-5 interruptions, or persistent solution-jumping while the client was still expressing concerns. With S or C clients, even 2-3 interruptions land here. Client visibly receded or shut down at points.
+
+**1 — Significantly Below**
+6+ interruptions, or sustained pattern of talking over the client. PM finished the client's sentences for them. PM did not let an emotional client express the emotion before pivoting. With S/C clients, this damages trust significantly.
+
+---
+
 ## How the AI Uses This in the Debrief
 
 For each category, the coaching debrief includes:
@@ -153,5 +188,11 @@ For each category, the coaching debrief includes:
 2. **A specific moment from the transcript** that drove the score, quoted
 3. **An alternative phrasing** the PM could have used, written in their voice given their DISC profile
 4. **A note on the DISC interaction** when relevant — how their natural style intersected with the client's profile
+
+For Active Listening specifically, the debrief also includes:
+
+5. **Interruption count** (e.g., "You interrupted Sarah 4 times in this 12-minute conversation.")
+6. **The most damaging interruption moment** — quoted from the transcript with timestamp
+7. **A practice cue** tailored to the PM's DISC profile (e.g., for high-D PMs: "Count to 2 in your head after the client finishes speaking before responding.")
 
 This is what makes the coaching feel personalized rather than generic.

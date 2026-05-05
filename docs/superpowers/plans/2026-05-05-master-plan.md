@@ -4,9 +4,9 @@
 
 **Goal:** Build a voice-based AI roleplay training app that lets project managers practice difficult client conversations against DISC-profiled AI personas, then receive personalized coaching and a performance score.
 
-**Architecture:** Turn-based voice conversation (record → Whisper STT → Claude roleplay → ElevenLabs TTS → play audio). Session data persists to SQLite for operations and is exported to Excel for business-owner reporting. Two roles: `pm` (simulate + view own history) and `admin` (configure everything + view all PMs).
+**Architecture:** Real-time phone-call-like voice conversation via **ElevenLabs Conversational AI** (handles continuous mic, VAD, STT, TTS, echo cancellation, interruption detection). Claude is configured as the LLM brain inside the CAI agent — drives the client's persona and responses. Conversation transcripts and interruption events stream into our backend via webhooks and persist to SQLite. After the call, a separate Claude API call analyzes the full transcript + events to produce structured coaching. Excel export keeps the business owner's reporting requirement met. Two roles: `pm` (simulate + view own history) and `admin` (configure everything + view all PMs).
 
-**Tech Stack:** React + Vite + Tailwind CSS (frontend), Node.js + Express (backend), SQLite via better-sqlite3, Anthropic Claude API, OpenAI Whisper API, ElevenLabs TTS API, exceljs for Excel export, JWT auth, Railway + Vercel deployment.
+**Tech Stack:** React + Vite + Tailwind CSS (frontend), `@11labs/react` SDK for the voice client, Node.js + Express (backend), SQLite via better-sqlite3, Anthropic Claude API (post-call coaching), ElevenLabs Conversational AI (in-call voice + Claude orchestration), exceljs for Excel export, JWT auth, Railway + Vercel deployment.
 
 ---
 
@@ -96,38 +96,78 @@ Before writing any prompts or configuring scenarios, collect:
 
 ---
 
-## Phase 3 — Voice Pipeline: Whisper STT + ElevenLabs TTS
+## Phase 3 — Real-Time Voice via ElevenLabs Conversational AI
 
 **Sub-plan:** `docs/superpowers/plans/2026-05-05-phase3-voice.md`
 
-**Deliverable:** Audio recorded in the browser is transcribed by Whisper and the AI reply is converted to audio by ElevenLabs and played back. The full turn cycle (record → transcribe → AI reply → audio playback) works end-to-end. Verified in a browser on both desktop and mobile (iPhone Safari minimum).
+**Deliverable:** A PM can start a session, speak naturally without pressing a button, hear the AI client reply in real time with sub-second latency, interrupt the AI by speaking, and have all turns + interruption events captured server-side via webhooks. Verified on desktop Chrome and iPhone Safari.
 
-**Requires Phase 2 complete.**
+**Requires Phase 2 complete (in-app coaching pipeline still needed for `/end` flow).**
 
 ### What Gets Built
 
-- [ ] `server/src/services/whisper.ts` — `transcribeAudio(audioBuffer, mimeType): Promise<string>`
-- [ ] `server/src/services/elevenlabs.ts` — `synthesizeSpeech(text, voiceId): Promise<Buffer>` (returns mp3 buffer)
-- [ ] `POST /api/sessions/:id/turns` updated to:
-  1. Accept multipart form upload (audio file) OR `{ pmText }` JSON
-  2. If audio: call Whisper → get `pmText`
-  3. Call Claude → get `aiText`
-  4. Call ElevenLabs → get audio buffer
-  5. Save audio to `/data/audio/{turnId}.mp3`
-  6. Return `{ pmText, aiText, audioUrl: '/audio/{turnId}.mp3' }`
-- [ ] Static file serving for `/audio/` from Express
-- [ ] `client/src/hooks/useAudioRecorder.ts` — wraps browser MediaRecorder API, exposes `start()`, `stop(): Promise<Blob>`, `isRecording`, `audioLevel`
-- [ ] `client/src/components/VoiceRecorder.tsx` — microphone button with recording state indicator, sends blob to API
-- [ ] `client/src/components/AudioPlayer.tsx` — auto-plays AI response audio when URL received
-- [ ] Simple test page at `/test-voice` route (dev only) to exercise the full cycle
-- [ ] Integration test: mock Whisper + ElevenLabs, verify turn endpoint accepts audio and returns audioUrl
+**ElevenLabs Conversational AI Setup (one-time, in their dashboard):**
+
+- [ ] Create a Conversational AI Agent named `Training Simulator — Client Persona`
+- [ ] Configure agent voice: the chosen `ELEVENLABS_VOICE_ID`
+- [ ] Configure LLM: **Claude** (native Anthropic integration, supply our `ANTHROPIC_API_KEY`)
+- [ ] System prompt: a placeholder; we override per-session via the SDK
+- [ ] Enable interruption detection
+- [ ] Configure VAD sensitivity for typical office/jobsite background
+- [ ] Enable webhooks: subscribe to `turn`, `interruption`, `conversation_started`, `conversation_ended`
+- [ ] Set webhook URL to our backend `/api/elevenlabs/webhook`
+- [ ] Save the resulting `Agent ID` → goes in `.env` as `ELEVENLABS_AGENT_ID`
+- [ ] Save the webhook signing secret → `ELEVENLABS_WEBHOOK_SECRET`
+
+**Backend:**
+
+- [ ] `server/src/services/elevenlabs-cai.ts`:
+  - `getSignedUrlForSession(sessionId, scenarioSlug, clientDiscCode): Promise<string>` — calls ElevenLabs API to mint a per-session signed URL with a `conversation_initiation_data` override containing the assembled persona prompt
+- [ ] `POST /api/sessions` updated to: create session row + return signed URL + `agentId`
+- [ ] `POST /api/elevenlabs/webhook` — receives ElevenLabs events:
+  - Verifies HMAC signature using `ELEVENLABS_WEBHOOK_SECRET`
+  - Persists transcript fragments to `turns` table (one row per completed user/agent turn)
+  - Persists interruption events to `events` table with `type` of `user_interrupted_agent` or `agent_interrupted_user`
+  - Persists `conversation_id` to `sessions.elevenlabs_conversation_id` so we can correlate
+- [ ] `POST /api/sessions/:id/end` updated to:
+  1. Mark session ended
+  2. Fetch all turns + events for the session
+  3. Build coaching prompt including interruption count + DISC-weighted severity
+  4. Call Claude → coaching JSON
+  5. Save coaching, regenerate Excel, return debrief
+
+**Frontend:**
+
+- [ ] Install `@11labs/react`
+- [ ] `client/src/hooks/useElevenLabsConversation.ts` — wraps the SDK's `useConversation()` hook with our session lifecycle (start, end, status events)
+- [ ] `client/src/pages/SimulationPage.tsx` rewritten:
+  - "Start Session" button → calls `/api/sessions` to get signed URL → opens conversation
+  - Live status indicator: "Listening…" / "Sarah is speaking…" / "Sarah was interrupted"
+  - Live transcript view (populated from SDK callbacks, not webhooks)
+  - "End Session" button → confirms → ends conversation → navigates to debrief
+- [ ] Interruption indicator: when SDK fires an interruption event (PM interrupts client), show a subtle visual cue in the transcript (not punitive — informational)
+
+**Persona prompt builder (updated for CAI):**
+
+- [ ] `server/src/prompts/persona-prompt.ts` updated to include explicit guidance to the AI:
+  - Stay in character; do not break to coach
+  - Allowed to interrupt PM only in profile-appropriate ways (D-types may interrupt; S/C-types do not)
+  - End the call only when PM clicks End — do not voluntarily say goodbye
+
+**Tests:**
+
+- [ ] Webhook signature verification unit test
+- [ ] Webhook handler integration test using a mocked ElevenLabs payload (turn + interruption events)
+- [ ] Session lifecycle test: create → simulated turns → simulated interruption → end → coaching includes interruption count
 
 ### Phase 3 Done When
 
-- On desktop Chrome: press record, speak, release, hear AI client respond in voice
-- On iPhone Safari: same flow works (test explicitly — Safari has MediaRecorder quirks)
-- `audioLevel` indicator shows mic is active during recording
-- If Whisper fails to transcribe (silence), returns a helpful error, does not crash
+- A PM on desktop Chrome can click "Start Session" and have a fluid, phone-call-like conversation with the AI client (sub-second turn-taking)
+- Same flow works on iPhone Safari
+- When the PM speaks while the AI is still talking, the AI stops mid-sentence and an `events` row is recorded with `type=user_interrupted_agent`
+- When a high-D AI client persona interrupts the PM, an `events` row is recorded with `type=agent_interrupted_user` (logged, not penalized)
+- The full transcript persists to `turns` table even if the browser closes mid-session
+- `/end` returns coaching that explicitly references the interruption count when relevant
 
 ---
 
@@ -238,20 +278,21 @@ Before writing any prompts or configuring scenarios, collect:
 | Phase | Content | Dev Hours | Calendar Time |
 |---|---|---|---|
 | 1 — Foundation | Backend, DB, auth, CRUD | ~30h | 1.5 weeks |
-| 2 — AI Engine | Claude prompts, roleplay, coaching | ~22h | 1.5 weeks |
-| 3 — Voice Pipeline | Whisper + ElevenLabs + audio UI | ~22h | 1.5 weeks |
+| 2 — AI Engine | Claude prompts, coaching pipeline | ~22h | 1.5 weeks |
+| 3 — Voice Pipeline | ElevenLabs CAI agent + webhooks + frontend SDK | ~30h | 2 weeks |
 | 4 — PM Frontend | Full PM simulation experience | ~30h | 1.5 weeks |
 | 5 — Admin Dashboard | Dashboard, Excel export, config | ~20h | 1 week |
 | 6 — Polish + Deploy | QA, deployment, docs | ~16h | 1 week |
-| **Total** | | **~140h** | **~8 weeks** |
+| **Total** | | **~148h** | **~8.5 weeks** |
 
 **Key risks that can extend the timeline:**
 - Prompt engineering for DISC personas takes more iteration than expected (common — budget an extra week)
-- Mobile Safari audio recording behavior (known quirks with MediaRecorder, budget 3-5 extra days)
+- ElevenLabs CAI feature stability — newer product; verify pricing, latency, and webhook reliability with a 1-day spike before locking the architecture
+- Mobile Safari audio behavior with the ElevenLabs SDK (test explicitly early in Phase 3)
 - Business owner content not ready before Phase 2 (blocks AI work entirely)
-- ElevenLabs voice selection / latency not acceptable (may need streaming TTS in Phase 2)
+- Webhook signature verification edge cases (skewed clocks, retries) can surface late if not tested early
 
-**Realistic range:** 7–10 weeks of focused development. With AI-assisted coding via Claude Code, the lower end is achievable.
+**Realistic range:** 8–11 weeks of focused development. With AI-assisted coding via Claude Code, the lower end is achievable.
 
 ---
 

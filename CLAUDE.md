@@ -15,9 +15,9 @@ This is not a product for sale. It is a world-class internal training tool.
 | Frontend | React + Vite + Tailwind CSS | Mobile-first, fast, clean |
 | Backend | Node.js + Express | Simple REST API, JS throughout |
 | Database | SQLite (via better-sqlite3) | Zero-config, single file, easy backup |
-| AI Roleplay + Coaching | Anthropic Claude API | Complex persona + nuanced coaching |
-| Speech-to-Text | OpenAI Whisper API | Accurate, handles jobsite background noise |
-| Text-to-Speech | ElevenLabs API | Natural-sounding voice for AI client |
+| **Voice (real-time)** | **ElevenLabs Conversational AI** | Phone-call-feel: continuous mic, VAD, streaming STT/TTS, echo cancellation, interruption detection — all managed |
+| **AI Brain (in-call)** | **Claude (via ElevenLabs LLM integration)** | ElevenLabs CAI invokes Claude for each turn using our persona prompt — drives the client's voice and behavior |
+| **AI Coaching (post-call)** | Anthropic Claude API (direct) | Same Claude, separate call after session ends — analyzes full transcript + interruption events to produce structured debrief |
 | Excel Export | exceljs | Direct .xlsx generation, no Office dependency |
 | Auth | JWT + bcrypt | Stateless, secure, simple |
 | Deployment | Railway (backend + DB) + Vercel (frontend) | Fast, affordable, no DevOps |
@@ -27,29 +27,48 @@ This is not a product for sale. It is a world-class internal training tool.
 ## Architecture Overview
 
 ```
-Browser (React SPA)
-  └─ REST API calls ──► Express Backend (Railway)
-  └─ Audio blob upload ──► Whisper (OpenAI) → transcript
-                           Claude API → AI client reply text
-                           ElevenLabs → AI client audio
-                           ↓
-                         SQLite DB (session, transcript, score)
-                           ↓
-                         Excel export (on demand or auto)
+Browser (React SPA + ElevenLabs CAI SDK)
+  │
+  ├─ REST API calls ────► Express Backend (Railway)
+  │                          │
+  │                          ├─ Issues per-session conversation override
+  │                          │   (persona prompt built from /content/ files)
+  │                          │
+  │                          ├─ Receives webhooks from ElevenLabs:
+  │                          │   • turn_start / turn_end
+  │                          │   • user_interrupted_agent  ← coaching signal
+  │                          │   • agent_interrupted_user  ← logged but not penalized
+  │                          │   • transcript fragments
+  │                          │
+  │                          └─ Persists turns + events → SQLite
+  │
+  └─ WebRTC audio ──────► ElevenLabs Conversational AI
+                            │
+                            ├─ Streaming STT (own / Deepgram)
+                            ├─ Voice Activity Detection
+                            ├─ Calls Claude (configured LLM) with
+                            │  per-session persona prompt + history
+                            ├─ Streaming TTS (chosen voice)
+                            └─ Interruption + echo handling
+
+When PM clicks "End Session":
+  Backend ──► Claude (direct API call)
+                 with: full transcript + interruption events + rubric
+                 → returns structured coaching JSON + score
+                 → saved to SQLite, Excel export regenerated
 
 Admin Dashboard (same React app, role-gated route)
   └─ REST API calls ──► same backend
 ```
 
 **Conversation flow:**
-1. PM records audio → sends blob to backend
-2. Backend → Whisper → PM transcript text
-3. Backend → Claude (with conversation history + DISC persona prompt) → AI client reply text
-4. Backend → ElevenLabs → audio file URL/stream
-5. Frontend plays audio to PM
-6. Loop until PM ends session
-7. Backend → Claude (with full transcript + coaching prompt) → coaching debrief + score
-8. Session saved to SQLite + Excel export updated
+1. PM hits "Start" — frontend opens an ElevenLabs CAI session via SDK
+2. Backend supplies the **conversation override**: a system prompt assembled from the chosen scenario file + chosen DISC profile file in `/content/`
+3. PM speaks naturally — ElevenLabs streams audio, transcribes, calls Claude, streams Claude's response audio back
+4. Both speakers' transcript fragments + every interruption event flow as webhooks to our backend, persisted to `turns` and `events` tables
+5. PM clicks "End Session" — frontend stops the CAI session, hits our backend `/end` endpoint
+6. Backend → Claude (separate call, with full transcript + interruption events + rubric prompt) → structured coaching JSON
+7. Coaching saved, Excel regenerated, debrief shown to PM
 
 ---
 
@@ -127,13 +146,20 @@ Admin Dashboard (same React app, role-gated route)
 
 ```sql
 users         (id, name, email, password_hash, disc_profile, role, created_at)
-scenarios     (id, title, description, setup_context, desired_outcomes)
-disc_profiles (id, code, name, description, communication_style, triggers, needs)
-sessions      (id, user_id, scenario_id, client_disc_id, started_at, ended_at, score)
-turns         (id, session_id, speaker, content, audio_url, timestamp)
-coaching      (id, session_id, strengths, misses, alternatives, disc_adaptation, score_breakdown)
-rubric_items  (id, name, weight, description)
+scenarios     (id, slug, title, description, body_markdown, active, updated_at)
+disc_profiles (id, code, name, body_markdown)
+sessions      (id, user_id, scenario_id, client_disc_id, elevenlabs_conversation_id,
+               started_at, ended_at, total_score)
+turns         (id, session_id, speaker, content, started_at_ms, ended_at_ms, created_at)
+events        (id, session_id, type, speaker, details_json, occurred_at)
+                -- type: 'user_interrupted_agent', 'agent_interrupted_user',
+                --       'long_pause', 'overlap'
+coaching      (session_id, strengths, misses, alternatives, disc_adaptation,
+               score_breakdown_json, total_score, created_at)
+rubric_items  (id, name, weight, description, display_order)
 ```
+
+The `events` table is the source of truth for interruption tracking. Coaching reads from both `turns` and `events` to score Active Listening accurately.
 
 ---
 
@@ -145,12 +171,15 @@ DATABASE_PATH=../data/simulator.db
 EXCEL_PATH=../data/sessions.xlsx
 JWT_SECRET=<strong random string>
 ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
 ELEVENLABS_API_KEY=...
-ELEVENLABS_VOICE_ID=...        # chosen voice for AI client
+ELEVENLABS_VOICE_ID=...           # chosen voice for AI client
+ELEVENLABS_AGENT_ID=...           # the configured Conversational AI agent
+ELEVENLABS_WEBHOOK_SECRET=...     # to verify incoming webhook signatures
 PORT=3001
 CLIENT_ORIGIN=http://localhost:5173
 ```
+
+> **Note:** OpenAI/Whisper is no longer required — ElevenLabs Conversational AI handles speech-to-text natively. We removed `OPENAI_API_KEY` from the stack.
 
 **Frontend (`client/.env`):**
 ```
@@ -191,7 +220,9 @@ cd server && npm run build
 
 **DISC Profiles:** The app supports Primary (D, I, S, C) and four combination profiles (D/I, D/C, I/S, S/C). Each profile is a markdown file in `/content/disc-profiles/`. The PM's own DISC profile informs the coaching — the AI highlights gaps between the PM's natural style and what the client needed.
 
-**Voice conversation is turn-based, not streaming.** PM records → sends → gets AI audio back. This avoids complex WebSocket/streaming architecture in Phase 1 while still feeling conversational.
+**Voice conversation is real-time and phone-call-like.** PM speaks naturally without pressing a button; ElevenLabs Conversational AI handles continuous mic, voice activity detection, streaming speech-to-text, streaming Claude responses, and streaming text-to-speech. PM and AI client can speak over each other; **interruptions are detected and logged as events** for use in coaching.
+
+**Interruption tracking is a first-class feature.** Every time the PM speaks while the AI client is mid-utterance, an `events` row is recorded. The Active Listening rubric category specifically scores PM→client interruptions, weighted by the client's DISC profile (interrupting an S or C client is penalized more heavily than interrupting a D). The AI client *can* interrupt the PM in profile-appropriate ways (a high-D realistically does talk over people) — those events are logged but do not count against the PM's score.
 
 **PMs cannot change their own DISC profile.** Only admin can set/update. Enforced at the API layer.
 

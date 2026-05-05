@@ -119,33 +119,37 @@ Create all of these in the **company name** (not your personal email) so ownersh
 
 **You'll get:** `ANTHROPIC_API_KEY` (starts with `sk-ant-`)
 
-### 2.3 — OpenAI (Whisper for speech-to-text)
+### 2.3 — ~~OpenAI~~ (no longer required)
 
-1. Go to [platform.openai.com/signup](https://platform.openai.com/signup)
-2. Sign up with company email; verify
-3. Go to **Settings → Billing** → add payment method, prepay $20 to start
-4. Set a **usage limit** under Billing → Limits — recommend $50/month hard limit
-5. Go to **API Keys** → "Create new secret key" → call it `dev-key`
-6. Copy and store in password manager
+> **Note:** ElevenLabs Conversational AI now handles speech-to-text natively, so we no longer need OpenAI Whisper. Skip this step.
 
-**You'll get:** `OPENAI_API_KEY` (starts with `sk-`)
-
-### 2.4 — ElevenLabs (text-to-speech)
+### 2.4 — ElevenLabs (Conversational AI + voice)
 
 1. Go to [elevenlabs.io/sign-up](https://elevenlabs.io/sign-up)
 2. Sign up with company email
-3. Go to **My Account → Subscription** and pick a plan:
-   - **Starter ($5/mo)** for development testing only
-   - **Creator ($22/mo)** if 5 PMs do under 4 sessions/week each
-   - **Pro ($99/mo)** for full production use with 5 PMs at full cadence
+3. Go to **My Account → Subscription** and pick a plan that includes Conversational AI:
+   - **Creator ($22/mo)** for development and light use
+   - **Pro ($99/mo)** for full 5-PM production cadence
+   - Confirm the plan includes Conversational AI minutes — this is the real-time voice product, separate from standard TTS
 4. Go to **Voices → Voice Library** → browse and click "Add to VoiceLab" on **2-3 candidate voices** that sound like a residential client
 5. Test each voice using the "Generate" feature with a sample line like *"I just don't understand why this is happening to us. We trusted you guys."*
 6. Pick the winner. Copy its **Voice ID** from the voice details panel
-7. Go to **My Account → API Keys** → copy your API key
+7. Go to **Conversational AI → Agents → Create Agent**:
+   - **Name:** `Training Simulator — Client Persona`
+   - **Voice:** select your chosen voice
+   - **LLM:** **Claude** (native integration; supply your `ANTHROPIC_API_KEY` when prompted)
+   - **System prompt:** placeholder text (we override per-session via the SDK)
+   - **Enable interruption detection**
+   - **Webhooks:** subscribe to `turn`, `interruption`, `conversation_started`, `conversation_ended` events; URL will be set in Part 9 once backend is deployed (use `http://localhost:3001/api/elevenlabs/webhook` for dev)
+   - Save and copy the **Agent ID**
+   - Copy the **Webhook Signing Secret** from the agent's webhook config
+8. Go to **My Account → API Keys** → copy your API key
 
 **You'll get:**
 - `ELEVENLABS_API_KEY`
 - `ELEVENLABS_VOICE_ID`
+- `ELEVENLABS_AGENT_ID`
+- `ELEVENLABS_WEBHOOK_SECRET`
 
 ### 2.5 — Railway (backend hosting)
 
@@ -190,9 +194,10 @@ Before continuing, confirm you have all of these in your password manager:
 
 - [ ] GitHub org name + admin access
 - [ ] `ANTHROPIC_API_KEY`
-- [ ] `OPENAI_API_KEY`
 - [ ] `ELEVENLABS_API_KEY`
 - [ ] `ELEVENLABS_VOICE_ID`
+- [ ] `ELEVENLABS_AGENT_ID`
+- [ ] `ELEVENLABS_WEBHOOK_SECRET`
 - [ ] Railway login
 - [ ] Vercel login
 - [ ] `RESEND_API_KEY` (if using)
@@ -265,7 +270,6 @@ Create two example files (these go in git so the next developer knows what's nee
 # Database
 DATABASE_PATH=../data/simulator.db
 EXCEL_PATH=../data/sessions.xlsx
-AUDIO_DIR=../data/audio
 
 # Auth
 JWT_SECRET=change-me-to-a-long-random-string
@@ -273,9 +277,10 @@ JWT_EXPIRES_IN=7d
 
 # AI Services
 ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
 ELEVENLABS_API_KEY=...
 ELEVENLABS_VOICE_ID=...
+ELEVENLABS_AGENT_ID=...
+ELEVENLABS_WEBHOOK_SECRET=...
 
 # Email (optional)
 RESEND_API_KEY=re_...
@@ -454,59 +459,94 @@ git push
 
 ## Part 5 — Build AI and Voice Services (Phases 2 + 3)
 
-### 5.1 — Add the AI/Voice SDKs
+The voice pipeline uses **ElevenLabs Conversational AI** as the real-time engine, with **Claude as the configured LLM**. ElevenLabs handles continuous mic, voice activity detection, streaming STT/TTS, echo cancellation, and interruption events. Claude (separately, via direct API) generates the post-session coaching.
+
+### 5.1 — Add the AI SDKs
 
 ```bash
 cd server
-npm install @anthropic-ai/sdk openai axios form-data multer
-npm install --save-dev @types/multer
+npm install @anthropic-ai/sdk axios
+npm install --save-dev @types/node
 ```
+
+(No multer, no Whisper, no audio files — ElevenLabs streams audio directly between browser and their service.)
 
 ### 5.2 — Build the Prompt Layer
 
 The prompt layer reads from `/content/` so the business owner's edits flow through automatically.
 
 - [ ] `server/src/prompts/loader.ts` — reads markdown files from `/content/` and caches them in memory; exposes `getScenario(slug)`, `getDiscProfile(code)`, `getRubric()`
-- [ ] `server/src/prompts/persona-prompt.ts` — `buildPersonaPrompt(scenario, clientDisc)` returns the full system prompt for client roleplay
-- [ ] `server/src/prompts/coaching-prompt.ts` — `buildCoachingPrompt(transcript, pmDisc, clientDisc, rubric)` returns the system prompt for the coaching debrief
+- [ ] `server/src/prompts/persona-prompt.ts` — `buildPersonaPrompt(scenario, clientDisc)` returns the system prompt that ElevenLabs CAI passes to Claude during the live call. Includes:
+  - The scenario context
+  - The client DISC profile
+  - Explicit instructions: stay in character, do not break to coach, do not voluntarily end the call
+  - Profile-appropriate interruption guidance (D-types may interrupt PM; S/C types do not)
+- [ ] `server/src/prompts/coaching-prompt.ts` — `buildCoachingPrompt(transcript, events, pmDisc, clientDisc, rubric)` returns the prompt for the post-call coaching debrief. **Crucially, this prompt receives the full list of `events` (interruptions, overlaps) and is instructed to weight Active Listening scoring by client DISC profile.**
 
-### 5.3 — Build the Service Layer
+### 5.3 — Build the Coaching Service
 
 - [ ] `server/src/services/claude.ts`:
-  - `sendConversationTurn(systemPrompt, history, pmText): Promise<string>`
-  - `generateCoaching(systemPrompt, transcript): Promise<CoachingResult>` — returns structured `{strengths, misses, alternatives, discAdaptation, scoreBreakdown, totalScore}`
-- [ ] `server/src/services/whisper.ts`:
-  - `transcribeAudio(audioBuffer, mimeType): Promise<string>`
-- [ ] `server/src/services/elevenlabs.ts`:
-  - `synthesizeSpeech(text, voiceId): Promise<Buffer>` — returns mp3 buffer
+  - `generateCoaching(systemPrompt, transcript, events): Promise<CoachingResult>` — returns structured `{strengths, misses, alternatives, discAdaptation, scoreBreakdown, totalScore}`. Score breakdown includes the new `activeListening` field.
 
-### 5.4 — Build the Session API
+### 5.4 — Configure the ElevenLabs CAI Agent
+
+This is the one-time setup you did in Part 2.4. Before continuing, verify:
+
+- [ ] `ELEVENLABS_AGENT_ID` is set in `.env`
+- [ ] `ELEVENLABS_WEBHOOK_SECRET` is set in `.env`
+- [ ] The agent's webhook URL is reachable from ElevenLabs (use `ngrok` for local dev: `ngrok http 3001` → paste ngrok URL into agent webhook config)
+- [ ] The agent's LLM is set to Claude
+
+### 5.5 — Build the ElevenLabs Service Layer
+
+- [ ] `server/src/services/elevenlabs-cai.ts`:
+  - `getSignedUrlForSession(sessionId, scenarioSlug, clientDiscCode): Promise<{ signedUrl: string, agentId: string }>` — calls the ElevenLabs API to mint a per-session signed URL. The signed URL embeds a `conversation_initiation_data` object with our assembled persona prompt as the system prompt override.
+  - `verifyWebhookSignature(body, signature): boolean` — HMAC-SHA256 verification against `ELEVENLABS_WEBHOOK_SECRET`
+
+### 5.6 — Build the Session API
 
 - [ ] `server/src/routes/sessions.ts`:
-  - `POST /api/sessions` — create session, returns `{ sessionId }`
-  - `POST /api/sessions/:id/turns` — accepts audio file (multipart) OR `{ pmText }` JSON; runs Whisper → Claude → ElevenLabs; saves turn; returns `{ pmText, aiText, audioUrl }`
-  - `POST /api/sessions/:id/end` — runs coaching prompt, saves coaching, returns full coaching object
-  - `GET /api/sessions/:id` — full session
+  - `POST /api/sessions` — accepts `{ scenarioSlug, clientDiscCode }`, creates a `sessions` row, calls `getSignedUrlForSession()`, returns `{ sessionId, signedUrl, agentId }`
+  - `POST /api/sessions/:id/end` — marks ended, fetches turns + events, calls `generateCoaching()`, saves to `coaching` table, returns the debrief
+  - `GET /api/sessions/:id` — full session with turns + events + coaching
   - `GET /api/sessions` — admin: all; pm: own only
-- [ ] Static file serving for `/audio/` directory (Express middleware)
+- [ ] `server/src/routes/elevenlabs-webhook.ts`:
+  - `POST /api/elevenlabs/webhook` — verifies signature, parses event, persists:
+    - `turn` events → upserts a row in `turns` table (matched by ElevenLabs turn ID)
+    - `interruption` events → inserts row in `events` table with `type=user_interrupted_agent` or `type=agent_interrupted_user`
+    - `conversation_started` → updates `sessions.elevenlabs_conversation_id`
+    - `conversation_ended` → no-op (the PM clicking End in the UI is the source of truth)
 
-### 5.5 — Test It (Without a Frontend)
+### 5.7 — Test It (Without a Frontend Yet)
 
-In Postman:
+For local testing, install [ngrok](https://ngrok.com/) and tunnel your local backend so ElevenLabs can reach the webhook:
 
-1. `POST /api/sessions` with `{ scenarioSlug: "01-schedule-delay", clientDiscCode: "S" }` → get `sessionId`
-2. `POST /api/sessions/:id/turns` with `{ pmText: "Hi, I need to talk to you about a delay on the project." }` → see the AI client respond + an `audioUrl`
-3. Open `audioUrl` in browser → hear the AI client speak
-4. Send 3-4 more turns
-5. `POST /api/sessions/:id/end` → receive structured coaching JSON
+```bash
+ngrok http 3001
+# Copy the https://....ngrok.app URL → set as webhook URL in ElevenLabs agent config
+```
 
-**✅ Phases 2-3 done when:** end-to-end voice cycle works via Postman, and coaching JSON is structured + references both DISC profiles by name.
+Then in the ElevenLabs dashboard:
+
+1. Open the agent → click **Test Agent**
+2. Provide a test conversation override matching what our backend would send
+3. Speak into the mic — verify Claude responds in character
+4. Try interrupting — verify the agent stops mid-sentence
+5. Check your backend logs — verify webhooks arrived and rows were inserted into `turns` and `events`
+
+In Postman, hit `POST /api/sessions/:id/end` and verify coaching JSON returned with `activeListening` score reflecting the interruption count.
+
+**✅ Phases 2-3 done when:**
+- A live conversation works through the ElevenLabs dashboard test interface
+- Webhooks are received and persisted (turns + events visible in SQLite)
+- Interruptions are tagged with the correct `type` based on who interrupted whom
+- Coaching JSON references both DISC profiles AND interruption count by name
 
 Commit:
 
 ```bash
 git add server
-git commit -m "Phases 2-3: AI roleplay, coaching, and voice pipeline"
+git commit -m "Phases 2-3: Claude coaching + ElevenLabs CAI integration with interruption tracking"
 git push
 ```
 
@@ -520,7 +560,7 @@ git push
 cd ../client
 npm create vite@latest . -- --template react-ts
 npm install
-npm install react-router-dom axios
+npm install react-router-dom axios @11labs/react
 npm install -D tailwindcss postcss autoprefixer
 npx tailwindcss init -p
 ```
@@ -553,8 +593,12 @@ Replace `src/index.css` with:
 ### 6.3 — Build the Hooks
 
 - [ ] `client/src/hooks/useAuth.ts` — auth state + login/logout
-- [ ] `client/src/hooks/useAudioRecorder.ts` — wraps MediaRecorder, exposes `start()`, `stop()`, `isRecording`, `audioLevel`
-- [ ] `client/src/hooks/useConversation.ts` — manages session state machine (idle → active → ended)
+- [ ] `client/src/hooks/useElevenLabsConversation.ts` — wraps `@11labs/react`'s `useConversation()`, exposes:
+  - `start(signedUrl)` / `end()`
+  - `status: 'idle' | 'connecting' | 'listening' | 'speaking' | 'interrupted' | 'ended'`
+  - `transcript` (live, populated from SDK callbacks)
+  - `interruptionCount` (incremented when SDK fires interruption event for the user direction)
+- [ ] `client/src/hooks/useSessionLifecycle.ts` — orchestrates: call `/api/sessions` → start CAI conversation → on end, navigate to debrief
 
 ### 6.4 — Build the Pages
 
@@ -563,18 +607,21 @@ Replace `src/index.css` with:
 - [ ] `client/src/pages/DiscSelectPage.tsx` — card grid of DISC profiles for the client
 - [ ] `client/src/pages/SimulationPage.tsx`:
   - Scenario header + client DISC badge
-  - Live transcript view (both speakers)
-  - Hold-to-record voice button (uses `useAudioRecorder` + `useConversation`)
-  - Auto-play AI audio when received
-  - "End Session" button with confirm dialog
-- [ ] `client/src/pages/DebriefPage.tsx` — score, strengths, misses, alternative phrasings, DISC adaptation
+  - "Start Session" button (large, primary) — mints session, opens CAI conversation
+  - Live transcript view populated from SDK callbacks (no audio file management)
+  - Status indicator: "Listening…" / "Sarah is speaking…" / "Sarah was interrupted"
+  - Subtle interruption counter visible during the call (informational, not shaming)
+  - Microphone permission prompt handled gracefully
+  - "End Session" button with confirm dialog → ends CAI conversation → triggers debrief
+- [ ] `client/src/pages/DebriefPage.tsx` — score, strengths, misses, alternative phrasings, DISC adaptation, interruption summary
 - [ ] `client/src/pages/SessionHistoryPage.tsx` — list of own past sessions
 
 ### 6.5 — Build Shared Components
 
-- [ ] `client/src/components/VoiceRecorder.tsx` — mic button with recording state visual
-- [ ] `client/src/components/AudioPlayer.tsx` — auto-plays a URL when prop changes
-- [ ] `client/src/components/ConversationLog.tsx` — speaker bubbles
+- [ ] `client/src/components/StartSessionButton.tsx` — handles mic permission + session creation + CAI launch
+- [ ] `client/src/components/CallStatusIndicator.tsx` — shows current phase of the call (idle/listening/speaking/interrupted)
+- [ ] `client/src/components/ConversationLog.tsx` — live speaker bubbles populated from SDK transcript callbacks
+- [ ] `client/src/components/InterruptionBadge.tsx` — small counter displayed during call
 - [ ] `client/src/components/ScoreCard.tsx` — score with band color
 - [ ] `client/src/components/DiscBadge.tsx` — DISC code in a colored pill
 
@@ -692,16 +739,22 @@ Run through this entire list. Every box must be checked.
 - [ ] Login works on iPhone Safari
 - [ ] Scenarios load and display readable descriptions
 - [ ] DISC profiles load and display readable descriptions
-- [ ] Microphone permission prompt appears on first record (mobile + desktop)
-- [ ] Voice recording works on iPhone Safari (this has known quirks — verify explicitly)
-- [ ] AI client audio plays automatically when received
-- [ ] Audio sounds like the chosen ElevenLabs voice
+- [ ] Microphone permission prompt appears at session start (mobile + desktop)
+- [ ] Conversation starts within ~2 seconds of clicking Start
+- [ ] Speaking naturally without pressing buttons works
+- [ ] AI client begins responding within ~1 second of you finishing
+- [ ] AI voice sounds like the chosen ElevenLabs voice
+- [ ] You can interrupt the AI by speaking — it stops mid-sentence
+- [ ] An interruption is visibly counted in the UI when you cut the AI off
 - [ ] AI stays in character (does not break to give advice mid-session)
-- [ ] AI client behavior matches the selected DISC profile noticeably
+- [ ] AI client behavior matches the selected DISC profile (S sounds calm, D sounds clipped)
+- [ ] A high-D AI client occasionally interrupts the PM in profile-appropriate ways
+- [ ] On iPhone Safari: the entire call works without browser quirks blocking it
 - [ ] "End Session" requires confirmation
 - [ ] Coaching debrief loads and is readable
-- [ ] Coaching mentions the PM's DISC profile and the client's DISC profile by name
-- [ ] Score is between 0-100
+- [ ] Coaching mentions PM's DISC and client's DISC by name
+- [ ] Coaching includes Active Listening score and references interruption count when applicable
+- [ ] Total score is between 0-100
 - [ ] Session history shows the just-completed session
 
 **As Admin:**
@@ -714,11 +767,12 @@ Run through this entire list. Every box must be checked.
 - [ ] Excel export downloads a valid file with multiple tabs
 
 **Edge cases:**
-- [ ] Recording silence (no speech) → graceful error, no crash
-- [ ] Network interruption mid-turn → graceful error, conversation can resume
-- [ ] Closing the browser mid-session → can the PM resume or does it count as ended? (decide and verify)
+- [ ] PM stays silent for 30+ seconds → AI prompts them gently or holds the silence (verify configured behavior)
+- [ ] Network interruption mid-call → SDK reports disconnect, UI shows reconnect option
+- [ ] Closing the browser mid-session → ElevenLabs `conversation_ended` webhook fires; session marked ended automatically
 - [ ] PM tries to access admin URL → blocked
 - [ ] Invalid JWT → redirected to login
+- [ ] Webhook signature invalid → backend rejects with 401, logs warning
 
 ### 8.2 — If Something Fails
 
@@ -757,11 +811,11 @@ Fix any build errors before continuing.
 5. Under **Variables**, add ALL the variables from `server/.env.example` with **production** values:
    - `JWT_SECRET` — generate a NEW random string for production (don't reuse dev)
    - All API keys (same dev keys are OK to start, or create new production keys)
+   - `ELEVENLABS_AGENT_ID` and `ELEVENLABS_WEBHOOK_SECRET` (from Part 2.4)
    - `NODE_ENV=production`
    - `CLIENT_ORIGIN=https://training.your-company.com` (set after Vercel deploy in 9.3)
    - `DATABASE_PATH=/data/simulator.db`
    - `EXCEL_PATH=/data/sessions.xlsx`
-   - `AUDIO_DIR=/data/audio`
 6. Add a **Volume**:
    - Volumes panel → New Volume → mount path `/data`
    - This ensures the SQLite file and audio files survive deploys
@@ -783,6 +837,15 @@ Fix any build errors before continuing.
    - `VITE_API_BASE_URL=https://your-app-production.up.railway.app`
 5. Deploy
 6. Vercel gives you a URL like `https://communication-training-simulator-xyz.vercel.app`. Test it — log in and click around.
+
+### 9.3a — Update ElevenLabs Webhook URL to Production
+
+In the ElevenLabs dashboard:
+
+1. Go to **Conversational AI → Agents → your agent → Webhooks**
+2. Update the webhook URL to your Railway backend URL: `https://your-app-production.up.railway.app/api/elevenlabs/webhook`
+3. Save
+4. Test: start a conversation in the dashboard's Test interface and verify webhooks arrive in Railway logs
 
 ### 9.4 — Connect the Custom Domain
 
@@ -818,11 +881,12 @@ If anything breaks:
 
 This is a one-time setup that prevents nightmare API bills:
 
-- **Anthropic console** → Plans & Billing → set monthly spend limit to $100
-- **OpenAI dashboard** → Settings → Limits → set hard usage limit to $50
-- **ElevenLabs** → Subscription → confirm the plan tier (you'll be billed monthly at that fixed rate)
+- **Anthropic console** → Plans & Billing → set monthly spend limit to $100 (covers post-call coaching)
+- **ElevenLabs** → Subscription → confirm plan tier; review Conversational AI minute usage on the dashboard weekly
 - **Railway** → Account → Usage → consider setting a usage alert
 - **Vercel** → Settings → Billing → enable spend alerts
+
+> **Note:** ElevenLabs Conversational AI bills two ways: a flat plan fee (Pro: $99/mo) plus per-minute conversation usage. The per-minute charge includes the LLM cost (Claude) when Claude is configured as the agent's LLM. Watch the conversation minutes dashboard in their console.
 
 ### 9.7 — Commit Production Configuration Notes
 
@@ -975,13 +1039,13 @@ Most issues fall into "small change to content" which the admin can do via the U
 |---|---|---|---|
 | `DATABASE_PATH` | Yes | Path to SQLite file | `/data/simulator.db` (prod) or `../data/simulator.db` (dev) |
 | `EXCEL_PATH` | Yes | Path to Excel export | `/data/sessions.xlsx` |
-| `AUDIO_DIR` | Yes | Directory for AI audio mp3s | `/data/audio` |
 | `JWT_SECRET` | Yes | Random string for signing tokens | 96-char hex |
 | `JWT_EXPIRES_IN` | No | Token expiry | `7d` |
-| `ANTHROPIC_API_KEY` | Yes | Claude API key | `sk-ant-...` |
-| `OPENAI_API_KEY` | Yes | OpenAI key (Whisper) | `sk-...` |
-| `ELEVENLABS_API_KEY` | Yes | ElevenLabs key | `...` |
+| `ANTHROPIC_API_KEY` | Yes | Claude API key (used for post-call coaching AND inside ElevenLabs CAI as the agent LLM) | `sk-ant-...` |
+| `ELEVENLABS_API_KEY` | Yes | ElevenLabs key (account-level) | `...` |
 | `ELEVENLABS_VOICE_ID` | Yes | Selected voice ID | `21m00Tcm4TlvDq8ikWAM` |
+| `ELEVENLABS_AGENT_ID` | Yes | Configured Conversational AI agent | `agent_abc123` |
+| `ELEVENLABS_WEBHOOK_SECRET` | Yes | HMAC secret for verifying incoming webhooks | `whsec_...` |
 | `RESEND_API_KEY` | No | Email sending (password resets) | `re_...` |
 | `RESEND_FROM_EMAIL` | No | Email sender address | `noreply@your-company.com` |
 | `PORT` | No | Backend port | `3001` |
@@ -1000,31 +1064,31 @@ Most issues fall into "small change to content" which the admin can do via the U
 
 ### Per-Session Cost Estimate
 
-Assuming a 12-minute session with 8 PM turns and 8 AI client turns:
+Assuming a 12-minute session:
 
 | Service | Usage | Cost |
 |---|---|---|
-| Whisper STT | ~6 min audio uploaded | $0.04 |
-| Claude (turns) | ~30K input + 5K output tokens | $0.18 |
-| Claude (coaching) | ~10K input + 2K output tokens | $0.06 |
-| ElevenLabs TTS | ~3000 chars synthesized | (flat rate per plan) |
-| **Total** | | **~$0.28 + ElevenLabs flat** |
+| ElevenLabs CAI (per-minute conversation) | 12 minutes | ~$0.84-1.20 |
+| ElevenLabs CAI (LLM passthrough — Claude) | included in per-min OR billed via Anthropic depending on config | varies |
+| Anthropic Claude (post-call coaching) | ~10K input + 2K output tokens | $0.06 |
+| **Total** | | **~$1.00-1.30 per session** |
 
 ### Monthly Estimates
 
-| Usage Level | Sessions/Month | Anthropic | OpenAI | ElevenLabs | Hosting | **Total** |
-|---|---|---|---|---|---|---|
-| Light (5 PMs × 2/wk) | 40 | $10 | $5 | $22 | $5 | **~$45** |
-| Normal (5 PMs × 4/wk) | 80 | $20 | $10 | $99 | $5 | **~$135** |
-| Heavy (15 PMs × 4/wk) | 240 | $60 | $30 | $99 | $20 | **~$210** |
+| Usage Level | Sessions/Month | Anthropic (coaching) | ElevenLabs CAI plan + minutes | Hosting | **Total** |
+|---|---|---|---|---|---|
+| Light (5 PMs × 2/wk) | 40 × 12 min = 480 min | ~$3 | $99 plan + ~$30 minutes | $5 | **~$140** |
+| Normal (5 PMs × 4/wk) | 80 × 12 min = 960 min | ~$6 | $99 + ~$60 minutes | $5 | **~$170** |
+| Heavy (15 PMs × 4/wk) | 240 × 12 min = 2880 min | ~$20 | $99 + ~$200 minutes | $20 | **~$340** |
+
+> Note: ElevenLabs CAI per-minute pricing depends on plan tier and current published rates — verify in their dashboard before committing. Coaching API costs are minor compared to conversation costs.
 
 ### Setting Spend Caps
 
 Configure in each console:
 
 - **Anthropic:** console.anthropic.com → Plans & Billing → Spending Limit → set hard cap
-- **OpenAI:** platform.openai.com → Settings → Limits → set monthly hard limit
-- **ElevenLabs:** plan-based, no overage by default
+- **ElevenLabs:** Subscription page; check the conversation minutes dashboard weekly
 - **Railway:** Account → Usage → set notification thresholds
 - **Vercel:** Settings → Billing → set spend alerts
 
@@ -1045,8 +1109,12 @@ Configure in each console:
 | **Roleplay** | The AI staying in character as a client through the conversation |
 | **Seed** | Loading initial data into the database (admin user, scenarios, DISC profiles) |
 | **SQLite** | A file-based database — no separate server needed |
-| **STT** | Speech-to-Text (we use Whisper) |
-| **TTS** | Text-to-Speech (we use ElevenLabs) |
+| **CAI** | ElevenLabs Conversational AI — the real-time voice product (continuous mic, VAD, streaming STT/TTS, interruption handling) |
+| **STT** | Speech-to-Text — done by ElevenLabs CAI |
+| **TTS** | Text-to-Speech — done by ElevenLabs CAI |
+| **Webhook** | A URL on our backend that ElevenLabs calls with events (turn ended, user interrupted agent, etc.) |
+| **Signed URL** | A short-lived URL we mint per session that authorizes the browser to start a CAI conversation with our system prompt override |
+| **Interruption** | Speaker overlap event — the rubric's Active Listening category specifically scores PM→client interruptions |
 | **Vite** | Build tool for the frontend |
 | **Volume** | A persistent disk on Railway that survives deploys |
 
