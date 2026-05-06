@@ -289,11 +289,32 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
         className="flex-1 overflow-y-auto px-4 py-6 space-y-3"
         style={{ scrollBehavior: 'smooth' }}
       >
-        {turns.length === 0 && (
+        {turns.length === 0 && !sessionStarted && (
+          <div className="max-w-md mx-auto mt-8 sm:mt-12 card p-7 text-center border-l-4 border-l-gold-500">
+            <p className="font-body text-[10px] uppercase tracking-widest text-gold-500 mb-2">
+              Today's Call
+            </p>
+            <h2 className="font-display font-bold text-2xl sm:text-3xl text-slate-text mb-1">
+              {sessionData.clientFirstName}
+            </h2>
+            <p className="font-body text-sm text-slate-muted mb-4">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="font-semibold text-slate-text">{discCode}</span>
+                <span>·</span>
+                <span>{scenarioLabel}</span>
+              </span>
+            </p>
+            <p className="font-body text-xs text-slate-muted leading-relaxed mb-5">
+              When you press <span className="text-slate-text font-medium">Start Session</span>,
+              the line will open. Greet {sessionData.clientFirstName} the way you'd open a real
+              call.
+            </p>
+          </div>
+        )}
+
+        {turns.length === 0 && sessionStarted && (
           <p className="text-center text-slate-muted font-body text-sm mt-12 opacity-60">
-            {sessionStarted
-              ? 'Conversation will appear here…'
-              : 'Press "Start Session" to begin the simulation.'}
+            Conversation will appear here…
           </p>
         )}
 
