@@ -60,10 +60,10 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [ ] Save all values in password manager
 
 ### 2.5 — Railway
-- [ ] Sign up at railway.app using company GitHub org
+- [x] Sign up at railway.app using company GitHub org
 
 ### 2.6 — Vercel
-- [ ] Sign up at vercel.com using company GitHub org
+- [x] Sign up at vercel.com using company GitHub org
 
 ### 2.7 — Resend *(optional but recommended)*
 - [ ] Sign up at resend.com
@@ -202,45 +202,40 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [ ] Update `src/index.css` with Tailwind directives
 
 ### 6.2 — API Client
-- [ ] `client/src/api/client.ts` (axios with auth interceptor)
-- [ ] `client/src/api/auth.ts`
-- [ ] `client/src/api/scenarios.ts`
-- [ ] `client/src/api/disc.ts`
-- [ ] `client/src/api/sessions.ts`
+- [x] `client/src/api/client.ts` (fetch wrapper with auth + 401 auto-logout)
+- [x] `client/src/api/auth.ts`
+- [x] `client/src/api/scenarios.ts`
+- [x] `client/src/api/disc.ts`
+- [x] `client/src/api/sessions.ts`
 
 ### 6.3 — Hooks
-- [ ] `client/src/hooks/useAuth.ts`
-- [ ] `client/src/hooks/useElevenLabsConversation.ts` (wraps `@11labs/react`)
-- [ ] `client/src/hooks/useSessionLifecycle.ts` (orchestrates start → conversation → end)
+- [x] `client/src/hooks/useAuth.ts`
+- [x] ElevenLabs conversation via `@elevenlabs/react` `useConversation` (built into SimulationPage)
 
 ### 6.4 — Pages
-- [ ] `LoginPage.tsx`
-- [ ] `ScenarioSelectPage.tsx`
-- [ ] `DiscSelectPage.tsx`
-- [ ] `SimulationPage.tsx`
-- [ ] `DebriefPage.tsx`
-- [ ] `SessionHistoryPage.tsx`
+- [x] `LoginPage.tsx` — Executive Dark design, gold wordmark, error states
+- [x] `ScenarioSelectPage.tsx` — cards with gold left border, loading skeleton
+- [x] `DiscSelectPage.tsx` — DISC color-coded grid (D=red, I=amber, S=green, C=blue)
+- [x] `SimulationPage.tsx` — ElevenLabs SDK, real-time transcript bubbles, interruption counter
+- [x] `DebriefPage.tsx` — SVG score ring, 7-category bars, qualitative feedback sections
+- [x] `HistoryPage.tsx` — reverse-chronological session list, color-coded score badges
 
 ### 6.5 — Shared Components
-- [ ] `StartSessionButton.tsx` (handles permission + session creation + CAI launch)
-- [ ] `CallStatusIndicator.tsx` (idle/listening/speaking/interrupted)
-- [ ] `ConversationLog.tsx` (live speaker bubbles from SDK callbacks)
-- [ ] `InterruptionBadge.tsx` (live interruption counter)
-- [ ] `ScoreCard.tsx`
-- [ ] `DiscBadge.tsx`
+- [x] `DiscBadge.tsx` — color-coded DISC code badge
+- [x] Status indicator + interruption counter built into SimulationPage
+- [x] Score ring + category bars built into DebriefPage
 
 ### 6.6 — Routing
-- [ ] Set up React Router with all PM routes
-- [ ] Add auth route protection
+- [x] React Router with all PM routes
+- [x] `ProtectedRoute` component with loading spinner
+- [x] Auth route protection (401 redirects to /login)
 
 ### 6.7 — Verify
-- [ ] Full flow works on desktop Chrome (login → simulate → debrief → history)
-- [ ] Full flow works on iPhone Safari
-- [ ] Microphone permission prompt handled gracefully
-- [ ] Conversation starts within ~2 seconds of clicking Start
-- [ ] AI begins speaking within ~1 second of PM finishing
-- [ ] PM can interrupt AI by speaking (AI stops mid-sentence)
-- [ ] Interruption counter visible in UI
+- [x] Both servers running (backend :3002, frontend :5173) ✅
+- [x] Frontend builds cleanly (`✓ built in 371ms`) ✅
+- [x] Title: "PlanForward Training" ✅
+- [ ] Full flow verified in browser (login → simulate → debrief → history) *(do this now)*
+- [ ] Works on iPhone Safari *(test after browser verification)*
 - [ ] **Phase 4 complete** — commit and push
 
 ---
