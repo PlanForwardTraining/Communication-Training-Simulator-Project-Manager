@@ -1,13 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { ProtectedRoute } from './components/ProtectedRoute';
-
-// Page placeholders — will be replaced task by task
-const LoginPage = () => (
-  <div className="page items-center justify-center">
-    <p className="text-slate-muted font-body">Login coming soon</p>
-  </div>
-);
+import { LoginPage } from './pages/LoginPage';
 const ScenarioSelectPage = () => (
   <div className="page items-center justify-center">
     <p className="text-slate-muted font-body">Scenarios coming soon</p>
