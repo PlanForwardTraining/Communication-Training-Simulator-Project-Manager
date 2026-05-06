@@ -1151,6 +1151,84 @@ Configure in each console:
 
 ---
 
+## Part 12 — Billing & Payment Transfer
+
+This is the contractor-to-client handoff for billing. Keep accounts the same (preserves data, config, history) — just swap who's paying.
+
+### What's billable
+
+| Service | Tier | Approx. monthly | Why we use it |
+|---|---|---|---|
+| **Anthropic** (Claude API) | Pay-as-you-go | $5-15 | Coaching debrief generation |
+| **ElevenLabs Conversational AI** | Creator $22 / Pro $99 | $22-99 | Real-time voice + LLM during the call |
+| **Railway** | Hobby plan | $5 base + ~$0-5 usage | Backend hosting + persistent SQLite/Excel |
+| **Vercel** | Hobby (free) → Pro if needed | $0-20 | Frontend hosting |
+| **Resend** *(optional)* | Free tier | $0 | Password resets |
+| **Domain** | Already client-owned | ~$15/year if renewed | `training.planforward.net` |
+| **GitHub** | Free org | $0 | Source code |
+
+**Estimated total at launch:** ~$50-130/month depending on ElevenLabs tier and usage volume.
+
+### How payment transfer works
+
+Each service is owned by an account email (e.g., `TrainingPlanForward@gmail.com`). Within that account, you control which payment method is on file. So the transfer is:
+
+1. **Keep the same account** — no migration of data/config/keys needed
+2. **Add the client's payment method** to each account's billing page
+3. **Remove the contractor's payment method** so charges only go to client
+4. **Verify next invoice** charges the client, not the contractor
+
+### Step-by-step
+
+**Anthropic** (currently personal account)
+- Owner: log into [console.anthropic.com](https://console.anthropic.com)
+- The cleanest option here is to create a fresh Anthropic account at `TrainingPlanForward@gmail.com` (Anthropic doesn't make org-level payment changes easy)
+- Generate a new API key on the new account
+- Update `ANTHROPIC_API_KEY` in Railway environment variables (Settings → Variables)
+- Set a monthly spending limit on the new account (~$50)
+- Trigger a test session, verify Anthropic usage logs show up under the new account
+- Rotate / delete the old personal API key
+
+**ElevenLabs** (currently personal account)
+- Same situation — easiest to create a fresh account at `TrainingPlanForward@gmail.com`
+- Subscribe to Creator or Pro tier
+- Recreate the Conversational AI agent (use the same name, voice, LLM, override settings)
+- Save the new agent ID and webhook signing secret (when added)
+- Confirm all 20 premade voices are present in the new account's voice library
+- Update `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` in Railway environment variables
+- Re-enable per-conversation `voice_id` and `prompt` overrides on the new agent (this guide's Part 5.4 has the details)
+- Test a full session end-to-end with new keys
+
+**Railway** (already on `TrainingPlanForward@gmail.com`)
+- Account → Billing → Add Plan Forward's credit card / payment method
+- Remove the contractor's payment method
+- Wait for next invoice to confirm correct billing
+
+**Vercel** (already on `TrainingPlanForward@gmail.com`)
+- Settings → Billing → same swap
+- Hobby tier is free; only relevant if upgraded to Pro
+
+**Resend** (if added)
+- Same process — free tier requires no card; if upgraded, swap payment method
+
+### Source code + access transfer
+
+- Repo is already owned by the `PlanForwardTraining` GitHub org ✅
+- Tyler is a collaborator — keep, downgrade to read-only, or remove per contract terms
+- Plan Forward has admin access to all of: GitHub org, Anthropic, ElevenLabs, Railway, Vercel, Resend
+- All credentials stored in Plan Forward's password manager
+
+### Final verification
+
+After everything is transferred:
+
+- Run a full PM session end-to-end
+- Confirm coaching debrief generates correctly
+- Verify the next invoice from each service charges Plan Forward, not Tyler
+- Get final handoff signed off in writing per the project contract
+
+---
+
 ## Done
 
 If you've made it this far, you have a working internal training platform. Save this guide. Update it whenever architecture changes. Re-read Part 11 every quarter to make sure you're operating the system well.

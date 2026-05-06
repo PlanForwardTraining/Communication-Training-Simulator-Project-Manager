@@ -446,6 +446,84 @@ These don't get permanently checked — re-run on cadence.
 
 ---
 
+## Part 12 — Billing & Payment Transfer to Client
+
+🔗 [Guide reference](REBUILD_ME_GUIDE.md#part-12--billing--payment-transfer)
+
+Track every paid service and transfer billing from FoundationalFlow (contractor) to Plan Forward (client) at handoff.
+
+### Paid services in use
+
+| Service | Tier | Approx. monthly cost | Current billing | Status |
+|---|---|---|---|---|
+| **Anthropic** (Claude API) | Pay-as-you-go | ~$5-15 (5 PMs at normal cadence) | Tyler personal | ⏳ Swap before launch |
+| **ElevenLabs** | Conversational AI plan | TBD (Creator $22 / Pro $99) | Tyler personal | ⏳ Swap before launch |
+| **Railway** | Hobby | $5 base + ~$0-5 usage | TrainingPlanForward@gmail.com | ⏳ Move payment to client card |
+| **Vercel** | Hobby (free) → Pro if needed | $0 → $20 if upgrading | TrainingPlanForward@gmail.com | ⏳ Move payment to client card if upgraded |
+| **Resend** *(optional)* | Free tier | $0 | TBD | ⏳ Set up when password resets needed |
+| **Domain** *(optional)* | n/a | ~$15/year if new domain | Plan Forward owns planforward.net | ✅ Already client-owned |
+| **GitHub** | Free org | $0 | PlanForwardTraining org | ✅ Already client-owned |
+
+**Estimated total monthly cost at launch:** ~$50-130/month depending on ElevenLabs plan and PM usage.
+
+### Pre-launch payment handoff checklist
+
+For each service Tyler is paying for, swap to Plan Forward's billing. Approach: keep the SAME account (data, history, config preserved), just change the payment source.
+
+#### Anthropic
+- [ ] Plan Forward creates Anthropic account at `TrainingPlanForward@gmail.com` (or Plan Forward owner does it)
+- [ ] Generate new API key on Plan Forward's account
+- [ ] Update `ANTHROPIC_API_KEY` in Railway env vars
+- [ ] Set monthly spending limit on Plan Forward's account (~$50)
+- [ ] Verify a test session uses the new key (check Anthropic console for usage spike)
+- [ ] Disable / rotate Tyler's personal API key
+
+#### ElevenLabs
+- [ ] Plan Forward creates ElevenLabs account at `TrainingPlanForward@gmail.com`
+- [ ] Pick plan tier (Creator or Pro depending on volume)
+- [ ] Recreate the Conversational AI agent under Plan Forward's account *(or transfer if ElevenLabs supports it)*
+- [ ] Confirm all 20 voices are in Plan Forward's library
+- [ ] Generate new API key + agent ID
+- [ ] Update `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` in Railway env vars
+- [ ] Re-enable voice/prompt overrides on the new agent
+- [ ] Test a full session end-to-end with new keys
+- [ ] Disable Tyler's personal account or downgrade
+
+#### Railway
+- [ ] Confirm Railway account is owned by `TrainingPlanForward@gmail.com` (already is)
+- [ ] Add Plan Forward's payment method to the account
+- [ ] Remove Tyler's payment method (if it was added)
+- [ ] Verify next invoice charges Plan Forward
+
+#### Vercel
+- [ ] Confirm Vercel account is owned by `TrainingPlanForward@gmail.com` (already is)
+- [ ] If on a paid plan, add Plan Forward's payment method
+- [ ] Remove Tyler's payment method (if it was added)
+
+#### Resend *(if/when added)*
+- [ ] Account on `TrainingPlanForward@gmail.com`
+- [ ] Plan Forward payment method (if upgrading from free)
+
+#### Source code & access transfer
+- [ ] Repo is in `PlanForwardTraining` GitHub org (already is)
+- [ ] Tyler is a collaborator (currently is) — keep, downgrade, or remove per contract
+- [ ] Plan Forward has admin access to GitHub org
+- [ ] Plan Forward has logins for all platform accounts (Railway, Vercel, Anthropic, ElevenLabs, Resend)
+- [ ] All credentials stored in Plan Forward's password manager
+- [ ] Final code handoff confirmed in writing (per contract)
+
+### Final post-handoff verification
+
+After all of the above is complete:
+
+- [ ] Run a full PM session end-to-end with the production deploy
+- [ ] Confirm the session shows up in admin dashboard (when Phase 5 is built)
+- [ ] Confirm coaching debrief generates correctly
+- [ ] Confirm Excel export downloads correctly (when Phase 5 is built)
+- [ ] Verify no service is silently still billing Tyler
+
+---
+
 ## Notes Section
 
 Use this space for blockers, questions, or decisions made along the way.
