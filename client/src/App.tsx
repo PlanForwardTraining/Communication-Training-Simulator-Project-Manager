@@ -2,9 +2,12 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
-const ScenarioSelectPage = () => (
+import { ScenarioSelectPage } from './pages/ScenarioSelectPage';
+import { DiscSelectPage } from './pages/DiscSelectPage';
+
+const SimulationPage = () => (
   <div className="page items-center justify-center">
-    <p className="text-slate-muted font-body">Scenarios coming soon</p>
+    <p className="text-slate-muted font-body">Simulation coming soon</p>
   </div>
 );
 const HistoryPage = () => (
@@ -25,6 +28,22 @@ function App() {
           element={
             <ProtectedRoute user={auth.user} loading={auth.loading}>
               <ScenarioSelectPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sessions/new/:scenarioSlug"
+          element={
+            <ProtectedRoute user={auth.user} loading={auth.loading}>
+              <DiscSelectPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sessions/:scenarioSlug/:discCode/simulate"
+          element={
+            <ProtectedRoute user={auth.user} loading={auth.loading}>
+              <SimulationPage />
             </ProtectedRoute>
           }
         />
