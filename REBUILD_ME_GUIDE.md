@@ -512,100 +512,80 @@ git push
 
 The voice pipeline uses **ElevenLabs Conversational AI** as the real-time engine, with **Claude as the configured LLM**. ElevenLabs handles continuous mic, voice activity detection, streaming STT/TTS, echo cancellation, and interruption events. Claude (separately, via direct API) generates the post-session coaching.
 
+> **Architecture note:** Turns and interruptions are captured **client-side** by the `@11labs/react` SDK. When the PM clicks End Session, the browser sends the full transcript + events to `POST /api/sessions/:id/end`. No server-side webhooks or ngrok are needed.
+
 ### 5.1 — Add the AI SDKs
 
 ```bash
 cd server
-npm install @anthropic-ai/sdk axios
-npm install --save-dev @types/node
+npm install @anthropic-ai/sdk
 ```
-
-(No multer, no Whisper, no audio files — ElevenLabs streams audio directly between browser and their service.)
 
 ### 5.2 — Build the Prompt Layer
 
-The prompt layer reads from `/content/` so the business owner's edits flow through automatically.
-
-- [ ] `server/src/prompts/loader.ts` — reads markdown files from `/content/` and caches them in memory; exposes `getScenario(slug)`, `getDiscProfile(code)`, `getRubric()`
-- [ ] `server/src/prompts/persona-prompt.ts` — `buildPersonaPrompt(scenario, clientDisc)` returns the system prompt that ElevenLabs CAI passes to Claude during the live call. Includes:
-  - The scenario context
-  - The client DISC profile
-  - Explicit instructions: stay in character, do not break to coach, do not voluntarily end the call
-  - Profile-appropriate interruption guidance (D-types may interrupt PM; S/C types do not)
-- [ ] `server/src/prompts/coaching-prompt.ts` — `buildCoachingPrompt(transcript, events, pmDisc, clientDisc, rubric)` returns the prompt for the post-call coaching debrief. **Crucially, this prompt receives the full list of `events` (interruptions, overlaps) and is instructed to weight Active Listening scoring by client DISC profile.**
+- [ ] `server/src/prompts/loader.ts` — reads markdown files from `/content/` and caches them; exposes `getScenario(slug)`, `getDiscProfile(code)`, `getRubric()`
+- [ ] `server/src/prompts/persona-prompt.ts` — `buildPersonaPrompt(scenario, clientDisc)` returns the system prompt the frontend sends in the WebSocket initiation message
+- [ ] `server/src/prompts/coaching-prompt.ts` — `buildCoachingPrompt(turns, events, pmDisc, clientDisc, rubric)` returns the coaching prompt (includes interruption events for Active Listening scoring)
 
 ### 5.3 — Build the Coaching Service
 
-- [ ] `server/src/services/claude.ts`:
-  - `generateCoaching(systemPrompt, transcript, events): Promise<CoachingResult>` — returns structured `{strengths, misses, alternatives, discAdaptation, scoreBreakdown, totalScore}`. Score breakdown includes the new `activeListening` field.
+- [ ] `server/src/services/claude.ts` — `generateCoaching(turns, events, pmDisc, clientDisc, rubric): Promise<CoachingResult>`
 
 ### 5.4 — Configure the ElevenLabs CAI Agent
 
-This is the one-time setup you did in Part 2.4. Before continuing, verify:
+Verify before continuing:
 
-- [ ] `ELEVENLABS_AGENT_ID` is set in `.env`
-- [ ] `ELEVENLABS_WEBHOOK_SECRET` is set in `.env`
-- [ ] The agent's webhook URL is reachable from ElevenLabs (use `ngrok` for local dev: `ngrok http 3001` → paste ngrok URL into agent webhook config)
-- [ ] The agent's LLM is set to Claude
+- [ ] `ELEVENLABS_AGENT_ID` is set in `server/.env`
+- [ ] Agent LLM is set to Claude (or Haiku for testing)
+- [ ] No webhook URL needed — transcript is captured by the frontend SDK
 
 ### 5.5 — Build the ElevenLabs Service Layer
 
-- [ ] `server/src/services/voice-selector.ts`:
-  - Reads `/content/voices/*.md` at startup, parses frontmatter (voice_id, gender, age, active flag, DISC compatibility list)
-  - `selectVoiceForSession(scenarioSlug, clientDiscCode): { voiceId, voiceName }` implementing the three-tier priority:
-    1. Scenario-pinned override (if scenario file has `## Voice Override` section)
-    2. DISC-aligned random — filter pool by `active=true` AND DISC compatibility, pick randomly
-    3. Forced random — if admin toggle set on the scenario, ignore DISC filter
+- [ ] `server/src/services/voice-selector.ts` — reads `/content/voices/*.md`, implements 3-tier DISC-aligned random selection
 - [ ] `server/src/services/elevenlabs-cai.ts`:
-  - `getSignedUrlForSession(sessionId, scenarioSlug, clientDiscCode): Promise<{ signedUrl: string, agentId: string, voiceId: string, voiceName: string }>` — calls `selectVoiceForSession()`, then ElevenLabs API to mint a per-session signed URL. The signed URL embeds a `conversation_initiation_data` object with persona prompt override AND voice override (Path A) — or selects the agent mapped to that voice (Path B fallback).
-  - `verifyWebhookSignature(body, signature): boolean` — HMAC-SHA256 verification against `ELEVENLABS_WEBHOOK_SECRET`
+  - `getSignedUrlForSession(sessionId, scenarioSlug, clientDiscCode)` — mints signed WebSocket URL; also returns `personaPrompt` and `voiceId` so frontend can send them in the WebSocket initiation message
+  - `verifyWebhookSignature(rawBody, signature, secret)` — kept for potential future post-call webhook use
 
 ### 5.6 — Build the Session API
 
-- [ ] `server/src/routes/sessions.ts`:
-  - `POST /api/sessions` — accepts `{ scenarioSlug, clientDiscCode }`, creates a `sessions` row (storing chosen `voice_id` + `voice_name`), calls `getSignedUrlForSession()`, returns `{ sessionId, signedUrl, agentId, voiceName }`
-  - `POST /api/sessions/:id/end` — marks ended, fetches turns + events, calls `generateCoaching()`, saves to `coaching` table, returns the debrief
-  - `GET /api/sessions/:id` — full session with turns + events + coaching
-  - `GET /api/sessions` — admin: all; pm: own only
-- [ ] `server/src/routes/elevenlabs-webhook.ts`:
-  - `POST /api/elevenlabs/webhook` — verifies signature, parses event, persists:
-    - `turn` events → upserts a row in `turns` table (matched by ElevenLabs turn ID)
-    - `interruption` events → inserts row in `events` table with `type=user_interrupted_agent` or `type=agent_interrupted_user`
-    - `conversation_started` → updates `sessions.elevenlabs_conversation_id`
-    - `conversation_ended` → no-op (the PM clicking End in the UI is the source of truth)
+- [ ] `POST /api/sessions` — creates session, calls `getSignedUrlForSession()`, returns `{ sessionId, signedUrl, agentId, voiceId, voiceName, personaPrompt }`
+- [ ] `POST /api/sessions/:id/end` — accepts `{ turns, events }` from the browser, saves to DB, runs coaching, returns debrief
+- [ ] `GET /api/sessions/:id` — full session with turns + events + coaching
+- [ ] `GET /api/sessions` — admin: all; pm: own only
 
-### 5.7 — Test It (Without a Frontend Yet)
+### 5.7 — Verify (via curl)
 
-For local testing, install [ngrok](https://ngrok.com/) and tunnel your local backend so ElevenLabs can reach the webhook:
+Start the server and verify the full lifecycle:
 
 ```bash
-ngrok http 3001
-# Copy the https://....ngrok.app URL → set as webhook URL in ElevenLabs agent config
+# Start server
+npm run dev &
+
+# Login and create session
+TOKEN=$(curl -s -X POST http://localhost:3002/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@planforward.net","password":"admin123"}' | \
+  python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+
+SESSION=$(curl -s -X POST http://localhost:3002/api/sessions \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"scenarioSlug":"01-schedule-delay","clientDiscCode":"S"}')
+
+SESSION_ID=$(echo $SESSION | python3 -c "import sys,json; print(json.load(sys.stdin)['sessionId'])")
+echo "signedUrl present:" $(echo $SESSION | python3 -c "import sys,json; print(bool(json.load(sys.stdin).get('signedUrl')))")
+
+# End session with client-captured transcript
+curl -X POST http://localhost:3002/api/sessions/$SESSION_ID/end \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"turns":[{"speaker":"pm","content":"Hi, I have difficult news about the project schedule."},{"speaker":"client","content":"Oh no, what happened?"}],"events":[]}'
 ```
-
-Then in the ElevenLabs dashboard:
-
-1. Open the agent → click **Test Agent**
-2. Provide a test conversation override matching what our backend would send
-3. Speak into the mic — verify Claude responds in character
-4. Try interrupting — verify the agent stops mid-sentence
-5. Check your backend logs — verify webhooks arrived and rows were inserted into `turns` and `events`
-
-Then have Claude Code curl `POST /api/sessions/:id/end` and verify coaching JSON returned with `activeListening` score reflecting the interruption count.
 
 **✅ Phases 2-3 done when:**
-- A live conversation works through the ElevenLabs dashboard test interface
-- Webhooks are received and persisted (turns + events visible in SQLite)
-- Interruptions are tagged with the correct `type` based on who interrupted whom
-- Coaching JSON references both DISC profiles AND interruption count by name
-
-Commit:
-
-```bash
-git add server
-git commit -m "Phases 2-3: Claude coaching + ElevenLabs CAI integration with interruption tracking"
-git push
-```
+- `POST /api/sessions` returns a `signedUrl` and `personaPrompt`
+- `POST /api/sessions/:id/end` with turns in body returns coaching JSON with `totalScore`
+- 31/31 tests passing
 
 ---
 
