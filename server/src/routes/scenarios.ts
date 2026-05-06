@@ -32,9 +32,10 @@ router.get('/by-slug/:slug', requireAuth, (req: Request, res: Response): void =>
   let briefing = scenario.body_markdown;
   briefing = briefing.replace(/^>\s*\*\*Status:\*\*[^\n]*\n?/m, '');
 
-  // Cut at the earliest answer-key heading, in case authors reorder sections
-  const ANSWER_KEY_RE = /^##\s+(What the PM Must Communicate|Desired Outcomes|Common Pitfalls|Realistic Client Pushback)/im;
-  const cutoff = briefing.search(ANSWER_KEY_RE);
+  // The brief section ends at the explicit marker. Everything below the marker
+  // is for the AI client (persona behavior) and the coaching engine (scoring).
+  const MARKER_RE = /<!--\s*BRIEF END\s*-->/i;
+  const cutoff = briefing.search(MARKER_RE);
   if (cutoff >= 0) briefing = briefing.slice(0, cutoff);
 
   res.json({

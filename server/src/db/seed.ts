@@ -114,9 +114,15 @@ function seedAdmin(): number {
 function seedScenarios(): number {
   const files = fs.readdirSync(SCENARIOS_DIR).filter(f => f.endsWith('.md')).sort();
 
-  const insert = db.prepare(`
-    INSERT OR IGNORE INTO scenarios (slug, title, description, body_markdown)
+  // Upsert by slug so /content/ edits land on the next deploy without manual migration.
+  const upsert = db.prepare(`
+    INSERT INTO scenarios (slug, title, description, body_markdown)
     VALUES (?, ?, ?, ?)
+    ON CONFLICT(slug) DO UPDATE SET
+      title = excluded.title,
+      description = excluded.description,
+      body_markdown = excluded.body_markdown,
+      updated_at = CURRENT_TIMESTAMP
   `);
 
   let count = 0;
@@ -128,7 +134,7 @@ function seedScenarios(): number {
       const title = extractTitle(content, file);
       if (!title) continue;
       const description = extractDescription(content, file);
-      const result = insert.run(slug, title, description, content);
+      const result = upsert.run(slug, title, description, content);
       count += result.changes;
     }
   });
@@ -143,9 +149,12 @@ function seedDiscProfiles(): number {
     .filter(f => f.endsWith('.md') && f !== 'README.md')
     .sort();
 
-  const insert = db.prepare(`
-    INSERT OR IGNORE INTO disc_profiles (code, name, body_markdown)
+  const upsert = db.prepare(`
+    INSERT INTO disc_profiles (code, name, body_markdown)
     VALUES (?, ?, ?)
+    ON CONFLICT(code) DO UPDATE SET
+      name = excluded.name,
+      body_markdown = excluded.body_markdown
   `);
 
   let count = 0;
@@ -157,7 +166,7 @@ function seedDiscProfiles(): number {
       if (!code) continue;
       const name = extractTitle(content, file);
       if (!name) continue;
-      const result = insert.run(code, name, content);
+      const result = upsert.run(code, name, content);
       count += result.changes;
     }
   });
@@ -182,8 +191,9 @@ function seedRubricItems(): number {
   // Rows start after header + separator line
   const dataLines = lines.slice(headerIdx + 2);
 
-  // rubric_items has no UNIQUE constraint — use check-before-insert per name
-  const checkStmt = db.prepare(`SELECT COUNT(*) as n FROM rubric_items WHERE name = ?`);
+  // rubric_items has no UNIQUE constraint — clear and re-insert on every deploy
+  // so weight changes in the rubric markdown land without manual migration.
+  const clearStmt = db.prepare(`DELETE FROM rubric_items`);
   const insert = db.prepare(`
     INSERT INTO rubric_items (name, weight, description, display_order)
     VALUES (?, ?, ?, ?)
@@ -193,6 +203,7 @@ function seedRubricItems(): number {
   let displayOrder = 1;
 
   const tx = db.transaction(() => {
+    clearStmt.run();
     for (const line of dataLines) {
       const trimmed = line.trim();
       if (!trimmed.startsWith('|')) break; // end of table
@@ -222,12 +233,8 @@ function seedRubricItems(): number {
 
       const description = descCell.trim();
 
-      // Only insert if this name doesn't already exist
-      const existing = checkStmt.get(name) as { n: number };
-      if (existing.n === 0) {
-        insert.run(name, weight, description, displayOrder);
-        count++;
-      }
+      insert.run(name, weight, description, displayOrder);
+      count++;
       displayOrder++;
     }
   });

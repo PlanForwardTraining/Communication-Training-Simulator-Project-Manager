@@ -16,7 +16,7 @@ For Category 7 (Active Listening), the AI also receives the **interruption event
 
 ---
 
-## Category 1: Empathy & Acknowledgment (15%)
+## Category 1: Empathy & Acknowledgment (13%)
 
 **Measures:** Did the PM make the client feel genuinely heard *before* pivoting to solutions?
 
@@ -37,7 +37,7 @@ PM skips acknowledgment entirely. Goes straight to facts, plans, or defense. Cli
 
 ---
 
-## Category 2: Clarity & Honesty (15%)
+## Category 2: Clarity & Honesty (13%)
 
 **Measures:** Was the message delivered clearly, completely, and without spin, hedging, or burying the lede?
 
@@ -58,7 +58,7 @@ PM avoids the hard truth. Uses spin, deflection, or vague language to soften. Cl
 
 ---
 
-## Category 3: DISC Adaptation (25%)
+## Category 3: DISC Adaptation (22%)
 
 **Measures:** Did the PM adapt their natural communication style to fit this specific client's DISC profile?
 
@@ -84,7 +84,7 @@ PM is operating against the client's profile rather than with it. Pacing, detail
 
 ---
 
-## Category 4: Solution Orientation (15%)
+## Category 4: Solution Orientation (12%)
 
 **Measures:** Did the PM offer a clear path forward — with specific options, owners, and dates?
 
@@ -105,7 +105,7 @@ No plan offered. Conversation ends with unresolved questions, no commitments, an
 
 ---
 
-## Category 5: Ownership & Accountability (15%)
+## Category 5: Ownership & Accountability (12%)
 
 **Measures:** Did the PM take appropriate ownership — neither over-blaming the company nor deflecting onto third parties?
 
@@ -126,7 +126,7 @@ PM blames the trades, the supplier, the engineer, the weather, or the client the
 
 ---
 
-## Category 6: Confidence & Composure (15%)
+## Category 6: Confidence & Composure (13%)
 
 **Measures:** Did the PM stay calm, steady, and authoritative under pressure — including pushback, anger, or emotional escalation?
 
@@ -144,8 +144,6 @@ PM gets visibly rattled when challenged. Becomes defensive, talks over the clien
 
 **1 — Significantly Below**
 PM loses composure. Either: matches the client's emotional energy and escalates the conflict, or folds completely and gives away things they shouldn't have. Conversation goes off the rails.
-
----
 
 ---
 
