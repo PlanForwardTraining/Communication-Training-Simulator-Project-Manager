@@ -28,7 +28,7 @@ export default {
         },
       },
       fontFamily: {
-        display: ['Plus Jakarta Sans', 'sans-serif'],
+        display: ['Inter', 'sans-serif'],
         wordmark: ['Syne', 'sans-serif'],
         body: ['DM Sans', 'sans-serif'],
       },

@@ -49,7 +49,7 @@ export function ScenarioSelectPage() {
         </div>
       </header>
 
-      <main className="flex-1 py-8 sm:py-12">
+      <main className="flex-1 py-10 sm:py-14">
         <div className="container-lg">
           <h1 className="font-display text-2xl sm:text-3xl font-bold text-slate-text mb-1">
             Select a Scenario
@@ -77,16 +77,16 @@ export function ScenarioSelectPage() {
           )}
 
           {!loading && !error && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
               {scenarios.map(scenario => (
                 <button
                   key={scenario.id}
                   onClick={() => navigate(`/sessions/new/${scenario.slug}`)}
-                  className="card p-6 text-left hover:bg-navy-700 transition-all duration-200 group border-l-4 border-l-gold-500 hover:border-l-gold-400 active:scale-[0.99] flex flex-col"
+                  className="card p-7 text-left hover:bg-navy-700 transition-all duration-200 group border-l-4 border-l-gold-500 hover:border-l-gold-400 active:scale-[0.99] flex flex-col min-h-[140px]"
                 >
-                  <div className="flex items-start justify-between gap-3 flex-1">
+                  <div className="flex items-start justify-between gap-4 flex-1">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-display font-semibold text-base sm:text-[15px] text-slate-text group-hover:text-gold-400 transition-colors duration-200 mb-2.5 leading-snug">
+                      <h3 className="font-display font-semibold text-[15px] text-slate-text group-hover:text-gold-400 transition-colors duration-200 mb-3 leading-snug">
                         {scenario.title.replace(/^Scenario \d+:\s*/i, '')}
                       </h3>
                       <p className="font-body text-sm text-slate-muted line-clamp-3 leading-relaxed">
@@ -94,7 +94,7 @@ export function ScenarioSelectPage() {
                       </p>
                     </div>
                     <svg
-                      className="w-4 h-4 text-slate-muted group-hover:text-gold-500 group-hover:translate-x-1 transition-all duration-200 flex-shrink-0 mt-0.5"
+                      className="w-4 h-4 text-navy-500 group-hover:text-gold-500 group-hover:translate-x-1 transition-all duration-200 flex-shrink-0 mt-0.5"
                       fill="none" viewBox="0 0 24 24" stroke="currentColor"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
