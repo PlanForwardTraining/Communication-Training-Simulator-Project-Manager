@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { scenariosApi, type Scenario } from '../api/scenarios';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 
 export function ScenarioSelectPage() {
   const { user, logout } = useAuth();
