@@ -2,10 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcrypt';
 import db from './connection';
+import { getContentDir } from '../utils/content-dir';
 
 // ── Paths ────────────────────────────────────────────────────────────────────
 
-const CONTENT_ROOT = path.resolve(__dirname, '../../../content');
+const CONTENT_ROOT = getContentDir();
 const SCENARIOS_DIR = path.join(CONTENT_ROOT, 'scenarios');
 const DISC_DIR = path.join(CONTENT_ROOT, 'disc-profiles');
 const RUBRIC_FILE = path.join(CONTENT_ROOT, 'coaching-rubric', '01-categories-and-weights.md');

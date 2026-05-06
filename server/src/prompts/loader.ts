@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { getContentDir } from '../utils/content-dir';
 
 export interface ScenarioContent {
   slug: string;
@@ -19,7 +20,7 @@ export interface RubricItemContent {
   description: string;
 }
 
-const CONTENT_DIR = path.resolve(__dirname, '../../../content');
+const CONTENT_DIR = getContentDir();
 
 function loadScenarios(): Map<string, ScenarioContent> {
   const dir = path.join(CONTENT_DIR, 'scenarios');

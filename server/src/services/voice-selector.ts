@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { getContentDir } from '../utils/content-dir';
 
 export interface VoiceSelection {
   voiceId: string;
@@ -14,8 +15,9 @@ interface VoiceProfile {
   fileName: string;
 }
 
-const VOICES_DIR = path.resolve(__dirname, '../../../content/voices');
-const SCENARIOS_DIR = path.resolve(__dirname, '../../../content/scenarios');
+const CONTENT_DIR = getContentDir();
+const VOICES_DIR = path.join(CONTENT_DIR, 'voices');
+const SCENARIOS_DIR = path.join(CONTENT_DIR, 'scenarios');
 
 function parseFrontmatter(content: string): Record<string, string> {
   const match = content.match(/^---\n([\s\S]*?)\n---/);
