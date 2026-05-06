@@ -7,6 +7,7 @@ import scenariosRouter from './routes/scenarios';
 import discProfilesRouter from './routes/disc-profiles';
 import rubricRouter from './routes/rubric';
 import sessionsRouter from './routes/sessions';
+import elevenLabsWebhookRouter from './routes/elevenlabs-webhook';
 
 dotenv.config();
 
@@ -17,6 +18,10 @@ app.use(cors({
   origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
   credentials: true,
 }));
+
+// Webhook route must be registered BEFORE express.json() so it receives the raw body
+app.use('/api/elevenlabs/webhook', express.raw({ type: 'application/json' }), elevenLabsWebhookRouter);
+
 app.use(express.json());
 
 // Health check

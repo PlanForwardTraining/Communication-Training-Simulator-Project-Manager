@@ -5,11 +5,12 @@ import { requireAdmin } from '../middleware/roleGuard';
 import { generateCoaching } from '../services/claude';
 import { getDiscProfile, getRubric } from '../prompts/loader';
 import { TurnRecord, EventRecord, User } from '../types';
+import { getSignedUrlForSession } from '../services/elevenlabs-cai';
 
 const router = Router();
 
 // POST /api/sessions — create a new session
-router.post('/', requireAuth, (req: Request, res: Response): void => {
+router.post('/', requireAuth, async (req: Request, res: Response): Promise<void> => {
   const { scenarioSlug, clientDiscCode } = req.body;
 
   if (!scenarioSlug || !clientDiscCode) {
@@ -32,13 +33,23 @@ router.post('/', requireAuth, (req: Request, res: Response): void => {
   }
 
   const result = db.prepare(
-    'INSERT INTO sessions (user_id, scenario_id, client_disc_id) VALUES (?, ?, ?)'
-  ).run(req.user!.userId, scenario.id, discProfile.id);
+    'INSERT INTO sessions (user_id, scenario_id, client_disc_id, voice_id, voice_name) VALUES (?, ?, ?, ?, ?)'
+  ).run(req.user!.userId, scenario.id, discProfile.id, '', '');
 
-  res.status(201).json({
-    sessionId: result.lastInsertRowid,
-    // signedUrl and agentId will be added in Phase 3
-  });
+  const sessionId = result.lastInsertRowid as number;
+
+  try {
+    const { signedUrl, agentId, voiceId, voiceName, personaPrompt } =
+      await getSignedUrlForSession(sessionId, scenarioSlug, clientDiscCode);
+
+    db.prepare('UPDATE sessions SET voice_id = ?, voice_name = ? WHERE id = ?')
+      .run(voiceId, voiceName, sessionId);
+
+    res.status(201).json({ sessionId, signedUrl, agentId, voiceId, voiceName, personaPrompt });
+  } catch (err) {
+    console.error('Failed to get signed URL from ElevenLabs:', err);
+    res.status(500).json({ error: 'Failed to initialize ElevenLabs session' });
+  }
 });
 
 // POST /api/sessions/:id/end — generate coaching and close session
