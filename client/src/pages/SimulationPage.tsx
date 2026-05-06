@@ -109,43 +109,68 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
     }
   }, [turns]);
 
+  const [connectError, setConnectError] = useState<string | null>(null);
+
   const handleMessage = useCallback(
-    (props: { message: string; source: 'user' | 'ai'; role: 'user' | 'agent' }) => {
-      const speaker: Turn['speaker'] = props.role === 'user' ? 'pm' : 'client';
+    (props: { message: string; source: 'user' | 'ai'; role?: 'user' | 'agent' }) => {
+      const role = props.role ?? (props.source === 'ai' ? 'agent' : 'user');
+      const speaker: Turn['speaker'] = role === 'user' ? 'pm' : 'client';
       setTurns((prev) => [...prev, { speaker, content: props.message }]);
     },
     [],
   );
 
   const handleInterruption = useCallback(() => {
-    // When connected, mode tells us who interrupted whom.
-    // We record a generic interruption event; the server determines type from context.
     setEvents((prev) => [
       ...prev,
       { type: 'user_interrupted_agent' },
     ]);
   }, []);
 
+  const handleError = useCallback((err: unknown) => {
+    console.error('ElevenLabs conversation error:', err);
+    const message = err instanceof Error ? err.message : 'Connection error';
+    setConnectError(message);
+  }, []);
+
   const conversation = useConversation({
     onMessage: handleMessage,
     onInterruption: handleInterruption,
+    onError: handleError,
+    onConnect: () => setConnectError(null),
+    onDisconnect: () => { /* expected when ending */ },
   });
 
   const { status, mode } = conversation;
 
-  const handleStart = useCallback(() => {
-    conversation.startSession({
-      signedUrl: sessionData.signedUrl,
-      overrides: {
-        agent: {
-          prompt: { prompt: sessionData.personaPrompt },
-        },
-        tts: {
-          voiceId: sessionData.voiceId,
-        },
-      },
-    });
+  const handleStart = useCallback(async () => {
+    setConnectError(null);
     setSessionStarted(true);
+    try {
+      // Request mic permission first so the user sees the browser prompt
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      await conversation.startSession({
+        signedUrl: sessionData.signedUrl,
+        overrides: {
+          agent: {
+            prompt: { prompt: sessionData.personaPrompt },
+          },
+          tts: {
+            voiceId: sessionData.voiceId,
+          },
+        },
+      });
+    } catch (err) {
+      console.error('Failed to start session:', err);
+      const msg = err instanceof Error ? err.message : 'Failed to start';
+      setConnectError(
+        msg.includes('Permission') || msg.includes('NotAllowed')
+          ? 'Microphone access denied. Please allow microphone access and reload.'
+          : `Connection failed: ${msg}`,
+      );
+      setSessionStarted(false);
+    }
   }, [conversation, sessionData]);
 
   const handleEndConfirmed = useCallback(async () => {
@@ -159,11 +184,21 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
       // ignore SDK errors on disconnect
     }
 
+    // If no turns happened (user never connected or didn't speak), just go home —
+    // don't attempt to save a session with an empty transcript
+    if (turns.length === 0) {
+      navigate('/');
+      return;
+    }
+
     try {
       const result = await sessionsApi.end(sessionData.sessionId, turns, events);
       navigate(`/sessions/${result.sessionId}/debrief`);
     } catch (err) {
-      setEndingError('Failed to save session. Please try again.');
+      console.error('Save session failed:', err);
+      setEndingError(
+        err instanceof Error ? `Failed to save: ${err.message}` : 'Failed to save session.',
+      );
       setEnding(false);
     }
   }, [conversation, sessionData.sessionId, turns, events, navigate]);
@@ -245,6 +280,11 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
       {/* Bottom controls                                                      */}
       {/* ------------------------------------------------------------------ */}
       <div className="shrink-0 px-4 py-5 border-t border-navy-600 flex flex-col items-center gap-3">
+        {connectError && (
+          <p className="text-red-400 font-body text-sm text-center max-w-md">
+            {connectError}
+          </p>
+        )}
         {endingError && (
           <p className="text-red-400 font-body text-sm">{endingError}</p>
         )}
@@ -258,13 +298,21 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
             Start Session
           </button>
         ) : (
-          <button
-            onClick={() => setShowConfirm(true)}
-            disabled={ending}
-            className="w-full max-w-sm bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 font-body font-semibold px-6 py-3 rounded-xl transition-all duration-200 active:scale-95 focus:outline-none disabled:opacity-50"
-          >
-            {ending ? 'Ending…' : 'End Session'}
-          </button>
+          <div className="flex gap-2 w-full max-w-sm">
+            <button
+              onClick={() => navigate('/')}
+              className="btn-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => setShowConfirm(true)}
+              disabled={ending}
+              className="flex-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 font-body font-semibold px-6 py-3 rounded-xl transition-all duration-200 active:scale-95 focus:outline-none disabled:opacity-50"
+            >
+              {ending ? 'Ending…' : 'End Session'}
+            </button>
+          </div>
         )}
       </div>
 
