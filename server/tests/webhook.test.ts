@@ -1,0 +1,171 @@
+import { setupTestDb } from './helpers';
+setupTestDb();
+
+import request from 'supertest';
+import crypto from 'crypto';
+import Database from 'better-sqlite3';
+import { runMigrations, seedTestData } from './helpers';
+import db from '../src/db/connection';
+import app from '../src/index';
+
+// Mock the ElevenLabs CAI service to avoid real API calls
+jest.mock('../src/services/elevenlabs-cai', () => ({
+  getSignedUrlForSession: jest.fn().mockResolvedValue({
+    signedUrl: 'wss://api.elevenlabs.io/v1/convai/conversation?agent_id=agent_test&conversation_signature=test',
+    agentId: 'agent_test',
+    voiceId: 'test-voice-id',
+    voiceName: 'Test Voice',
+    personaPrompt: 'You are a test client.',
+  }),
+  verifyWebhookSignature: jest.requireActual('../src/services/elevenlabs-cai').verifyWebhookSignature,
+}));
+
+beforeAll(() => {
+  runMigrations(db as unknown as Database.Database);
+  seedTestData(db as unknown as Database.Database);
+  // Seed required DISC profile
+  (db as unknown as Database.Database)
+    .prepare("INSERT OR IGNORE INTO disc_profiles (code, name, body_markdown) VALUES ('S', 'Steadiness', '# S')")
+    .run();
+});
+
+function makeSignature(body: string, secret: string): string {
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const hmac = crypto.createHmac('sha256', secret)
+    .update(`${timestamp}.${body}`)
+    .digest('hex');
+  return `t=${timestamp},v1=${hmac}`;
+}
+
+describe('POST /api/sessions (with ElevenLabs)', () => {
+  it('returns signedUrl and personaPrompt', async () => {
+    const loginRes = await request(app)
+      .post('/auth/login')
+      .send({ email: 'pm@test.com', password: 'pm123' });
+    const token = loginRes.body.token;
+
+    const res = await request(app)
+      .post('/api/sessions')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ scenarioSlug: 'test-scenario', clientDiscCode: 'S' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.sessionId).toBeDefined();
+    expect(res.body.signedUrl).toContain('wss://');
+    expect(res.body.personaPrompt).toBeDefined();
+    expect(res.body.voiceName).toBe('Test Voice');
+  });
+});
+
+describe('POST /api/elevenlabs/webhook', () => {
+  let sessionId: number;
+
+  beforeAll(async () => {
+    // Mark any existing sessions as linked so only our new session has NULL conversation_id
+    (db as unknown as Database.Database)
+      .prepare("UPDATE sessions SET elevenlabs_conversation_id = 'pre-existing' WHERE elevenlabs_conversation_id IS NULL")
+      .run();
+
+    const loginRes = await request(app)
+      .post('/auth/login')
+      .send({ email: 'pm@test.com', password: 'pm123' });
+    const token = loginRes.body.token;
+
+    const sessionRes = await request(app)
+      .post('/api/sessions')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ scenarioSlug: 'test-scenario', clientDiscCode: 'S' });
+    sessionId = sessionRes.body.sessionId;
+  });
+
+  it('returns 401 for invalid signature when secret is set', async () => {
+    process.env.ELEVENLABS_WEBHOOK_SECRET = 'test-secret';
+    const body = JSON.stringify({ type: 'conversation_started', conversation_id: 'conv-123' });
+
+    const res = await request(app)
+      .post('/api/elevenlabs/webhook')
+      .set('Content-Type', 'application/json')
+      .set('ElevenLabs-Signature', 'invalid-signature')
+      .send(body);
+
+    expect(res.status).toBe(401);
+    delete process.env.ELEVENLABS_WEBHOOK_SECRET;
+  });
+
+  it('processes conversation_started event and links session', async () => {
+    const conversationId = `conv-${sessionId}`;
+    const body = JSON.stringify({ type: 'conversation_started', conversation_id: conversationId });
+
+    const res = await request(app)
+      .post('/api/elevenlabs/webhook')
+      .set('Content-Type', 'application/json')
+      .send(body);
+
+    expect(res.status).toBe(200);
+
+    // Verify session was linked
+    const session = (db as unknown as Database.Database)
+      .prepare('SELECT elevenlabs_conversation_id FROM sessions WHERE id = ?')
+      .get(sessionId) as { elevenlabs_conversation_id: string | null };
+    expect(session.elevenlabs_conversation_id).toBe(conversationId);
+  });
+
+  it('processes turn event and persists to turns table', async () => {
+    const conversationId = `conv-${sessionId}`;
+    const body = JSON.stringify({
+      type: 'turn',
+      conversation_id: conversationId,
+      role: 'user',
+      message: 'Hi, this is a test turn from the PM.',
+    });
+
+    const res = await request(app)
+      .post('/api/elevenlabs/webhook')
+      .set('Content-Type', 'application/json')
+      .send(body);
+
+    expect(res.status).toBe(200);
+
+    const turns = (db as unknown as Database.Database)
+      .prepare("SELECT * FROM turns WHERE session_id = ? AND speaker = 'pm'")
+      .all(sessionId) as { content: string }[];
+    expect(turns.some(t => t.content === 'Hi, this is a test turn from the PM.')).toBe(true);
+  });
+
+  it('processes interruption event and persists to events table', async () => {
+    const conversationId = `conv-${sessionId}`;
+    const body = JSON.stringify({
+      type: 'interruption',
+      conversation_id: conversationId,
+      role: 'user', // PM interrupted the client
+    });
+
+    const res = await request(app)
+      .post('/api/elevenlabs/webhook')
+      .set('Content-Type', 'application/json')
+      .send(body);
+
+    expect(res.status).toBe(200);
+
+    const events = (db as unknown as Database.Database)
+      .prepare("SELECT * FROM events WHERE session_id = ? AND type = 'user_interrupted_agent'")
+      .all(sessionId);
+    expect(events.length).toBeGreaterThan(0);
+  });
+
+  it('verifyWebhookSignature returns true for valid signature', async () => {
+    const { verifyWebhookSignature } = await import('../src/services/elevenlabs-cai');
+    const secret = 'my-test-secret';
+    const rawBody = '{"type":"turn"}';
+    const sig = makeSignature(rawBody, secret);
+    expect(verifyWebhookSignature(rawBody, sig, secret)).toBe(true);
+  });
+
+  it('verifyWebhookSignature returns false for tampered body', async () => {
+    const { verifyWebhookSignature } = await import('../src/services/elevenlabs-cai');
+    const secret = 'my-test-secret';
+    const rawBody = '{"type":"turn"}';
+    const sig = makeSignature(rawBody, secret);
+    expect(verifyWebhookSignature('{"type":"tampered"}', sig, secret)).toBe(false);
+  });
+});

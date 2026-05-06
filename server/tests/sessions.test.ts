@@ -7,6 +7,18 @@ import { runMigrations, seedTestData } from './helpers';
 import db from '../src/db/connection';
 import app from '../src/index';
 
+// Mock the ElevenLabs CAI service to avoid real API calls in tests
+jest.mock('../src/services/elevenlabs-cai', () => ({
+  getSignedUrlForSession: jest.fn().mockResolvedValue({
+    signedUrl: 'wss://api.elevenlabs.io/v1/convai/conversation?agent_id=agent_test&conversation_signature=test',
+    agentId: 'agent_test',
+    voiceId: 'test-voice-id',
+    voiceName: 'Test Voice',
+    personaPrompt: 'You are a test client.',
+  }),
+  verifyWebhookSignature: jest.requireActual('../src/services/elevenlabs-cai').verifyWebhookSignature,
+}));
+
 // Mock the Claude service to avoid real API calls in tests
 jest.mock('../src/services/claude', () => ({
   generateCoaching: jest.fn().mockResolvedValue({
