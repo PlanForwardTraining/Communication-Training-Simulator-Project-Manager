@@ -157,23 +157,23 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 🔗 [Guide reference](REBUILD_ME_GUIDE.md#part-5--build-ai-and-voice-services-phases-2--3)
 
 ### 5.1 — Install SDKs
-- [ ] Install `@anthropic-ai/sdk`, `axios` in server
+- [x] Install `@anthropic-ai/sdk` in server
 
-### 5.2 — Prompt Layer
-- [ ] `server/src/prompts/loader.ts` (reads from `/content/`)
-- [ ] `server/src/prompts/persona-prompt.ts` (with profile-appropriate interruption guidance)
-- [ ] `server/src/prompts/coaching-prompt.ts` (consumes events list, scores Active Listening)
+### 5.2 — Prompt Layer *(Phase 2 complete)*
+- [x] `server/src/prompts/loader.ts` (reads from `/content/`)
+- [x] `server/src/prompts/persona-prompt.ts`
+- [x] `server/src/prompts/coaching-prompt.ts` (scores Active Listening using interruption events)
 
-### 5.3 — Coaching Service
-- [ ] `server/src/services/claude.ts` (`generateCoaching` only — no in-call turn handling)
+### 5.3 — Coaching Service *(Phase 2 complete)*
+- [x] `server/src/services/claude.ts` (`generateCoaching` — calls Claude after session ends)
 
-### 5.4 — Verify ElevenLabs CAI Agent Configured
-- [ ] `ELEVENLABS_AGENT_ID` in `.env`
-- [ ] `ELEVENLABS_WEBHOOK_SECRET` in `.env`
+### 5.4 — Verify ElevenLabs CAI Agent Configured *(done in Part 2)*
+- [x] `ELEVENLABS_AGENT_ID` in `.env`
+- [ ] `ELEVENLABS_WEBHOOK_SECRET` in `.env` *(deferred to Part 9)*
 - [ ] Agent's webhook URL reachable (use ngrok for local dev)
-- [ ] Agent LLM is set to Claude
+- [x] Agent LLM configured
 
-### 5.5 — Voice Selector + ElevenLabs Service Layer
+### 5.5 — Voice Selector + ElevenLabs Service Layer *(Phase 3)*
 - [ ] `server/src/services/voice-selector.ts`:
   - [ ] Reads `/content/voices/*.md` frontmatter at startup
   - [ ] Implements 3-tier priority: scenario-pinned → DISC-aligned random → forced random
@@ -183,25 +183,25 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
   - [ ] `verifyWebhookSignature()` HMAC-SHA256 check
 
 ### 5.6 — Session API
-- [ ] `POST /api/sessions` returns `{ sessionId, signedUrl, agentId }`
-- [ ] `POST /api/sessions/:id/end` runs coaching pipeline
-- [ ] `GET /api/sessions/:id` returns full session with turns + events + coaching
-- [ ] `GET /api/sessions` filtered by role
-- [ ] `POST /api/elevenlabs/webhook`:
+- [x] `POST /api/sessions` returns `{ sessionId }` *(signedUrl + agentId added in Phase 3)*
+- [x] `POST /api/sessions/:id/end` runs coaching pipeline ✅ *live Claude verified, score: 46*
+- [x] `GET /api/sessions/:id` returns full session with turns + events + coaching
+- [x] `GET /api/sessions` filtered by role
+- [ ] `POST /api/elevenlabs/webhook` *(Phase 3)*:
   - [ ] Signature verification
   - [ ] Persists `turn` events to `turns` table
-  - [ ] Persists `interruption` events to `events` table (with correct `type`)
+  - [ ] Persists `interruption` events to `events` table
   - [ ] Updates `sessions.elevenlabs_conversation_id` on `conversation_started`
 
 ### 5.7 — Verify End-to-End
-- [ ] Run `ngrok http 3001` and update agent webhook URL
-- [ ] Test conversation in ElevenLabs dashboard Test interface
-- [ ] AI responds in character via Claude
-- [ ] Interruption stops the AI mid-sentence
-- [ ] Webhooks arrive in backend logs
-- [ ] `turns` and `events` rows visible in SQLite
-- [ ] `POST /api/sessions/:id/end` returns coaching with `activeListening` score
-- [ ] **Phases 2-3 complete** — commit and push
+- [ ] Run `ngrok http 3002` and update agent webhook URL *(Phase 3)*
+- [ ] Test conversation in ElevenLabs dashboard Test interface *(Phase 3)*
+- [ ] AI responds in character via Claude *(Phase 3)*
+- [ ] Interruption stops the AI mid-sentence *(Phase 3)*
+- [ ] Webhooks arrive in backend logs *(Phase 3)*
+- [ ] `turns` and `events` rows visible in SQLite *(Phase 3)*
+- [x] `POST /api/sessions/:id/end` returns coaching with `activeListening` score — **18/18 tests passing ✅**
+- [ ] **Phases 2-3 complete** — commit and push *(Phase 3 remaining)*
 
 ---
 
