@@ -82,14 +82,14 @@ export function ScenarioSelectPage() {
                 <button
                   key={scenario.id}
                   onClick={() => navigate(`/sessions/new/${scenario.slug}`)}
-                  className="card p-7 text-left hover:bg-navy-700 transition-all duration-200 group border-l-4 border-l-gold-500 hover:border-l-gold-400 active:scale-[0.99] flex flex-col min-h-[140px]"
+                  className="card p-6 text-left hover:bg-navy-700 transition-all duration-200 group border-l-4 border-l-gold-500 hover:border-l-gold-400 active:scale-[0.99]"
                 >
-                  <div className="flex items-start justify-between gap-4 flex-1">
+                  <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-display font-semibold text-[15px] text-slate-text group-hover:text-gold-400 transition-colors duration-200 mb-3 leading-snug">
+                      <h3 className="font-display font-semibold text-[15px] leading-snug text-slate-text group-hover:text-gold-400 transition-colors duration-200 mb-2">
                         {scenario.title.replace(/^Scenario \d+:\s*/i, '')}
                       </h3>
-                      <p className="font-body text-sm text-slate-muted line-clamp-3 leading-relaxed">
+                      <p className="font-body text-sm leading-relaxed text-slate-muted overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', paddingBottom: '2px' }}>
                         {stripMarkdown(scenario.description)}
                       </p>
                     </div>
