@@ -33,7 +33,7 @@ Before writing any prompts or configuring scenarios, collect:
 
 **Sub-plan:** `docs/superpowers/plans/2026-05-05-phase1-foundation.md`
 
-**Deliverable:** A running Express API with SQLite database, JWT authentication, and full CRUD for users, scenarios, DISC profiles, and rubric items. No frontend yet — verified via API client (curl/Postman/Insomnia).
+**Deliverable:** A running Express API with SQLite database, JWT authentication, and full CRUD for users, scenarios, DISC profiles, and rubric items. No frontend yet — verified via curl.
 
 ### What Gets Built
 

@@ -67,9 +67,10 @@ Install on the development machine (Mac, Windows, or Linux).
 |---|---|---|
 | **Node.js 20 LTS** | Runs both backend and frontend | Download from [nodejs.org](https://nodejs.org). Choose "LTS" version. |
 | **Git** | Version control | macOS: `xcode-select --install`. Windows: download from [git-scm.com](https://git-scm.com) |
-| **VS Code** | Code editor | Download from [code.visualstudio.com](https://code.visualstudio.com) |
+| **VS Code** | Code editor + Claude Code host | Download from [code.visualstudio.com](https://code.visualstudio.com) |
 | **GitHub Desktop** *(optional)* | Friendly git UI for non-CLI users | [desktop.github.com](https://desktop.github.com) |
-| **Postman** or **Insomnia** | Test the API while building it | [postman.com](https://www.postman.com) or [insomnia.rest](https://insomnia.rest) |
+
+> **API testing tools (Postman, Insomnia, etc.) are not needed.** Claude Code handles API verification directly via curl during the build. If you ever bring on a separate human developer who wants their own API client, they can install [Postman](https://www.postman.com) or [Insomnia](https://insomnia.rest) themselves — the project doesn't depend on either being installed.
 
 ### 1.2 — Verify Installation
 
@@ -91,7 +92,6 @@ Open VS Code → Extensions panel → install these:
 - **Prettier — Code formatter** (esbenp.prettier-vscode)
 - **Tailwind CSS IntelliSense** (bradlc.vscode-tailwindcss)
 - **SQLite Viewer** (qwtel.sqlite-viewer) — to inspect the database
-- **REST Client** (humao.rest-client) — alternative to Postman
 
 ---
 
@@ -486,9 +486,17 @@ npm run dev
 
 You should see `Server running on port 3001`.
 
-In Postman, hit `POST http://localhost:3001/auth/login` with `{"email":"admin@your-company.com","password":"<seed password>"}`. You should get back a JWT.
+Test the login via curl (Claude Code can run this for you):
 
-**✅ Phase 1 done when:** all routes work in Postman with both `pm` and `admin` JWTs, and `npm test` passes.
+```bash
+curl -X POST http://localhost:3001/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@your-company.com","password":"<seed password>"}'
+```
+
+You should get back a JWT.
+
+**✅ Phase 1 done when:** all routes work via curl with both `pm` and `admin` JWTs, and `npm test` passes.
 
 Commit:
 
@@ -583,7 +591,7 @@ Then in the ElevenLabs dashboard:
 4. Try interrupting — verify the agent stops mid-sentence
 5. Check your backend logs — verify webhooks arrived and rows were inserted into `turns` and `events`
 
-In Postman, hit `POST /api/sessions/:id/end` and verify coaching JSON returned with `activeListening` score reflecting the interruption count.
+Then have Claude Code curl `POST /api/sessions/:id/end` and verify coaching JSON returned with `activeListening` score reflecting the interruption count.
 
 **✅ Phases 2-3 done when:**
 - A live conversation works through the ElevenLabs dashboard test interface

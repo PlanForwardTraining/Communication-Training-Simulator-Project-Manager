@@ -15,14 +15,14 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [ ] Install Node.js 20 LTS
 - [ ] Install Git
 - [ ] Install VS Code
-- [ ] Install Postman or Insomnia
 - [ ] Verify versions in terminal: `node --version`, `npm --version`, `git --version`
 - [ ] VS Code extension: ESLint
 - [ ] VS Code extension: Prettier — Code formatter
 - [ ] VS Code extension: Tailwind CSS IntelliSense
 - [ ] VS Code extension: SQLite Viewer
-- [ ] VS Code extension: REST Client *(optional)*
 - [ ] VS Code extension: Markdown All in One *(for this checklist)*
+
+> Postman / Insomnia / REST Client are **not** required — Claude Code handles API testing directly.
 
 ---
 
@@ -146,7 +146,7 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [ ] `npm run db:migrate` succeeds
 - [ ] `npm run db:seed` succeeds
 - [ ] `npm run dev` starts on port 3001
-- [ ] Test admin login in Postman, receive JWT
+- [ ] Test admin login via curl, receive JWT
 - [ ] All routes verified with `pm` and `admin` JWTs
 - [ ] `npm test` passes
 - [ ] **Phase 1 complete** — commit and push
