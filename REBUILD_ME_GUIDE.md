@@ -833,51 +833,64 @@ Fix any build errors before continuing.
 
 ### 9.2 — Deploy the Backend to Railway
 
-1. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo**
-2. Select `communication-training-simulator` → choose the **server** subdirectory as the root
-3. Railway auto-detects Node.js
-4. Under **Settings**:
-   - Set **Root Directory** to `server`
-   - Set **Build Command** to `npm install && npm run build`
-   - Set **Start Command** to `npm run start`
-5. Under **Variables**, add ALL the variables from `server/.env.example` with **production** values:
-   - `JWT_SECRET` — generate a NEW random string for production (don't reuse dev)
-   - All API keys (same dev keys are OK to start, or create new production keys)
-   - `ELEVENLABS_AGENT_ID` (from Part 2.4)
-   - `NODE_ENV=production`
-   - `CLIENT_ORIGIN=https://training.your-company.com` (set after Vercel deploy in 9.3)
-   - `DATABASE_PATH=/data/simulator.db`
-   - `EXCEL_PATH=/data/sessions.xlsx`
-6. Add a **Volume**:
-   - Volumes panel → New Volume → mount path `/data`
-   - This ensures the SQLite file and audio files survive deploys
-7. Deploy → Railway runs the build and starts the server
-8. Get your Railway URL: it will look like `https://your-app-production.up.railway.app`. Copy it.
-9. **Run migrations and seed** by opening the Railway shell:
-   - In Railway dashboard → your service → **Settings → Deploy Logs** to confirm running
-   - Open the **shell** (or run a one-off command): `npm run db:migrate && npm run db:seed`
-10. Test: `curl https://your-app-production.up.railway.app/health` should return OK
+> **⚠ Lessons learned the hard way during the original deploy** — read these BEFORE clicking through Railway's UI:
+>
+> 1. **DO NOT use Railway's "Root Directory" setting.** It restricts the build context to that subfolder, which means our build script can't `cp -r ../content` (the content folder is outside `server/`). Instead, use the `railway.toml` at the repo root that says `cd server && ...`.
+> 2. **Pin Node version in `package.json` engines** — Nixpacks defaults to Node 18 which doesn't support `better-sqlite3@12+`. Both root and `server/package.json` should have `"engines": { "node": ">=20.0.0" }`.
+> 3. **Use `--include=dev` in the build command** — `NODE_ENV=production` makes `npm install` skip devDependencies, but `tsc` is a devDependency. Build will fail with `tsc: not found` without this flag.
+> 4. **Bundle `/content/` into `dist/content/` during build** — the deployed server is self-contained; `/content/` from the repo root is no longer reachable at runtime in some configurations.
+> 5. **You MUST attach a Volume at `/data`** — without it, the database resets on every redeploy. Right-click the service → **Attach volume** → mount path `/data`.
+> 6. **Generate a public domain explicitly** — Settings → Networking → Generate Domain. Pick port `3001` (or whatever PORT env var you set).
+
+1. Go to [railway.com](https://railway.com) → **New Project** → **Deploy from GitHub repo**
+2. Select the repo (e.g. `Communication-Training-Simulator-Project-Manager`)
+3. Upgrade to **Hobby plan** ($5/mo) when prompted — required for persistent volumes
+4. **Service Settings → Source: leave "Root Directory" EMPTY** — Railway will use the `railway.toml` at the repo root
+5. **Variables** → add all of these (use Raw Editor for paste):
+   ```
+   ANTHROPIC_API_KEY=sk-ant-...
+   ELEVENLABS_API_KEY=sk_...
+   ELEVENLABS_AGENT_ID=agent_...
+   JWT_SECRET=<generate a fresh 96-char hex>
+   JWT_EXPIRES_IN=7d
+   ADMIN_PASSWORD=<a real password you'll use to log in>
+   DATABASE_PATH=/data/simulator.db
+   EXCEL_PATH=/data/sessions.xlsx
+   PORT=3001
+   NODE_ENV=production
+   CLIENT_ORIGIN=*
+   ```
+   (You'll lock `CLIENT_ORIGIN` to your Vercel URL after step 9.3.)
+6. **Right-click the service tile → Attach volume** → mount path `/data`
+7. **Settings → Networking → Generate Domain** → enter port `3001`
+8. Wait for green "Active" status. Test:
+   ```bash
+   curl https://<your-railway-url>/health
+   ```
+   Should return `{"status":"ok",...}`.
+
+The migrations + seed run automatically as part of `npm start` (see `server/package.json`). No manual step needed.
 
 ### 9.3 — Deploy the Frontend to Vercel
 
-1. Go to [vercel.com/new](https://vercel.com/new) → import the GitHub repo
-2. Set **Root Directory** to `client`
-3. Vercel auto-detects Vite. Confirm:
+1. Go to [vercel.com/new](https://vercel.com/new), logged in as the company Gmail account
+2. Import the repo
+3. Set **Root Directory** to `client`
+4. Vercel auto-detects Vite. Confirm:
    - Build Command: `npm run build`
    - Output Directory: `dist`
-4. Under **Environment Variables**, add:
-   - `VITE_API_BASE_URL=https://your-app-production.up.railway.app`
-5. Deploy
-6. Vercel gives you a URL like `https://communication-training-simulator-xyz.vercel.app`. Test it — log in and click around.
+5. Under **Environment Variables**, add:
+   - `VITE_API_BASE_URL=https://<your-railway-url>`
+6. Deploy
+7. Vercel gives you a URL like `https://communication-training-simulator-xyz.vercel.app`. Test it — log in and click around.
 
-### 9.3a — Update ElevenLabs Webhook URL to Production
+### 9.3a — Lock down CORS to your Vercel URL
 
-In the ElevenLabs dashboard:
+Back in Railway:
 
-1. Go to **Conversational AI → Agents → your agent → Webhooks**
-2. Update the webhook URL to your Railway backend URL: `https://your-app-production.up.railway.app/api/elevenlabs/webhook`
-3. Save
-4. Test: start a conversation in the dashboard's Test interface and verify webhooks arrive in Railway logs
+1. Service → **Variables**
+2. Edit `CLIENT_ORIGIN` from `*` to your Vercel URL (e.g. `https://something.vercel.app`)
+3. Save → wait for redeploy
 
 ### 9.4 — Connect the Custom Domain
 

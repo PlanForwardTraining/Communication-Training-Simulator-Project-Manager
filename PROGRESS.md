@@ -330,34 +330,48 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 🔗 [Guide reference](REBUILD_ME_GUIDE.md#part-9--deploy-to-production)
 
 ### 9.1 — Pre-Deploy
-- [ ] Confirm CORS reads `CLIENT_ORIGIN` from env
-- [ ] `cd server && npm run build` succeeds with no errors
-- [ ] `cd client && npm run build` succeeds with no errors
+- [x] Confirm CORS reads `CLIENT_ORIGIN` from env
+- [x] `cd server && npm run build` succeeds with no errors
+- [x] `cd client && npm run build` succeeds with no errors
 
-### 9.2 — Deploy Backend (Railway)
-- [ ] Create Railway project from GitHub repo
-- [ ] Set root directory to `server`
-- [ ] Set build and start commands
-- [ ] Add all env variables (with **production** values)
-- [ ] Generate new `JWT_SECRET` for prod (do not reuse dev)
-- [ ] Add `ELEVENLABS_AGENT_ID` and `ELEVENLABS_WEBHOOK_SECRET`
-- [ ] Add Volume mounted at `/data`
-- [ ] Deploy succeeds, service is running
-- [ ] Run `db:migrate` and `db:seed` on Railway
-- [ ] Test `/health` endpoint via curl
-- [ ] Copy production Railway URL
+### 9.2 — Deploy Backend (Railway) ✅ DONE
 
-### 9.2a — Update ElevenLabs Webhook to Production
-- [ ] Update agent webhook URL to `https://<railway-url>/api/elevenlabs/webhook`
-- [ ] Test conversation in ElevenLabs dashboard
-- [ ] Verify webhooks arrive in Railway logs
+**Production URL:** `https://communication-training-simulator-project-manager-production.up.railway.app`
+**Verified:** `/health` returns `{"status":"ok",...}` HTTP 200
 
-### 9.3 — Deploy Frontend (Vercel)
-- [ ] Import GitHub repo into Vercel
-- [ ] Set root directory to `client`
-- [ ] Add `VITE_API_BASE_URL` pointing to Railway URL
+- [x] Create Railway project from GitHub repo
+- [x] Hobby plan upgrade ($5/mo) — required for persistent volume
+- [x] **Do NOT set "Root Directory"** — leave empty so railway.toml controls build
+- [x] `railway.toml` at repo root configures build/start commands (`cd server`)
+- [x] `engines.node` pinned to `>=20` in both root and server `package.json` (better-sqlite3 needs Node 20+)
+- [x] Build command uses `--include=dev` so `tsc` is available
+- [x] Build copies `/content/` into `dist/content/` so server is self-contained
+- [x] All env variables added (10 vars; values match production needs)
+- [x] Fresh `JWT_SECRET` (different from dev)
+- [x] `DATABASE_PATH=/data/simulator.db` and `EXCEL_PATH=/data/sessions.xlsx` (absolute, on volume)
+- [x] `NODE_ENV=production`, `CLIENT_ORIGIN=*` (will lock to Vercel URL after frontend deploys)
+- [x] `ADMIN_PASSWORD` set to a real password (so admin can log in to seeded user)
+- [x] Volume mounted at `/data` (right-click service → "Attach volume")
+- [x] `PORT=3001` set + Generate Domain → port 3001
+- [x] Deploy succeeds, `/health` returns 200
+
+### 9.3 — Deploy Frontend (Vercel) ⏳ NEXT STEP
+
+- [ ] Go to [vercel.com/new](https://vercel.com/new), logged in as `TrainingPlanForward@gmail.com`
+- [ ] Import `Communication-Training-Simulator-Project-Manager` repo
+- [ ] **Root Directory**: `client`
+- [ ] Framework Preset: Vite (auto-detected)
+- [ ] **Environment Variables** add:
+  ```
+  VITE_API_BASE_URL=https://communication-training-simulator-project-manager-production.up.railway.app
+  ```
 - [ ] Deploy succeeds
-- [ ] Confirm app loads at vercel.app URL
+- [ ] Confirm app loads at `<something>.vercel.app`
+
+### 9.3a — Lock down CORS (after Vercel URL is known)
+
+- [ ] Update Railway `CLIENT_ORIGIN` env var from `*` to the Vercel URL
+- [ ] Wait for redeploy
 
 ### 9.4 — Custom Domain
 - [ ] Add custom domain in Vercel
