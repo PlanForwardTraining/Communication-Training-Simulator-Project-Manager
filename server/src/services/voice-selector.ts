@@ -5,6 +5,8 @@ import { getContentDir } from '../utils/content-dir';
 export interface VoiceSelection {
   voiceId: string;
   voiceName: string;
+  /** First name of the client persona — used in the prompt and shown to the PM. */
+  clientFirstName: string;
 }
 
 interface VoiceProfile {
@@ -13,6 +15,14 @@ interface VoiceProfile {
   active: boolean;
   discCompatibility: string[]; // e.g. ['D', 'D/I', 'D/C']
   fileName: string;
+}
+
+/**
+ * Strip voice-library suffixes/disambiguators to get a natural first name.
+ * "Adam M" → "Adam", "Joey Patel" → "Joey", "Sarah" → "Sarah".
+ */
+function toFirstName(displayName: string): string {
+  return displayName.trim().split(/\s+/)[0] || displayName;
 }
 
 const CONTENT_DIR = getContentDir();
@@ -74,7 +84,11 @@ function checkScenarioPinnedVoice(scenarioSlug: string): VoiceSelection | null {
     const pinned = voices.find(v => v.fileName === pinnedFile || v.fileName === `${pinnedFile}.md`);
     if (!pinned) return null;
 
-    return { voiceId: pinned.voiceId, voiceName: pinned.displayName };
+    return {
+      voiceId: pinned.voiceId,
+      voiceName: pinned.displayName,
+      clientFirstName: toFirstName(pinned.displayName),
+    };
   } catch {
     return null;
   }
@@ -105,5 +119,9 @@ export function selectVoiceForSession(
   }
 
   const selected = pool[Math.floor(Math.random() * pool.length)];
-  return { voiceId: selected.voiceId, voiceName: selected.displayName };
+  return {
+    voiceId: selected.voiceId,
+    voiceName: selected.displayName,
+    clientFirstName: toFirstName(selected.displayName),
+  };
 }

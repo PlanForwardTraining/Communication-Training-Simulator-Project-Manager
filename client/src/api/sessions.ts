@@ -6,6 +6,7 @@ export interface SessionStart {
   agentId: string;
   voiceId: string;
   voiceName: string;
+  clientFirstName: string;
   personaPrompt: string;
 }
 

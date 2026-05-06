@@ -251,11 +251,21 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
       {/* Header                                                               */}
       {/* ------------------------------------------------------------------ */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-navy-600 shrink-0">
-        {/* DISC badge — top left */}
-        <DiscBadge code={discCode} />
+        {/* DISC badge + client name — top left */}
+        <div className="flex items-center gap-3 min-w-0">
+          <DiscBadge code={discCode} />
+          <div className="flex flex-col leading-tight min-w-0">
+            <span className="font-body text-[10px] uppercase tracking-widest text-slate-muted">
+              Speaking with
+            </span>
+            <span className="font-display font-semibold text-sm text-slate-text truncate">
+              {sessionData.clientFirstName}
+            </span>
+          </div>
+        </div>
 
         {/* Scenario name — top center */}
-        <span className="font-display font-semibold text-sm text-slate-muted tracking-wide">
+        <span className="font-display font-semibold text-sm text-slate-muted tracking-wide hidden sm:inline">
           {scenarioLabel}
         </span>
 
@@ -300,7 +310,7 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
               }`}
             >
               <p className="mb-0.5 font-semibold text-xs opacity-60 uppercase tracking-widest">
-                {turn.speaker === 'pm' ? 'You' : 'Client'}
+                {turn.speaker === 'pm' ? 'You' : sessionData.clientFirstName}
               </p>
               {turn.content}
             </div>

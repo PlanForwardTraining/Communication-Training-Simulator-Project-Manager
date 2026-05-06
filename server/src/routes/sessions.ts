@@ -39,13 +39,21 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
   const sessionId = result.lastInsertRowid as number;
 
   try {
-    const { signedUrl, agentId, voiceId, voiceName, personaPrompt } =
+    const { signedUrl, agentId, voiceId, voiceName, clientFirstName, personaPrompt } =
       await getSignedUrlForSession(sessionId, scenarioSlug, clientDiscCode);
 
     db.prepare('UPDATE sessions SET voice_id = ?, voice_name = ? WHERE id = ?')
       .run(voiceId, voiceName, sessionId);
 
-    res.status(201).json({ sessionId, signedUrl, agentId, voiceId, voiceName, personaPrompt });
+    res.status(201).json({
+      sessionId,
+      signedUrl,
+      agentId,
+      voiceId,
+      voiceName,
+      clientFirstName,
+      personaPrompt,
+    });
   } catch (err) {
     console.error('Failed to get signed URL from ElevenLabs:', err);
     res.status(500).json({ error: 'Failed to initialize ElevenLabs session' });

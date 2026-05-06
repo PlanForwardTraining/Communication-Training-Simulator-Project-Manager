@@ -32,8 +32,10 @@ export interface ConversationSession {
   agentId: string;
   /** ElevenLabs voice ID selected for this session. */
   voiceId: string;
-  /** Human-readable voice name. */
+  /** Human-readable voice name (voice talent label, e.g. "Adam M"). */
   voiceName: string;
+  /** First name of the client persona — shown to the PM, used by the AI. */
+  clientFirstName: string;
   /**
    * The persona system prompt to send in `conversation_initiation_client_data`.
    * Included here so the caller can pass it when opening the WebSocket.
@@ -80,7 +82,7 @@ export async function getSignedUrlForSession(
   clientDiscCode: string
 ): Promise<ConversationSession> {
   // 1. Select voice
-  const { voiceId, voiceName } = selectVoiceForSession(scenarioSlug, clientDiscCode);
+  const { voiceId, voiceName, clientFirstName } = selectVoiceForSession(scenarioSlug, clientDiscCode);
 
   // 2. Load content and build persona prompt
   const scenario = getScenario(scenarioSlug);
@@ -93,7 +95,7 @@ export async function getSignedUrlForSession(
     throw new Error(`DISC profile not found: ${clientDiscCode}`);
   }
 
-  const personaPrompt = buildPersonaPrompt(scenario, clientDisc);
+  const personaPrompt = buildPersonaPrompt(scenario, clientDisc, clientFirstName);
 
   // 3. Call ElevenLabs to get the signed WebSocket URL
   //    Endpoint: GET /v1/convai/conversation/get_signed_url?agent_id=<id>
@@ -137,6 +139,7 @@ export async function getSignedUrlForSession(
     agentId,
     voiceId,
     voiceName,
+    clientFirstName,
     personaPrompt,
   };
 }
