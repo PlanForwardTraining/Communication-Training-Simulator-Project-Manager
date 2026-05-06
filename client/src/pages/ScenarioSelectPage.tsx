@@ -89,12 +89,15 @@ export function ScenarioSelectPage() {
                       <h3 className="font-display font-semibold text-base leading-snug text-slate-text group-hover:text-gold-400 transition-colors duration-200 mb-2.5">
                         {scenario.title.replace(/^Scenario \d+:\s*/i, '')}
                       </h3>
-                      {/* Wrapper clips; inner p has no overflow:hidden so descenders aren't cut */}
-                      <div style={{ overflow: 'hidden', paddingBottom: '3px' }}>
-                        <p className="font-body text-sm text-slate-muted" style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', lineHeight: '1.65' }}>
-                          {stripMarkdown(scenario.description)}
-                        </p>
-                      </div>
+                      <p className="font-body text-sm text-slate-muted" style={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 4,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        lineHeight: '1.85',
+                      }}>
+                        {stripMarkdown(scenario.description)}
+                      </p>
                     </div>
                     <svg
                       className="w-5 h-5 text-navy-500 group-hover:text-gold-500 group-hover:translate-x-1 transition-all duration-200 flex-shrink-0 mt-0.5"
