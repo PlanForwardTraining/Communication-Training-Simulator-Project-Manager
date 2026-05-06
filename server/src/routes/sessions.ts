@@ -207,7 +207,26 @@ router.get('/:id', requireAuth, (req: Request, res: Response): void => {
 
   const turns = db.prepare('SELECT * FROM turns WHERE session_id = ? ORDER BY created_at').all(sessionId);
   const events = db.prepare('SELECT * FROM events WHERE session_id = ? ORDER BY occurred_at').all(sessionId);
-  const coaching = db.prepare('SELECT * FROM coaching WHERE session_id = ?').get(sessionId);
+  const coachingRow = db.prepare('SELECT * FROM coaching WHERE session_id = ?').get(sessionId) as {
+    strengths: string;
+    misses: string;
+    alternatives: string;
+    disc_adaptation: string;
+    score_breakdown_json: string;
+    total_score: number;
+  } | undefined;
+
+  // Transform DB row → camelCase shape the frontend expects
+  const coaching = coachingRow
+    ? {
+        strengths: coachingRow.strengths,
+        misses: coachingRow.misses,
+        alternatives: coachingRow.alternatives,
+        discAdaptation: coachingRow.disc_adaptation,
+        scoreBreakdown: JSON.parse(coachingRow.score_breakdown_json),
+        totalScore: coachingRow.total_score,
+      }
+    : null;
 
   res.json({ ...session, turns, events, coaching: coaching || null });
 });
