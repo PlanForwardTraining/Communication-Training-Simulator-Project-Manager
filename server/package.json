@@ -2,6 +2,9 @@
   "name": "server",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc && mkdir -p dist/db && cp src/db/schema.sql dist/db/schema.sql && cp -r ../content dist/content",
