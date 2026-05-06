@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import fs from 'fs';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -10,6 +11,14 @@ const dbPath = rawPath === ':memory:'
   : rawPath
     ? path.resolve(rawPath)
     : path.resolve(__dirname, '../../../data/simulator.db');
+
+// Ensure parent directory exists (handles Railway volumes + local first run)
+if (dbPath !== ':memory:') {
+  const dbDir = path.dirname(dbPath);
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+}
 
 const db = new Database(dbPath);
 
