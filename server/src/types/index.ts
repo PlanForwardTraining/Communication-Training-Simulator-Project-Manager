@@ -21,3 +21,39 @@ declare global {
     }
   }
 }
+
+export interface CoachingResult {
+  strengths: string;
+  misses: string;
+  alternatives: string;
+  discAdaptation: string;
+  scoreBreakdown: {
+    empathy: number;
+    clarity: number;
+    discAdaptation: number;
+    solutionOrientation: number;
+    ownership: number;
+    composure: number;
+    activeListening: number;
+  };
+  totalScore: number;
+}
+
+export interface TurnRecord {
+  id: number;
+  session_id: number;
+  speaker: 'pm' | 'client';
+  content: string;
+  started_at_ms: number | null;
+  ended_at_ms: number | null;
+  created_at: string;
+}
+
+export interface EventRecord {
+  id: number;
+  session_id: number;
+  type: 'user_interrupted_agent' | 'agent_interrupted_user' | 'long_pause' | 'overlap';
+  speaker: string | null;
+  details_json: string | null;
+  occurred_at: string;
+}
