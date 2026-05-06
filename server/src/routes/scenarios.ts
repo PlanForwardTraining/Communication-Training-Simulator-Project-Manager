@@ -13,8 +13,10 @@ router.get('/', requireAuth, (_req: Request, res: Response): void => {
   res.json(scenarios);
 });
 
-// GET /api/scenarios/by-slug/:slug — briefing view: hides the answer-key sections
-// (Desired Outcomes, Common Pitfalls, Realistic Client Pushback) used for coaching scoring.
+// GET /api/scenarios/by-slug/:slug — briefing view: shows only Setup, What's
+// Happened, and What the Client Knows. Hides "What the PM Must Communicate"
+// onwards because those sections (must-communicate checklist, desired
+// outcomes, pitfalls, realistic pushback) are coaching/scoring material.
 router.get('/by-slug/:slug', requireAuth, (req: Request, res: Response): void => {
   const scenario = db.prepare(
     'SELECT id, slug, title, body_markdown FROM scenarios WHERE slug = ? AND active = 1'
@@ -29,7 +31,10 @@ router.get('/by-slug/:slug', requireAuth, (req: Request, res: Response): void =>
 
   let briefing = scenario.body_markdown;
   briefing = briefing.replace(/^>\s*\*\*Status:\*\*[^\n]*\n?/m, '');
-  const cutoff = briefing.search(/^##\s+Desired Outcomes/im);
+
+  // Cut at the earliest answer-key heading, in case authors reorder sections
+  const ANSWER_KEY_RE = /^##\s+(What the PM Must Communicate|Desired Outcomes|Common Pitfalls|Realistic Client Pushback)/im;
+  const cutoff = briefing.search(ANSWER_KEY_RE);
   if (cutoff >= 0) briefing = briefing.slice(0, cutoff);
 
   res.json({
