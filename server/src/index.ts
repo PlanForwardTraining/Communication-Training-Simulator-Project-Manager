@@ -1,6 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import authRouter from './routes/auth';
+import usersRouter from './routes/users';
+import scenariosRouter from './routes/scenarios';
+import discProfilesRouter from './routes/disc-profiles';
+import rubricRouter from './routes/rubric';
 
 dotenv.config();
 
@@ -18,17 +23,12 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Routes (wired up as each is built)
-import authRouter from './routes/auth';
+// Routes
 app.use('/auth', authRouter);
-// import usersRouter from './routes/users';
-// app.use('/api/users', usersRouter);
-// import scenariosRouter from './routes/scenarios';
-// app.use('/api/scenarios', scenariosRouter);
-// import discProfilesRouter from './routes/disc-profiles';
-// app.use('/api/disc-profiles', discProfilesRouter);
-// import rubricRouter from './routes/rubric';
-// app.use('/api/rubric-items', rubricRouter);
+app.use('/api/users', usersRouter);
+app.use('/api/scenarios', scenariosRouter);
+app.use('/api/disc-profiles', discProfilesRouter);
+app.use('/api/rubric-items', rubricRouter);
 
 // 404 handler
 app.use((_req, res) => {

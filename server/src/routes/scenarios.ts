@@ -1,0 +1,70 @@
+import { Router, Request, Response } from 'express';
+import db from '../db/connection';
+import { requireAuth } from '../middleware/auth';
+import { requireAdmin } from '../middleware/roleGuard';
+
+const router = Router();
+
+// GET /api/scenarios
+router.get('/', requireAuth, (_req: Request, res: Response): void => {
+  const scenarios = db.prepare(
+    'SELECT id, slug, title, description, active, updated_at FROM scenarios WHERE active = 1'
+  ).all();
+  res.json(scenarios);
+});
+
+// GET /api/scenarios/:id
+router.get('/:id', requireAuth, (req: Request, res: Response): void => {
+  const scenario = db.prepare('SELECT * FROM scenarios WHERE id = ?').get(Number(req.params.id));
+  if (!scenario) {
+    res.status(404).json({ error: 'Scenario not found' });
+    return;
+  }
+  res.json(scenario);
+});
+
+// POST /api/scenarios — admin only
+router.post('/', requireAuth, requireAdmin, (req: Request, res: Response): void => {
+  const { slug, title, description, body_markdown } = req.body;
+  if (!slug || !title || !description || !body_markdown) {
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
+  }
+  try {
+    const result = db.prepare(
+      'INSERT INTO scenarios (slug, title, description, body_markdown) VALUES (?, ?, ?, ?)'
+    ).run(slug, title, description, body_markdown);
+    res.status(201).json({ id: result.lastInsertRowid });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message.includes('UNIQUE')) {
+      res.status(409).json({ error: 'Slug already exists' });
+    } else {
+      throw e;
+    }
+  }
+});
+
+// PATCH /api/scenarios/:id — admin only
+router.patch('/:id', requireAuth, requireAdmin, (req: Request, res: Response): void => {
+  const id = Number(req.params.id);
+  const { title, description, body_markdown, active } = req.body;
+  const updates: string[] = [];
+  const values: unknown[] = [];
+
+  if (title !== undefined) { updates.push('title = ?'); values.push(title); }
+  if (description !== undefined) { updates.push('description = ?'); values.push(description); }
+  if (body_markdown !== undefined) { updates.push('body_markdown = ?'); values.push(body_markdown); }
+  if (active !== undefined) { updates.push('active = ?'); values.push(active ? 1 : 0); }
+
+  if (updates.length === 0) {
+    res.status(400).json({ error: 'No fields to update' });
+    return;
+  }
+
+  updates.push('updated_at = CURRENT_TIMESTAMP');
+  values.push(id);
+  db.prepare(`UPDATE scenarios SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+  res.json({ updated: true });
+});
+
+export default router;
