@@ -4,12 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { ScenarioSelectPage } from './pages/ScenarioSelectPage';
 import { DiscSelectPage } from './pages/DiscSelectPage';
-
-const SimulationPage = () => (
-  <div className="page items-center justify-center">
-    <p className="text-slate-muted font-body">Simulation coming soon</p>
-  </div>
-);
+import { SimulationPage } from './pages/SimulationPage';
 const HistoryPage = () => (
   <div className="page items-center justify-center">
     <p className="text-slate-muted font-body">History coming soon</p>
