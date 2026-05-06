@@ -126,6 +126,33 @@ describe('POST /api/sessions/:id/end', () => {
       .set('Authorization', `Bearer ${pmToken}`);
     expect(res.status).toBe(200);
   });
+
+  it('accepts turns in request body and generates coaching', async () => {
+    // Create a fresh session for this test
+    const sessionRes = await request(app)
+      .post('/api/sessions')
+      .set('Authorization', `Bearer ${pmToken}`)
+      .send({ scenarioSlug: 'test-scenario', clientDiscCode: 'D' });
+    const newSessionId = sessionRes.body.sessionId;
+
+    const res = await request(app)
+      .post(`/api/sessions/${newSessionId}/end`)
+      .set('Authorization', `Bearer ${pmToken}`)
+      .send({
+        turns: [
+          { speaker: 'pm', content: 'Hi, I have difficult news about the schedule.' },
+          { speaker: 'client', content: 'What kind of news?' },
+          { speaker: 'pm', content: 'We are delayed by 6 weeks due to a cabinet manufacturer fire.' },
+        ],
+        events: [
+          { type: 'user_interrupted_agent', speaker: 'pm' },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.totalScore).toBe(74); // from mock
+    expect(res.body.scoreBreakdown).toBeDefined();
+  });
 });
 
 describe('GET /api/sessions', () => {

@@ -8,6 +8,21 @@ import { runMigrations, seedTestData } from './helpers';
 import db from '../src/db/connection';
 import app from '../src/index';
 
+// Mock the Claude service to avoid real API calls in tests
+jest.mock('../src/services/claude', () => ({
+  generateCoaching: jest.fn().mockResolvedValue({
+    strengths: 'Good empathy shown.',
+    misses: 'Could have been clearer.',
+    alternatives: 'Try saying: I understand this is difficult.',
+    discAdaptation: 'As a D talking to an S, slow down.',
+    scoreBreakdown: {
+      empathy: 4, clarity: 3, discAdaptation: 3,
+      solutionOrientation: 4, ownership: 4, composure: 4, activeListening: 4,
+    },
+    totalScore: 74,
+  }),
+}));
+
 // Mock the ElevenLabs CAI service to avoid real API calls
 jest.mock('../src/services/elevenlabs-cai', () => ({
   getSignedUrlForSession: jest.fn().mockResolvedValue({
@@ -167,5 +182,44 @@ describe('POST /api/elevenlabs/webhook', () => {
     const rawBody = '{"type":"turn"}';
     const sig = makeSignature(rawBody, secret);
     expect(verifyWebhookSignature('{"type":"tampered"}', sig, secret)).toBe(false);
+  });
+});
+
+describe('POST /api/sessions/:id/end', () => {
+  let sessionId: number;
+  let pmToken: string;
+
+  beforeAll(async () => {
+    const loginRes = await request(app)
+      .post('/auth/login')
+      .send({ email: 'pm@test.com', password: 'pm123' });
+    pmToken = loginRes.body.token;
+
+    // Seed D profile if not already present
+    (db as unknown as Database.Database)
+      .prepare("INSERT OR IGNORE INTO disc_profiles (code, name, body_markdown) VALUES ('D', 'Dominance', '# D')")
+      .run();
+
+    const sessionRes = await request(app)
+      .post('/api/sessions')
+      .set('Authorization', `Bearer ${pmToken}`)
+      .send({ scenarioSlug: 'test-scenario', clientDiscCode: 'D' });
+    sessionId = sessionRes.body.sessionId;
+  });
+
+  it('returns coaching with totalScore', async () => {
+    const res = await request(app)
+      .post(`/api/sessions/${sessionId}/end`)
+      .set('Authorization', `Bearer ${pmToken}`)
+      .send({
+        turns: [
+          { speaker: 'pm', content: 'Hi, I have bad news about the schedule.' },
+          { speaker: 'client', content: 'What kind of bad news?' },
+        ],
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.totalScore).toBe(74);
+    expect(res.body.strengths).toBeDefined();
+    expect(res.body.scoreBreakdown).toBeDefined();
   });
 });

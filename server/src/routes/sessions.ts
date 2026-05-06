@@ -101,12 +101,43 @@ router.post('/:id/end', requireAuth, async (req: Request, res: Response): Promis
     return;
   }
 
-  // Get turns and events
-  const turns = db.prepare('SELECT * FROM turns WHERE session_id = ? ORDER BY created_at').all(sessionId) as TurnRecord[];
-  const events = db.prepare('SELECT * FROM events WHERE session_id = ? ORDER BY occurred_at').all(sessionId) as EventRecord[];
+  // Accept transcript from client (browser SDK captured these during the call)
+  const body = (req.body || {}) as {
+    turns?: { speaker: 'pm' | 'client'; content: string }[];
+    events?: { type: string; speaker?: string }[];
+  };
+  const { turns: clientTurns, events: clientEvents } = body;
+
+  // Save turns from client to DB
+  if (clientTurns && clientTurns.length > 0) {
+    const insertTurn = db.prepare(
+      'INSERT INTO turns (session_id, speaker, content) VALUES (?, ?, ?)'
+    );
+    for (const turn of clientTurns) {
+      insertTurn.run(sessionId, turn.speaker, turn.content);
+    }
+  }
+
+  // Save events from client to DB
+  if (clientEvents && clientEvents.length > 0) {
+    const insertEvent = db.prepare(
+      'INSERT INTO events (session_id, type, speaker) VALUES (?, ?, ?)'
+    );
+    for (const event of clientEvents) {
+      insertEvent.run(sessionId, event.type, event.speaker || null);
+    }
+  }
+
+  // Read all turns + events from DB (now includes client-submitted data)
+  const turns = db.prepare(
+    'SELECT * FROM turns WHERE session_id = ? ORDER BY created_at'
+  ).all(sessionId) as TurnRecord[];
+  const events = db.prepare(
+    'SELECT * FROM events WHERE session_id = ? ORDER BY occurred_at'
+  ).all(sessionId) as EventRecord[];
 
   if (turns.length === 0) {
-    res.status(400).json({ error: 'No turns found for this session — cannot generate coaching' });
+    res.status(400).json({ error: 'No turns provided — cannot generate coaching' });
     return;
   }
 
