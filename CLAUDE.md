@@ -50,12 +50,20 @@ Browser (React SPA + ElevenLabs CAI SDK)
                             │  per-session persona prompt + history
                             ├─ Streaming TTS (chosen voice)
                             └─ Interruption + echo handling
+                            │
+                            └─ SDK emits real-time events to browser:
+                               user_transcript, agent_response, interruption
 
 When PM clicks "End Session":
+  Browser sends full transcript + interruption events → POST /api/sessions/:id/end
+  Backend saves turns + events to SQLite
   Backend ──► Claude (direct API call)
                  with: full transcript + interruption events + rubric
                  → returns structured coaching JSON + score
                  → saved to SQLite, Excel export regenerated
+
+Note: No server-side webhooks needed for turn capture.
+The browser SDK captures everything; the backend receives it all at session end.
 
 Admin Dashboard (same React app, role-gated route)
   └─ REST API calls ──► same backend
