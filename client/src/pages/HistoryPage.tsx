@@ -38,7 +38,7 @@ export function HistoryPage() {
               </svg>
               Back
             </button>
-            <span className="font-display text-sm font-semibold tracking-widest text-gold-500 uppercase">Session History</span>
+            <span className="font-wordmark text-sm font-bold tracking-widest text-gold-500 uppercase">Session History</span>
           </div>
         </div>
       </header>

@@ -104,7 +104,7 @@ export function DebriefPage() {
     <div className="page">
       <header className="border-b border-navy-600 px-4 py-4">
         <div className="container-md flex items-center justify-between mx-auto">
-          <span className="font-display text-sm font-semibold tracking-widest text-gold-500 uppercase">Coaching Debrief</span>
+          <span className="font-wordmark text-sm font-bold tracking-widest text-gold-500 uppercase">Coaching Debrief</span>
         </div>
       </header>
 

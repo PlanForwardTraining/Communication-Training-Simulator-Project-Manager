@@ -28,7 +28,8 @@ export default {
         },
       },
       fontFamily: {
-        display: ['Syne', 'sans-serif'],
+        display: ['Plus Jakarta Sans', 'sans-serif'],
+        wordmark: ['Syne', 'sans-serif'],
         body: ['DM Sans', 'sans-serif'],
       },
       borderRadius: {

@@ -59,7 +59,7 @@ export function DiscSelectPage() {
             </svg>
             Back
           </button>
-          <span className="font-display text-sm font-semibold tracking-widest text-gold-500 uppercase">Plan Forward</span>
+          <span className="font-wordmark text-sm font-bold tracking-widest text-gold-500 uppercase">Plan Forward</span>
         </div>
       </header>
 

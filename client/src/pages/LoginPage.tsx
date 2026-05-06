@@ -35,7 +35,7 @@ export function LoginPage() {
       <div className="container-sm relative z-10">
         {/* Wordmark */}
         <div className="text-center mb-10">
-          <h1 className="font-display text-3xl font-bold tracking-[0.2em] text-gold-500 uppercase">
+          <h1 className="font-wordmark text-3xl font-bold tracking-[0.2em] text-gold-500 uppercase">
             Plan Forward
           </h1>
           <div className="mt-2 mx-auto w-16 h-px bg-gold-500 opacity-40" />
