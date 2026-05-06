@@ -110,9 +110,11 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
   }, [turns]);
 
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   const handleMessage = useCallback(
     (props: { message: string; source: 'user' | 'ai'; role?: 'user' | 'agent' }) => {
+      console.log('[ElevenLabs] message:', props);
       const role = props.role ?? (props.source === 'ai' ? 'agent' : 'user');
       const speaker: Turn['speaker'] = role === 'user' ? 'pm' : 'client';
       setTurns((prev) => [...prev, { speaker, content: props.message }]);
@@ -121,36 +123,68 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
   );
 
   const handleInterruption = useCallback(() => {
-    setEvents((prev) => [
-      ...prev,
-      { type: 'user_interrupted_agent' },
-    ]);
+    setEvents((prev) => [...prev, { type: 'user_interrupted_agent' }]);
   }, []);
 
   const handleError = useCallback((err: unknown) => {
-    console.error('ElevenLabs conversation error:', err);
-    const message = err instanceof Error ? err.message : 'Connection error';
-    setConnectError(message);
+    console.error('[ElevenLabs] error:', err);
+    const message =
+      typeof err === 'string'
+        ? err
+        : err instanceof Error
+        ? err.message
+        : JSON.stringify(err);
+    setConnectError(`Error: ${message}`);
+  }, []);
+
+  const handleStatusChange = useCallback((s: { status?: string } | string) => {
+    const value = typeof s === 'string' ? s : s.status;
+    console.log('[ElevenLabs] status:', value);
+    setDebugInfo(`Status: ${value}`);
+  }, []);
+
+  const handleDisconnect = useCallback((details?: { reason?: string; message?: string }) => {
+    console.log('[ElevenLabs] disconnect:', details);
+    if (details?.reason || details?.message) {
+      setConnectError(`Disconnected: ${details.reason || details.message}`);
+    }
+  }, []);
+
+  const handleConnect = useCallback(() => {
+    console.log('[ElevenLabs] connected!');
+    setConnectError(null);
+    setDebugInfo('Connected — start speaking');
+  }, []);
+
+  const handleDebug = useCallback((info: unknown) => {
+    console.log('[ElevenLabs] debug:', info);
   }, []);
 
   const conversation = useConversation({
     onMessage: handleMessage,
     onInterruption: handleInterruption,
     onError: handleError,
-    onConnect: () => setConnectError(null),
-    onDisconnect: () => { /* expected when ending */ },
+    onConnect: handleConnect,
+    onDisconnect: handleDisconnect,
+    onStatusChange: handleStatusChange,
+    onDebug: handleDebug,
   });
 
   const { status, mode } = conversation;
 
-  const handleStart = useCallback(async () => {
+  const handleStart = useCallback(() => {
     setConnectError(null);
+    setDebugInfo('Starting…');
     setSessionStarted(true);
-    try {
-      // Request mic permission first so the user sees the browser prompt
-      await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      await conversation.startSession({
+    console.log('[ElevenLabs] startSession with', {
+      signedUrl: sessionData.signedUrl.slice(0, 80) + '...',
+      voiceId: sessionData.voiceId,
+      promptLength: sessionData.personaPrompt.length,
+    });
+
+    try {
+      conversation.startSession({
         signedUrl: sessionData.signedUrl,
         overrides: {
           agent: {
@@ -162,13 +196,9 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
         },
       });
     } catch (err) {
-      console.error('Failed to start session:', err);
-      const msg = err instanceof Error ? err.message : 'Failed to start';
-      setConnectError(
-        msg.includes('Permission') || msg.includes('NotAllowed')
-          ? 'Microphone access denied. Please allow microphone access and reload.'
-          : `Connection failed: ${msg}`,
-      );
+      console.error('[ElevenLabs] startSession threw:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      setConnectError(`Start failed: ${msg}`);
       setSessionStarted(false);
     }
   }, [conversation, sessionData]);
@@ -280,6 +310,9 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
       {/* Bottom controls                                                      */}
       {/* ------------------------------------------------------------------ */}
       <div className="shrink-0 px-4 py-5 border-t border-navy-600 flex flex-col items-center gap-3">
+        {debugInfo && !connectError && (
+          <p className="text-slate-muted font-body text-xs">{debugInfo}</p>
+        )}
         {connectError && (
           <p className="text-red-400 font-body text-sm text-center max-w-md">
             {connectError}
