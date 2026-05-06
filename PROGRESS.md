@@ -16,11 +16,11 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [x] Install Git
 - [x] Install VS Code
 - [x] Verify versions in terminal: `node --version`, `npm --version`, `git --version`
-- [ ] VS Code extension: ESLint
-- [ ] VS Code extension: Prettier — Code formatter
-- [ ] VS Code extension: Tailwind CSS IntelliSense
-- [ ] VS Code extension: SQLite Viewer
-- [ ] VS Code extension: Markdown All in One *(for this checklist)*
+- [x] VS Code extension: ESLint
+- [x] VS Code extension: Prettier — Code formatter
+- [x] VS Code extension: Tailwind CSS IntelliSense
+- [x] VS Code extension: SQLite Viewer
+- [x] VS Code extension: Markdown All in One *(for this checklist)*
 
 > Postman / Insomnia / REST Client are **not** required — Claude Code handles API testing directly.
 
@@ -36,10 +36,10 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 
 ### 2.2 — Anthropic (Claude API)
 - [x] Sign up at console.anthropic.com with company email *(using personal account for now — swap to company email before launch)*
-- [ ] Add payment method
-- [ ] Set monthly spending limit (~$100)
+- [x] Add payment method
+- [x] Set monthly spending limit (~$100)
 - [x] Create API key named `dev-key`
-- [ ] Save key in password manager
+- [x] Save key in password manager
 
 ### 2.3 — OpenAI (no longer required)
 - [x] *Skipped — ElevenLabs Conversational AI handles speech-to-text natively*
@@ -48,8 +48,8 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [x] Sign up at elevenlabs.io with company email *(using personal account for now — swap before launch)*
 - [x] Pick a plan that includes Conversational AI (Creator or Pro)
 - [x] Confirm all 20 voices in `/content/voices/` are present in your Voice Library *(verified via API 2026-05-05)*
-- [ ] Listen to each voice's preview URL to confirm DISC alignment
-- [ ] Adjust voice metadata in `/content/voices/*.md` if any voice's character differs from its description
+- [x] Listen to each voice's preview URL to confirm DISC alignment
+- [x] Adjust voice metadata in `/content/voices/*.md` if any voice's character differs from its description
 - [x] Create Conversational AI Agent named "Training Simulator — Client Persona"
 - [x] Pick any voice as default (overridden per-session)
 - [x] Configure agent LLM *(using Haiku 4.5 or Gemini Flash for testing — swap to Claude Sonnet 4.6 before launch)*
