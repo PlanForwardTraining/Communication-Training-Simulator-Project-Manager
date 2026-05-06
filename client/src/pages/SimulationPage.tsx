@@ -191,6 +191,7 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
         overrides: {
           agent: {
             prompt: { prompt: sessionData.personaPrompt },
+            firstMessage: sessionData.firstMessage,
           },
           tts: {
             voiceId: sessionData.voiceId,

@@ -41,6 +41,11 @@ export interface ConversationSession {
    * Included here so the caller can pass it when opening the WebSocket.
    */
   personaPrompt: string;
+  /**
+   * The line the AI client speaks first when the call connects. The PM is
+   * "calling" the AI, so the AI picks up with a phone greeting.
+   */
+  firstMessage: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +101,7 @@ export async function getSignedUrlForSession(
   }
 
   const personaPrompt = buildPersonaPrompt(scenario, clientDisc, clientFirstName);
+  const firstMessage = `Hello, this is ${clientFirstName}.`;
 
   // 3. Call ElevenLabs to get the signed WebSocket URL
   //    Endpoint: GET /v1/convai/conversation/get_signed_url?agent_id=<id>
@@ -141,6 +147,7 @@ export async function getSignedUrlForSession(
     voiceName,
     clientFirstName,
     personaPrompt,
+    firstMessage,
   };
 }
 

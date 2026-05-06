@@ -8,6 +8,7 @@ export interface SessionStart {
   voiceName: string;
   clientFirstName: string;
   personaPrompt: string;
+  firstMessage: string;
 }
 
 export interface Turn {
