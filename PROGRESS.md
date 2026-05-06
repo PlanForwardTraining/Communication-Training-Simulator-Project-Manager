@@ -100,10 +100,10 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [x] Clone repo locally
 - [x] Copy planning materials into repo (CLAUDE.md, REBUILD_ME_GUIDE.md, content/, master plan)
 - [x] Commit and push planning materials
-- [ ] Create folder structure (`server/`, `client/`, `data/`) *(Phase 1)*
+- [x] Create folder structure (`server/`, `client/`, `data/`)
 - [x] Add `.gitignore` with secrets and build artifacts excluded
-- [ ] Commit folder structure *(Phase 1)*
-- [ ] Create `server/.env.example` *(Phase 1)*
+- [x] Commit folder structure
+- [x] Create `server/.env.example`
 - [ ] Create `client/.env.example` *(Phase 4)*
 - [x] Copy `.env.example` files to real `.env` files
 - [x] Paste real API keys into `.env`
@@ -117,38 +117,38 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 🔗 [Guide reference](REBUILD_ME_GUIDE.md#part-4--build-the-backend-foundation-phase-1)
 
 ### 4.1 — Initialize Server Project
-- [ ] Run `npm init -y` in `server/`
-- [ ] Install runtime dependencies (express, cors, dotenv, etc.)
-- [ ] Install dev dependencies (typescript, ts-node-dev, jest, etc.)
-- [ ] Initialize TypeScript config
-- [ ] Add npm scripts (dev, build, start, db:migrate, db:seed, test)
+- [x] Run `npm init -y` in `server/`
+- [x] Install runtime dependencies (express, cors, dotenv, etc.)
+- [x] Install dev dependencies (typescript, ts-node-dev, jest, etc.)
+- [x] Initialize TypeScript config
+- [x] Add npm scripts (dev, build, start, db:migrate, db:seed, test)
 
 ### 4.2 — Database Schema
-- [ ] Create `server/src/db/schema.sql` with all tables (users, scenarios, disc_profiles, sessions, turns, coaching, rubric_items)
+- [x] Create `server/src/db/schema.sql` with all tables (users, scenarios, disc_profiles, sessions, turns, events, coaching, rubric_items)
 
 ### 4.3 — Implement Modules
-- [ ] `server/src/index.ts` (Express bootstrap, CORS, error handler)
-- [ ] `server/src/db/connection.ts`
-- [ ] `server/src/db/migrate.ts`
-- [ ] `server/src/db/seed.ts` (seeds DISC, scenarios, rubric, admin user)
-- [ ] `server/src/middleware/auth.ts` (JWT verification)
-- [ ] `server/src/middleware/roleGuard.ts` (admin guard)
-- [ ] `server/src/routes/auth.ts`
-- [ ] `server/src/routes/users.ts`
-- [ ] `server/src/routes/scenarios.ts`
-- [ ] `server/src/routes/disc-profiles.ts`
-- [ ] `server/src/routes/rubric.ts`
-- [ ] `server/tests/auth.test.ts`
-- [ ] `server/tests/scenarios.test.ts`
+- [x] `server/src/index.ts` (Express bootstrap, CORS, error handler)
+- [x] `server/src/db/connection.ts`
+- [x] `server/src/db/migrate.ts`
+- [x] `server/src/db/seed.ts` (seeds DISC, scenarios, rubric, admin user from /content/)
+- [x] `server/src/middleware/auth.ts` (JWT verification)
+- [x] `server/src/middleware/roleGuard.ts` (admin guard)
+- [x] `server/src/routes/auth.ts`
+- [x] `server/src/routes/users.ts`
+- [x] `server/src/routes/scenarios.ts`
+- [x] `server/src/routes/disc-profiles.ts`
+- [x] `server/src/routes/rubric.ts`
+- [x] `server/tests/auth.test.ts`
+- [x] `server/tests/scenarios.test.ts`
 
 ### 4.4 — Run and Verify
-- [ ] `npm run db:migrate` succeeds
-- [ ] `npm run db:seed` succeeds
-- [ ] `npm run dev` starts on port 3001
-- [ ] Test admin login via curl, receive JWT
-- [ ] All routes verified with `pm` and `admin` JWTs
-- [ ] `npm test` passes
-- [ ] **Phase 1 complete** — commit and push
+- [x] `npm run db:migrate` succeeds
+- [x] `npm run db:seed` succeeds *(seeds 1 admin, 5 scenarios, 8 DISC profiles, 7 rubric items)*
+- [x] `npm run dev` starts *(port 3002 on this machine — port 3001 occupied by gmail-mcp)*
+- [x] Test admin login via curl, receive JWT
+- [x] All routes verified with `pm` and `admin` JWTs
+- [x] `npm test` passes — 10/10 tests ✅
+- [x] **Phase 1 complete** — committed and pushed
 
 ---
 
