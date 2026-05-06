@@ -178,11 +178,9 @@ Go to **Conversational AI → Agents → Create Agent**:
    - **LLM:** **Claude** (native integration; supply your `ANTHROPIC_API_KEY` when prompted)
    - **System prompt:** placeholder text (we override per-session via the SDK)
    - **Enable interruption detection**
-   - **Webhooks:** subscribe to `turn`, `interruption`, `conversation_started`, `conversation_ended` events; URL will be set in Part 9 once backend is deployed (use ngrok URL for dev — see Part 5)
    - Save and copy the **Agent ID**
-   - Copy the **Webhook Signing Secret** from the agent's webhook config
 
-> **Note on per-session voice override:** ElevenLabs CAI may support voice override via `conversation_initiation_data` (Path A — preferred). If during development the dev firm finds voice override is not supported per-conversation on the current API, fall back to creating one agent per voice in the pool (Path B — more agents to manage but always works). See [docs/superpowers/plans/2026-05-05-master-plan.md](docs/superpowers/plans/2026-05-05-master-plan.md) Phase 3 for both paths.
+> **Note on voice override:** Voice and persona overrides are sent by the browser SDK in the WebSocket `conversation_initiation_client_data` message — not in the signed URL request. The backend provides `signedUrl`, `personaPrompt`, and `voiceId` to the frontend; the frontend SDK sends them when opening the connection.
 
 #### 2.4c — Get your account API key
 
@@ -191,7 +189,6 @@ Go to **My Account → API Keys** → copy your API key.
 **You'll get:**
 - `ELEVENLABS_API_KEY`
 - `ELEVENLABS_AGENT_ID`
-- `ELEVENLABS_WEBHOOK_SECRET`
 - (No single `ELEVENLABS_VOICE_ID` — voice pool is in `/content/voices/`)
 
 ### 2.5 — Railway (backend hosting)
@@ -238,9 +235,7 @@ Before continuing, confirm you have all of these in your password manager:
 - [ ] GitHub org name + admin access
 - [ ] `ANTHROPIC_API_KEY`
 - [ ] `ELEVENLABS_API_KEY`
-- [ ] `ELEVENLABS_VOICE_ID`
 - [ ] `ELEVENLABS_AGENT_ID`
-- [ ] `ELEVENLABS_WEBHOOK_SECRET`
 - [ ] Railway login
 - [ ] Vercel login
 - [ ] `RESEND_API_KEY` (if using)
@@ -323,7 +318,6 @@ ANTHROPIC_API_KEY=sk-ant-...
 ELEVENLABS_API_KEY=...
 ELEVENLABS_VOICE_ID=...
 ELEVENLABS_AGENT_ID=...
-ELEVENLABS_WEBHOOK_SECRET=...
 
 # Email (optional)
 RESEND_API_KEY=re_...
@@ -849,7 +843,7 @@ Fix any build errors before continuing.
 5. Under **Variables**, add ALL the variables from `server/.env.example` with **production** values:
    - `JWT_SECRET` — generate a NEW random string for production (don't reuse dev)
    - All API keys (same dev keys are OK to start, or create new production keys)
-   - `ELEVENLABS_AGENT_ID` and `ELEVENLABS_WEBHOOK_SECRET` (from Part 2.4)
+   - `ELEVENLABS_AGENT_ID` (from Part 2.4)
    - `NODE_ENV=production`
    - `CLIENT_ORIGIN=https://training.your-company.com` (set after Vercel deploy in 9.3)
    - `DATABASE_PATH=/data/simulator.db`
@@ -1083,7 +1077,6 @@ Most issues fall into "small change to content" which the admin can do via the U
 | `ELEVENLABS_API_KEY` | Yes | ElevenLabs key (account-level) | `...` |
 | `ELEVENLABS_VOICE_ID` | Yes | Selected voice ID | `21m00Tcm4TlvDq8ikWAM` |
 | `ELEVENLABS_AGENT_ID` | Yes | Configured Conversational AI agent | `agent_abc123` |
-| `ELEVENLABS_WEBHOOK_SECRET` | Yes | HMAC secret for verifying incoming webhooks | `whsec_...` |
 | `RESEND_API_KEY` | No | Email sending (password resets) | `re_...` |
 | `RESEND_FROM_EMAIL` | No | Email sender address | `noreply@your-company.com` |
 | `PORT` | No | Backend port | `3001` |

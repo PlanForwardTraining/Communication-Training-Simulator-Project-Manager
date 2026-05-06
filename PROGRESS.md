@@ -55,10 +55,7 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [x] Configure agent LLM *(using Haiku 4.5 or Gemini Flash for testing — swap to Claude Sonnet 4.6 before launch)*
 - [x] Set placeholder system prompt *(ElevenLabs auto-generated — overridden per session)*
 - [x] Enable interruption detection
-- [ ] Configure webhooks *(deferred to Part 9 — need deployed backend URL first)*
-- [ ] Set webhook URL placeholder *(deferred to Part 9)*
 - [x] Copy Agent ID
-- [ ] Copy Webhook Signing Secret *(deferred to Part 9)*
 - [x] Copy main API key
 - [ ] Save all values in password manager
 
@@ -84,7 +81,6 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [x] `ANTHROPIC_API_KEY` saved
 - [x] `ELEVENLABS_API_KEY` saved
 - [x] `ELEVENLABS_AGENT_ID` saved
-- [ ] `ELEVENLABS_WEBHOOK_SECRET` *(deferred to Part 9)*
 - [ ] Railway login working
 - [ ] Vercel login working
 - [ ] `RESEND_API_KEY` saved *(optional — skip if not using)*
