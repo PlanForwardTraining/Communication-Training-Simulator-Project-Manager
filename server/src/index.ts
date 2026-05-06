@@ -19,8 +19,8 @@ app.get('/health', (_req, res) => {
 });
 
 // Routes (wired up as each is built)
-// import authRouter from './routes/auth';
-// app.use('/auth', authRouter);
+import authRouter from './routes/auth';
+app.use('/auth', authRouter);
 // import usersRouter from './routes/users';
 // app.use('/api/users', usersRouter);
 // import scenariosRouter from './routes/scenarios';
