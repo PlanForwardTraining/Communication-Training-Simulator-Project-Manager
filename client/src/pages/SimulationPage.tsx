@@ -145,8 +145,10 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
 
   const handleDisconnect = useCallback((details?: { reason?: string; message?: string }) => {
     console.log('[ElevenLabs] disconnect:', details);
-    if (details?.reason || details?.message) {
-      setConnectError(`Disconnected: ${details.reason || details.message}`);
+    // 'user' = user clicked End Session (expected). 'agent' = AI ended (with end_call disabled, shouldn't happen).
+    // Only show error for unexpected disconnects.
+    if (details?.reason && details.reason !== 'user') {
+      setConnectError(`Disconnected: ${details.reason}`);
     }
   }, []);
 
@@ -330,6 +332,16 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
           >
             Start Session
           </button>
+        ) : ending ? (
+          <div className="flex flex-col items-center gap-2 w-full max-w-sm">
+            <div className="flex items-center gap-2 text-gold-400 font-body text-sm">
+              <span className="w-4 h-4 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" />
+              Analyzing your conversation…
+            </div>
+            <p className="font-body text-xs text-slate-muted">
+              Claude is reviewing the transcript. This usually takes 5-10 seconds.
+            </p>
+          </div>
         ) : (
           <div className="flex gap-2 w-full max-w-sm">
             <button
@@ -340,10 +352,9 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
             </button>
             <button
               onClick={() => setShowConfirm(true)}
-              disabled={ending}
-              className="flex-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 font-body font-semibold px-6 py-3 rounded-xl transition-all duration-200 active:scale-95 focus:outline-none disabled:opacity-50"
+              className="flex-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 font-body font-semibold px-6 py-3 rounded-xl transition-all duration-200 active:scale-95 focus:outline-none"
             >
-              {ending ? 'Ending…' : 'End Session'}
+              End Session
             </button>
           </div>
         )}
@@ -395,16 +406,23 @@ export function SimulationPage() {
 
   const [sessionData, setSessionData] = useState<SessionStart | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const createdRef = useRef(false);
 
   const decodedDisc = discCode ? decodeURIComponent(discCode) : '';
 
   useEffect(() => {
     if (!scenarioSlug || !decodedDisc) return;
+    // Guard against React StrictMode double-mount creating duplicate sessions
+    if (createdRef.current) return;
+    createdRef.current = true;
 
     sessionsApi
       .create(scenarioSlug, decodedDisc)
       .then(setSessionData)
-      .catch(() => setLoadError('Failed to start session. Please go back and try again.'));
+      .catch(() => {
+        createdRef.current = false; // allow retry on error
+        setLoadError('Failed to start session. Please go back and try again.');
+      });
   }, [scenarioSlug, decodedDisc]);
 
   if (loadError) {
