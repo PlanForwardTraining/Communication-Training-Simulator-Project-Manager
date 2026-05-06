@@ -1,6 +1,8 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "cd server && npm install && npm run build"
+# --include=dev ensures typescript and ts-node are installed (NODE_ENV=production
+# would otherwise skip devDependencies, breaking the tsc build step)
+buildCommand = "cd server && npm install --include=dev && npm run build"
 
 [deploy]
 startCommand = "cd server && npm start"
