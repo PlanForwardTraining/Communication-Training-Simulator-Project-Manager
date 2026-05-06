@@ -12,10 +12,10 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 
 🔗 [Guide reference](REBUILD_ME_GUIDE.md#part-1--install-local-tools)
 
-- [ ] Install Node.js 20 LTS
-- [ ] Install Git
-- [ ] Install VS Code
-- [ ] Verify versions in terminal: `node --version`, `npm --version`, `git --version`
+- [x] Install Node.js 20 LTS
+- [x] Install Git
+- [x] Install VS Code
+- [x] Verify versions in terminal: `node --version`, `npm --version`, `git --version`
 - [ ] VS Code extension: ESLint
 - [ ] VS Code extension: Prettier — Code formatter
 - [ ] VS Code extension: Tailwind CSS IntelliSense
@@ -31,36 +31,36 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 🔗 [Guide reference](REBUILD_ME_GUIDE.md#part-2--create-third-party-accounts)
 
 ### 2.1 — GitHub Organization
-- [ ] Create GitHub org in company name
-- [ ] Add developer as Owner or Member
+- [x] Create GitHub org in company name
+- [x] Add developer as Owner or Member
 
 ### 2.2 — Anthropic (Claude API)
-- [ ] Sign up at console.anthropic.com with company email
+- [x] Sign up at console.anthropic.com with company email *(using personal account for now — swap to company email before launch)*
 - [ ] Add payment method
 - [ ] Set monthly spending limit (~$100)
-- [ ] Create API key named `dev-key`
+- [x] Create API key named `dev-key`
 - [ ] Save key in password manager
 
 ### 2.3 — OpenAI (no longer required)
 - [x] *Skipped — ElevenLabs Conversational AI handles speech-to-text natively*
 
 ### 2.4 — ElevenLabs (Conversational AI + voice pool)
-- [ ] Sign up at elevenlabs.io with company email
-- [ ] Pick a plan that includes Conversational AI (Creator or Pro)
-- [ ] Confirm all 10 voices in `/content/voices/` are present in your Voice Library (premade — should already be there)
+- [x] Sign up at elevenlabs.io with company email *(using personal account for now — swap before launch)*
+- [x] Pick a plan that includes Conversational AI (Creator or Pro)
+- [x] Confirm all 20 voices in `/content/voices/` are present in your Voice Library *(verified via API 2026-05-05)*
 - [ ] Listen to each voice's preview URL to confirm DISC alignment
 - [ ] Adjust voice metadata in `/content/voices/*.md` if any voice's character differs from its description
-- [ ] Create Conversational AI Agent named "Training Simulator — Client Persona"
-- [ ] Pick any voice as default (overridden per-session)
-- [ ] Configure agent LLM as Claude (supply Anthropic API key)
-- [ ] Set placeholder system prompt
-- [ ] Enable interruption detection
-- [ ] Configure webhooks (subscribe to turn, interruption, conversation_started, conversation_ended)
-- [ ] Set webhook URL placeholder (will update to ngrok / production later)
-- [ ] Copy Agent ID
-- [ ] Copy Webhook Signing Secret
-- [ ] Copy main API key
-- [ ] Save all 3 values in password manager
+- [x] Create Conversational AI Agent named "Training Simulator — Client Persona"
+- [x] Pick any voice as default (overridden per-session)
+- [x] Configure agent LLM *(using Haiku 4.5 or Gemini Flash for testing — swap to Claude Sonnet 4.6 before launch)*
+- [x] Set placeholder system prompt *(ElevenLabs auto-generated — overridden per session)*
+- [x] Enable interruption detection
+- [ ] Configure webhooks *(deferred to Part 9 — need deployed backend URL first)*
+- [ ] Set webhook URL placeholder *(deferred to Part 9)*
+- [x] Copy Agent ID
+- [ ] Copy Webhook Signing Secret *(deferred to Part 9)*
+- [x] Copy main API key
+- [ ] Save all values in password manager
 
 ### 2.5 — Railway
 - [ ] Sign up at railway.app using company GitHub org
@@ -80,15 +80,14 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [ ] Decide on subdomain (e.g., `training.yourcompany.com`)
 
 ### 2.9 — Final Inventory Check
-- [ ] GitHub org name + admin access confirmed
-- [ ] `ANTHROPIC_API_KEY` saved
-- [ ] `ELEVENLABS_API_KEY` saved
-- [ ] `ELEVENLABS_VOICE_ID` saved
-- [ ] `ELEVENLABS_AGENT_ID` saved
-- [ ] `ELEVENLABS_WEBHOOK_SECRET` saved
+- [x] GitHub org name + admin access confirmed
+- [x] `ANTHROPIC_API_KEY` saved
+- [x] `ELEVENLABS_API_KEY` saved
+- [x] `ELEVENLABS_AGENT_ID` saved
+- [ ] `ELEVENLABS_WEBHOOK_SECRET` *(deferred to Part 9)*
 - [ ] Railway login working
 - [ ] Vercel login working
-- [ ] `RESEND_API_KEY` saved *(if using)*
+- [ ] `RESEND_API_KEY` saved *(optional — skip if not using)*
 - [ ] DNS dashboard access confirmed
 
 ---
@@ -97,19 +96,19 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 
 🔗 [Guide reference](REBUILD_ME_GUIDE.md#part-3--set-up-the-repository)
 
-- [ ] Create private GitHub repo `communication-training-simulator`
-- [ ] Clone repo locally
-- [ ] Copy planning materials into repo (CLAUDE.md, REBUILD_ME_GUIDE.md, content/, master plan)
-- [ ] Commit and push planning materials
-- [ ] Create folder structure (`server/`, `client/`, `data/`, `docs/`)
-- [ ] Add `.gitignore` with secrets and build artifacts excluded
-- [ ] Commit folder structure
-- [ ] Create `server/.env.example`
-- [ ] Create `client/.env.example`
-- [ ] Copy `.env.example` files to real `.env` files
-- [ ] Paste real API keys into `server/.env`
-- [ ] Generate strong `JWT_SECRET` and add to `server/.env`
-- [ ] Verify `git status` shows `.env` is ignored
+- [x] Create private GitHub repo `communication-training-simulator`
+- [x] Clone repo locally
+- [x] Copy planning materials into repo (CLAUDE.md, REBUILD_ME_GUIDE.md, content/, master plan)
+- [x] Commit and push planning materials
+- [ ] Create folder structure (`server/`, `client/`, `data/`) *(Phase 1)*
+- [x] Add `.gitignore` with secrets and build artifacts excluded
+- [ ] Commit folder structure *(Phase 1)*
+- [ ] Create `server/.env.example` *(Phase 1)*
+- [ ] Create `client/.env.example` *(Phase 4)*
+- [x] Copy `.env.example` files to real `.env` files
+- [x] Paste real API keys into `.env`
+- [x] Generate strong `JWT_SECRET` and add to `.env`
+- [x] Verify `git status` shows `.env` is ignored
 
 ---
 
