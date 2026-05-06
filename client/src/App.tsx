@@ -5,11 +5,8 @@ import { LoginPage } from './pages/LoginPage';
 import { ScenarioSelectPage } from './pages/ScenarioSelectPage';
 import { DiscSelectPage } from './pages/DiscSelectPage';
 import { SimulationPage } from './pages/SimulationPage';
-const HistoryPage = () => (
-  <div className="page items-center justify-center">
-    <p className="text-slate-muted font-body">History coming soon</p>
-  </div>
-);
+import { DebriefPage } from './pages/DebriefPage';
+import { HistoryPage } from './pages/HistoryPage';
 
 function App() {
   const auth = useAuth();
@@ -39,6 +36,14 @@ function App() {
           element={
             <ProtectedRoute user={auth.user} loading={auth.loading}>
               <SimulationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sessions/:sessionId/debrief"
+          element={
+            <ProtectedRoute user={auth.user} loading={auth.loading}>
+              <DebriefPage />
             </ProtectedRoute>
           }
         />
