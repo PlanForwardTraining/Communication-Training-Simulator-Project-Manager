@@ -5,7 +5,36 @@ import {
   useConversation,
 } from '@elevenlabs/react';
 import { sessionsApi, type Turn, type SessionEvent, type SessionStart } from '../api/sessions';
+import { scenariosApi, type ScenarioBriefing } from '../api/scenarios';
 import { DiscBadge } from '../components/DiscBadge';
+import { MarkdownLite } from '../utils/MarkdownLite';
+
+// ---------------------------------------------------------------------------
+// Notes panel — the PM's case-file reference during the call
+// ---------------------------------------------------------------------------
+
+function NotesContent({
+  briefing,
+  clientFirstName,
+}: {
+  briefing: ScenarioBriefing;
+  clientFirstName: string;
+}) {
+  return (
+    <div className="text-[13px] leading-relaxed">
+      <div className="mb-4 pb-4 border-b border-navy-600">
+        <p className="font-display font-semibold text-[10px] text-gold-500 uppercase tracking-widest mb-1">
+          Call Notes
+        </p>
+        <h2 className="font-display font-bold text-base text-slate-text leading-tight">
+          {briefing.title.replace(/^Scenario \d+:\s*/i, '')}
+        </h2>
+        <p className="font-body text-xs text-slate-muted mt-1">Speaking with {clientFirstName}</p>
+      </div>
+      <MarkdownLite source={briefing.body_briefing} />
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Status helpers
@@ -85,11 +114,12 @@ function StatusIndicator({
 
 interface InnerPageProps {
   sessionData: SessionStart;
+  briefing: ScenarioBriefing | null;
   scenarioSlug: string;
   discCode: string;
 }
 
-function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps) {
+function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: InnerPageProps) {
   const navigate = useNavigate();
 
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -98,6 +128,7 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
   const [ending, setEnding] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [endingError, setEndingError] = useState<string | null>(null);
+  const [notesOpen, setNotesOpen] = useState(false);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
 
@@ -270,7 +301,7 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
           {scenarioLabel}
         </span>
 
-        {/* Status + interruption counter — top right */}
+        {/* Status + interruption counter + notes toggle — top right */}
         <div className="flex items-center gap-3">
           <StatusIndicator status={status} mode={mode} />
           {interruptionCount > 0 && (
@@ -279,8 +310,62 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
               {interruptionCount}
             </span>
           )}
+          {/* Notes toggle — visible only on mobile (sidebar is always visible on lg+) */}
+          {briefing && (
+            <button
+              onClick={() => setNotesOpen(o => !o)}
+              className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-navy-700 hover:bg-navy-600 border border-navy-600 text-slate-text font-body text-xs font-semibold transition-colors"
+              aria-label="Toggle call notes"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Notes
+            </button>
+          )}
         </div>
       </header>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Body — notes sidebar + transcript                                    */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Notes sidebar — always visible on lg+, slides in from right on mobile */}
+        {briefing && (
+          <>
+            {/* Desktop: persistent left panel */}
+            <aside className="hidden lg:block w-80 xl:w-96 shrink-0 border-r border-navy-600 overflow-y-auto px-5 py-5 bg-navy-800/40">
+              <NotesContent briefing={briefing} clientFirstName={sessionData.clientFirstName} />
+            </aside>
+
+            {/* Mobile: slide-in drawer overlaying the transcript */}
+            {notesOpen && (
+              <>
+                <div
+                  className="lg:hidden fixed inset-0 bg-navy-900/70 backdrop-blur-sm z-40"
+                  onClick={() => setNotesOpen(false)}
+                />
+                <aside className="lg:hidden fixed top-0 right-0 bottom-0 w-[85vw] max-w-sm bg-navy-800 border-l border-navy-600 z-50 overflow-y-auto px-5 py-5 shadow-2xl">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="font-display font-semibold text-xs text-gold-500 uppercase tracking-widest">
+                      Call Notes
+                    </span>
+                    <button
+                      onClick={() => setNotesOpen(false)}
+                      className="text-slate-muted hover:text-slate-text"
+                      aria-label="Close notes"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <NotesContent briefing={briefing} clientFirstName={sessionData.clientFirstName} />
+                </aside>
+              </>
+            )}
+          </>
+        )}
 
       {/* ------------------------------------------------------------------ */}
       {/* Transcript                                                           */}
@@ -338,6 +423,7 @@ function SimulationInner({ sessionData, scenarioSlug, discCode }: InnerPageProps
             </div>
           </div>
         ))}
+      </div>
       </div>
 
       {/* ------------------------------------------------------------------ */}
@@ -437,6 +523,7 @@ export function SimulationPage() {
   const navigate = useNavigate();
 
   const [sessionData, setSessionData] = useState<SessionStart | null>(null);
+  const [briefing, setBriefing] = useState<ScenarioBriefing | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const createdRef = useRef(false);
 
@@ -456,6 +543,13 @@ export function SimulationPage() {
         setLoadError('Failed to start session. Please go back and try again.');
       });
   }, [scenarioSlug, decodedDisc]);
+
+  useEffect(() => {
+    if (!scenarioSlug) return;
+    scenariosApi.getBriefing(scenarioSlug).then(setBriefing).catch(() => {
+      // Non-fatal — the call still works without the side panel
+    });
+  }, [scenarioSlug]);
 
   if (loadError) {
     return (
@@ -482,6 +576,7 @@ export function SimulationPage() {
     <ConversationProvider>
       <SimulationInner
         sessionData={sessionData}
+        briefing={briefing}
         scenarioSlug={scenarioSlug!}
         discCode={decodedDisc}
       />
