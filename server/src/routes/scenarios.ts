@@ -13,6 +13,33 @@ router.get('/', requireAuth, (_req: Request, res: Response): void => {
   res.json(scenarios);
 });
 
+// GET /api/scenarios/by-slug/:slug — briefing view: hides the answer-key sections
+// (Desired Outcomes, Common Pitfalls, Realistic Client Pushback) used for coaching scoring.
+router.get('/by-slug/:slug', requireAuth, (req: Request, res: Response): void => {
+  const scenario = db.prepare(
+    'SELECT id, slug, title, body_markdown FROM scenarios WHERE slug = ? AND active = 1'
+  ).get(req.params.slug) as
+    | { id: number; slug: string; title: string; body_markdown: string }
+    | undefined;
+
+  if (!scenario) {
+    res.status(404).json({ error: 'Scenario not found' });
+    return;
+  }
+
+  let briefing = scenario.body_markdown;
+  briefing = briefing.replace(/^>\s*\*\*Status:\*\*[^\n]*\n?/m, '');
+  const cutoff = briefing.search(/^##\s+Desired Outcomes/im);
+  if (cutoff >= 0) briefing = briefing.slice(0, cutoff);
+
+  res.json({
+    id: scenario.id,
+    slug: scenario.slug,
+    title: scenario.title,
+    body_briefing: briefing.trim(),
+  });
+});
+
 // GET /api/scenarios/:id
 router.get('/:id', requireAuth, (req: Request, res: Response): void => {
   const scenario = db.prepare('SELECT * FROM scenarios WHERE id = ?').get(Number(req.params.id));

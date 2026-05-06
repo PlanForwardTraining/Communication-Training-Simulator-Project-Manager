@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { discApi, type DiscProfile } from '../api/disc';
+import { scenariosApi, type ScenarioBriefing } from '../api/scenarios';
+import { MarkdownLite } from '../utils/MarkdownLite';
 
 // Brief personality hints for each profile code
 const DISC_HINTS: Record<string, string> = {
@@ -33,13 +35,18 @@ export function DiscSelectPage() {
   const { scenarioSlug } = useParams<{ scenarioSlug: string }>();
   const navigate = useNavigate();
   const [profiles, setProfiles] = useState<DiscProfile[]>([]);
+  const [briefing, setBriefing] = useState<ScenarioBriefing | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    discApi.list()
-      .then(setProfiles)
+    if (!scenarioSlug) return;
+    Promise.all([discApi.list(), scenariosApi.getBriefing(scenarioSlug)])
+      .then(([p, b]) => {
+        setProfiles(p);
+        setBriefing(b);
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [scenarioSlug]);
 
   const handleSelect = (code: string) => {
     navigate(`/sessions/${scenarioSlug}/${encodeURIComponent(code)}/simulate`);
@@ -65,6 +72,19 @@ export function DiscSelectPage() {
 
       <main className="flex-1 py-8 px-4">
         <div className="container-md mx-auto">
+          {/* Scenario briefing — the PM's "case file" before the call */}
+          {briefing && (
+            <section className="card p-6 sm:p-7 border-l-4 border-l-gold-500 mb-10">
+              <p className="font-display font-semibold text-xs text-gold-500 uppercase tracking-widest mb-1.5">
+                Scenario Brief
+              </p>
+              <h2 className="font-display font-bold text-xl sm:text-2xl text-slate-text mb-4 leading-tight">
+                {briefing.title.replace(/^Scenario \d+:\s*/i, '')}
+              </h2>
+              <MarkdownLite source={briefing.body_briefing} />
+            </section>
+          )}
+
           <h1 className="font-display text-2xl font-bold text-slate-text mb-1">Select Client Profile</h1>
           <p className="font-body text-slate-muted mb-8">Who are you speaking with today?</p>
 
