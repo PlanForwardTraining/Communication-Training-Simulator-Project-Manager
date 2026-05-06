@@ -68,9 +68,3 @@
   }
 }
 
-/* Prevent WebKit line-clamp from clipping descenders (g, y, p, j) */
-.line-clamp-2,
-.line-clamp-3,
-.line-clamp-4 {
-  padding-bottom: 2px;
-}
