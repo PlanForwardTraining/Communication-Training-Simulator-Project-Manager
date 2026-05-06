@@ -6,6 +6,7 @@ import usersRouter from './routes/users';
 import scenariosRouter from './routes/scenarios';
 import discProfilesRouter from './routes/disc-profiles';
 import rubricRouter from './routes/rubric';
+import sessionsRouter from './routes/sessions';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/scenarios', scenariosRouter);
 app.use('/api/disc-profiles', discProfilesRouter);
 app.use('/api/rubric-items', rubricRouter);
+app.use('/api/sessions', sessionsRouter);
 
 // 404 handler
 app.use((_req, res) => {

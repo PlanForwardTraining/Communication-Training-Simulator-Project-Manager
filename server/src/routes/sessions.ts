@@ -1,0 +1,173 @@
+import { Router, Request, Response } from 'express';
+import db from '../db/connection';
+import { requireAuth } from '../middleware/auth';
+import { requireAdmin } from '../middleware/roleGuard';
+import { generateCoaching } from '../services/claude';
+import { getDiscProfile, getRubric } from '../prompts/loader';
+import { TurnRecord, EventRecord, User } from '../types';
+
+const router = Router();
+
+// POST /api/sessions — create a new session
+router.post('/', requireAuth, (req: Request, res: Response): void => {
+  const { scenarioSlug, clientDiscCode } = req.body;
+
+  if (!scenarioSlug || !clientDiscCode) {
+    res.status(400).json({ error: 'scenarioSlug and clientDiscCode are required' });
+    return;
+  }
+
+  // Validate scenario exists in DB
+  const scenario = db.prepare('SELECT id FROM scenarios WHERE slug = ? AND active = 1').get(scenarioSlug) as { id: number } | undefined;
+  if (!scenario) {
+    res.status(404).json({ error: 'Scenario not found' });
+    return;
+  }
+
+  // Validate DISC profile exists
+  const discProfile = db.prepare('SELECT id FROM disc_profiles WHERE code = ?').get(clientDiscCode) as { id: number } | undefined;
+  if (!discProfile) {
+    res.status(404).json({ error: 'DISC profile not found' });
+    return;
+  }
+
+  const result = db.prepare(
+    'INSERT INTO sessions (user_id, scenario_id, client_disc_id) VALUES (?, ?, ?)'
+  ).run(req.user!.userId, scenario.id, discProfile.id);
+
+  res.status(201).json({
+    sessionId: result.lastInsertRowid,
+    // signedUrl and agentId will be added in Phase 3
+  });
+});
+
+// POST /api/sessions/:id/end — generate coaching and close session
+router.post('/:id/end', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const sessionId = Number(req.params.id);
+
+  // Get session and verify ownership
+  const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId) as {
+    id: number; user_id: number; scenario_id: number; client_disc_id: number;
+    started_at: string; ended_at: string | null; total_score: number | null;
+  } | undefined;
+
+  if (!session) {
+    res.status(404).json({ error: 'Session not found' });
+    return;
+  }
+
+  if (req.user!.role !== 'admin' && session.user_id !== req.user!.userId) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  if (session.ended_at) {
+    // Session already ended — return existing coaching
+    const existing = db.prepare('SELECT * FROM coaching WHERE session_id = ?').get(sessionId);
+    res.json(existing);
+    return;
+  }
+
+  // Get PM's DISC profile
+  const pmUser = db.prepare('SELECT disc_profile FROM users WHERE id = ?').get(session.user_id) as { disc_profile: string } | undefined;
+  if (!pmUser) {
+    res.status(404).json({ error: 'PM user not found' });
+    return;
+  }
+
+  // Get client DISC profile
+  const clientDiscRow = db.prepare('SELECT code FROM disc_profiles WHERE id = ?').get(session.client_disc_id) as { code: string } | undefined;
+  if (!clientDiscRow) {
+    res.status(404).json({ error: 'Client DISC profile not found' });
+    return;
+  }
+
+  const pmDisc = getDiscProfile(pmUser.disc_profile);
+  const clientDisc = getDiscProfile(clientDiscRow.code);
+
+  if (!pmDisc || !clientDisc) {
+    res.status(400).json({ error: 'DISC profile content not found in /content/' });
+    return;
+  }
+
+  // Get turns and events
+  const turns = db.prepare('SELECT * FROM turns WHERE session_id = ? ORDER BY created_at').all(sessionId) as TurnRecord[];
+  const events = db.prepare('SELECT * FROM events WHERE session_id = ? ORDER BY occurred_at').all(sessionId) as EventRecord[];
+
+  if (turns.length === 0) {
+    res.status(400).json({ error: 'No turns found for this session — cannot generate coaching' });
+    return;
+  }
+
+  try {
+    const rubric = getRubric();
+    const coaching = await generateCoaching(turns, events, pmDisc, clientDisc, rubric);
+
+    // Mark session as ended
+    db.prepare('UPDATE sessions SET ended_at = CURRENT_TIMESTAMP, total_score = ? WHERE id = ?')
+      .run(coaching.totalScore, sessionId);
+
+    // Save coaching
+    db.prepare(`
+      INSERT OR REPLACE INTO coaching
+        (session_id, strengths, misses, alternatives, disc_adaptation, score_breakdown_json, total_score)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      sessionId,
+      coaching.strengths,
+      coaching.misses,
+      coaching.alternatives,
+      coaching.discAdaptation,
+      JSON.stringify(coaching.scoreBreakdown),
+      coaching.totalScore
+    );
+
+    res.json({
+      sessionId,
+      ...coaching,
+    });
+  } catch (err) {
+    console.error('Coaching generation failed:', err);
+    res.status(500).json({ error: 'Failed to generate coaching' });
+  }
+});
+
+// GET /api/sessions — admin: all; pm: own only
+router.get('/', requireAuth, (req: Request, res: Response): void => {
+  if (req.user!.role === 'admin') {
+    const sessions = db.prepare('SELECT * FROM sessions ORDER BY started_at DESC').all();
+    res.json(sessions);
+  } else {
+    const sessions = db.prepare(
+      'SELECT * FROM sessions WHERE user_id = ? ORDER BY started_at DESC'
+    ).all(req.user!.userId);
+    res.json(sessions);
+  }
+});
+
+// GET /api/sessions/:id — full session with turns, events, and coaching
+router.get('/:id', requireAuth, (req: Request, res: Response): void => {
+  const sessionId = Number(req.params.id);
+
+  const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId) as {
+    id: number; user_id: number;
+  } | undefined;
+
+  if (!session) {
+    res.status(404).json({ error: 'Session not found' });
+    return;
+  }
+
+  if (req.user!.role !== 'admin' && session.user_id !== req.user!.userId) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  const turns = db.prepare('SELECT * FROM turns WHERE session_id = ? ORDER BY created_at').all(sessionId);
+  const events = db.prepare('SELECT * FROM events WHERE session_id = ? ORDER BY occurred_at').all(sessionId);
+  const coaching = db.prepare('SELECT * FROM coaching WHERE session_id = ?').get(sessionId);
+
+  res.json({ ...session, turns, events, coaching: coaching || null });
+});
+
+export default router;
