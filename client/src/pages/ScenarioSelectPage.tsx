@@ -49,12 +49,12 @@ export function ScenarioSelectPage() {
         </div>
       </header>
 
-      <main className="flex-1 py-10 sm:py-14">
+      <main className="flex-1 py-10 sm:py-16">
         <div className="container-lg">
-          <h1 className="font-display text-2xl sm:text-3xl font-bold text-slate-text mb-1">
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-slate-text mb-2">
             Select a Scenario
           </h1>
-          <p className="font-body text-slate-muted mb-8 sm:mb-10">
+          <p className="font-body text-slate-muted mb-10 sm:mb-12 text-base">
             Choose the situation you want to practice
           </p>
 
@@ -77,24 +77,24 @@ export function ScenarioSelectPage() {
           )}
 
           {!loading && !error && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {scenarios.map(scenario => (
                 <button
                   key={scenario.id}
                   onClick={() => navigate(`/sessions/new/${scenario.slug}`)}
-                  className="card p-6 text-left hover:bg-navy-700 transition-all duration-200 group border-l-4 border-l-gold-500 hover:border-l-gold-400 active:scale-[0.99]"
+                  className="card p-7 text-left hover:bg-navy-700 transition-all duration-200 group border-l-4 border-l-gold-500 hover:border-l-gold-400 active:scale-[0.99]"
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-4">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-display font-semibold text-[15px] leading-snug text-slate-text group-hover:text-gold-400 transition-colors duration-200 mb-2">
+                      <h3 className="font-display font-semibold text-base leading-snug text-slate-text group-hover:text-gold-400 transition-colors duration-200 mb-2.5">
                         {scenario.title.replace(/^Scenario \d+:\s*/i, '')}
                       </h3>
-                      <p className="font-body text-sm leading-relaxed text-slate-muted overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', paddingBottom: '2px' }}>
+                      <p className="font-body text-sm leading-[1.6] text-slate-muted" style={{ display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden', paddingBottom: '2px' }}>
                         {stripMarkdown(scenario.description)}
                       </p>
                     </div>
                     <svg
-                      className="w-4 h-4 text-navy-500 group-hover:text-gold-500 group-hover:translate-x-1 transition-all duration-200 flex-shrink-0 mt-0.5"
+                      className="w-5 h-5 text-navy-500 group-hover:text-gold-500 group-hover:translate-x-1 transition-all duration-200 flex-shrink-0 mt-0.5"
                       fill="none" viewBox="0 0 24 24" stroke="currentColor"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
