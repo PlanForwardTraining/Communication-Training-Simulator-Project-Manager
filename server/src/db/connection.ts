@@ -4,9 +4,12 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const dbPath = process.env.DATABASE_PATH
-  ? path.resolve(process.env.DATABASE_PATH)
-  : path.resolve(__dirname, '../../../data/simulator.db');
+const rawPath = process.env.DATABASE_PATH;
+const dbPath = rawPath === ':memory:'
+  ? ':memory:'
+  : rawPath
+    ? path.resolve(rawPath)
+    : path.resolve(__dirname, '../../../data/simulator.db');
 
 const db = new Database(dbPath);
 
