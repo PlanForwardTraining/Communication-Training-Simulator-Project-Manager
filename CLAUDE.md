@@ -16,8 +16,8 @@ This is not a product for sale. It is a world-class internal training tool.
 | Backend | Node.js + Express | Simple REST API, JS throughout |
 | Database | SQLite (via better-sqlite3) | Zero-config, single file, easy backup |
 | **Voice (real-time)** | **ElevenLabs Conversational AI** | Phone-call-feel: continuous mic, VAD, streaming STT/TTS, echo cancellation, interruption detection — all managed |
-| **AI Brain (in-call)** | **Claude (via ElevenLabs LLM integration)** | ElevenLabs CAI invokes Claude for each turn using our persona prompt — drives the client's voice and behavior |
-| **AI Coaching (post-call)** | Anthropic Claude API (direct) | Same Claude, separate call after session ends — analyzes full transcript + interruption events to produce structured debrief |
+| **AI Brain (in-call)** | **ElevenLabs Qwen3.5-397B** *(configurable)* | Currently set to Qwen3.5-397B for sub-400ms first-token latency. Switchable to Claude Haiku/Sonnet via the agent's LLM dropdown if quality > speed is preferred. Whatever the choice, ElevenLabs CAI invokes it each turn using our persona prompt override. |
+| **AI Coaching (post-call)** | Anthropic Claude API (direct) | Always uses Claude Sonnet 4.6 — quality > speed for the coaching debrief. Separate call after session ends; analyzes full transcript + interruption events to produce structured coaching JSON. |
 | Excel Export | exceljs | Direct .xlsx generation, no Office dependency |
 | Auth | JWT + bcrypt | Stateless, secure, simple |
 | Deployment | Railway (backend + DB) + Vercel (frontend) | Fast, affordable, no DevOps |
@@ -27,56 +27,56 @@ This is not a product for sale. It is a world-class internal training tool.
 ## Architecture Overview
 
 ```
-Browser (React SPA + ElevenLabs CAI SDK)
+Browser (React SPA + @elevenlabs/react SDK)
   │
   ├─ REST API calls ────► Express Backend (Railway)
   │                          │
-  │                          ├─ Issues per-session conversation override
-  │                          │   (persona prompt built from /content/ files)
+  │                          ├─ POST /api/sessions: assembles persona prompt from /content/,
+  │                          │   selects voice via DISC-aligned random, mints ElevenLabs signed URL,
+  │                          │   returns { sessionId, signedUrl, agentId, voiceId, voiceName, personaPrompt }
   │                          │
-  │                          ├─ Receives webhooks from ElevenLabs:
-  │                          │   • turn_start / turn_end
-  │                          │   • user_interrupted_agent  ← coaching signal
-  │                          │   • agent_interrupted_user  ← logged but not penalized
-  │                          │   • transcript fragments
+  │                          ├─ POST /api/sessions/:id/end: receives full transcript + events
+  │                          │   from browser, persists to turns/events tables, calls Claude
+  │                          │   for coaching, saves coaching, regenerates Excel
   │                          │
-  │                          └─ Persists turns + events → SQLite
+  │                          └─ SQLite (mounted at /data on Railway volume)
   │
   └─ WebRTC audio ──────► ElevenLabs Conversational AI
                             │
-                            ├─ Streaming STT (own / Deepgram)
+                            ├─ Streaming STT
                             ├─ Voice Activity Detection
-                            ├─ Calls Claude (configured LLM) with
-                            │  per-session persona prompt + history
+                            ├─ Calls configured LLM (Qwen / Claude / etc.) with
+                            │  per-session persona prompt + voice override
                             ├─ Streaming TTS (chosen voice)
                             └─ Interruption + echo handling
                             │
-                            └─ SDK emits real-time events to browser:
-                               user_transcript, agent_response, interruption
+                            └─ SDK emits events to browser callbacks:
+                               • onMessage (each completed turn)
+                               • onInterruption
+                               • onStatusChange / onError / onConnect / onDisconnect
 
-When PM clicks "End Session":
-  Browser sends full transcript + interruption events → POST /api/sessions/:id/end
-  Backend saves turns + events to SQLite
-  Backend ──► Claude (direct API call)
-                 with: full transcript + interruption events + rubric
-                 → returns structured coaching JSON + score
-                 → saved to SQLite, Excel export regenerated
+The browser captures turns + interruption events via SDK callbacks (NOT via server webhooks).
+When PM clicks End Session, the full transcript is sent in the body of POST /api/sessions/:id/end.
 
-Note: No server-side webhooks needed for turn capture.
-The browser SDK captures everything; the backend receives it all at session end.
+Backend coaching pipeline at end:
+  Browser (transcript + events) → POST /:id/end
+  Backend persists turns + events
+  Backend ──► Claude API (direct, Sonnet 4.6) with rubric + transcript
+                 → structured coaching JSON + score
+                 → saved to SQLite + (future) Excel export
 
-Admin Dashboard (same React app, role-gated route)
-  └─ REST API calls ──► same backend
+Admin Dashboard (Phase 5 — not yet built)
+  └─ Same React app, role-gated routes → same backend
 ```
 
 **Conversation flow:**
-1. PM hits "Start" — frontend opens an ElevenLabs CAI session via SDK
-2. Backend supplies the **conversation override**: a system prompt assembled from the chosen scenario file + chosen DISC profile file in `/content/`
-3. PM speaks naturally — ElevenLabs streams audio, transcribes, calls Claude, streams Claude's response audio back
-4. Both speakers' transcript fragments + every interruption event flow as webhooks to our backend, persisted to `turns` and `events` tables
-5. PM clicks "End Session" — frontend stops the CAI session, hits our backend `/end` endpoint
-6. Backend → Claude (separate call, with full transcript + interruption events + rubric prompt) → structured coaching JSON
-7. Coaching saved, Excel regenerated, debrief shown to PM
+1. PM hits "Start" — frontend calls `POST /api/sessions` to get `signedUrl + personaPrompt + voiceId`
+2. Frontend opens an ElevenLabs CAI session via `@elevenlabs/react` SDK, passing persona prompt + voice as `conversation_initiation_client_data` overrides
+3. PM speaks naturally — ElevenLabs streams audio, transcribes, calls the configured LLM (Qwen3.5-397B by default), streams TTS response back
+4. Browser SDK callbacks fire: `onMessage` for each completed turn, `onInterruption` for overlap events. Frontend accumulates these in component state.
+5. PM clicks End Session → confirmation → frontend ends CAI session and calls `POST /api/sessions/:id/end` with `{ turns, events }` body
+6. Backend persists turns + events, calls Claude (direct API, Sonnet 4.6) for coaching analysis
+7. Coaching saved, debrief shown to PM
 
 ---
 
@@ -90,63 +90,73 @@ Admin Dashboard (same React app, role-gated route)
 │   ├── voices/                 # 10 voice profiles (ID + DISC compatibility metadata)
 │   └── coaching-rubric/        # Categories, weights, scoring levels
 │
-├── client/                     # React frontend (Vite)
+├── client/                     # React + Vite frontend
 │   ├── src/
 │   │   ├── pages/
 │   │   │   ├── LoginPage.tsx
 │   │   │   ├── ScenarioSelectPage.tsx
-│   │   │   ├── DISCSelectPage.tsx
-│   │   │   ├── SimulationPage.tsx
-│   │   │   ├── DebriefPage.tsx
-│   │   │   ├── SessionHistoryPage.tsx
-│   │   │   └── AdminDashboardPage.tsx
+│   │   │   ├── DiscSelectPage.tsx
+│   │   │   ├── SimulationPage.tsx       # ElevenLabs SDK voice conversation
+│   │   │   ├── DebriefPage.tsx          # SVG score ring + 7-category breakdown
+│   │   │   └── HistoryPage.tsx
 │   │   ├── components/
-│   │   │   ├── VoiceRecorder.tsx       # mic capture, waveform
-│   │   │   ├── AudioPlayer.tsx         # plays ElevenLabs audio
-│   │   │   ├── ConversationLog.tsx     # live transcript display
-│   │   │   ├── ScoreCard.tsx
-│   │   │   └── DISCBadge.tsx
+│   │   │   ├── DiscBadge.tsx
+│   │   │   └── ProtectedRoute.tsx
+│   │   ├── context/
+│   │   │   └── AuthContext.tsx          # React Context — single source of truth for auth
 │   │   ├── hooks/
-│   │   │   ├── useConversation.ts      # manages turn-by-turn state
-│   │   │   └── useAudioRecorder.ts
-│   │   ├── api/                        # typed API client functions
+│   │   │   └── useAuth.ts               # (legacy — superseded by AuthContext)
+│   │   ├── api/                         # typed fetch wrappers
+│   │   │   ├── client.ts                # base fetch with JWT + 401 auto-logout
+│   │   │   ├── auth.ts
+│   │   │   ├── scenarios.ts
+│   │   │   ├── disc.ts
+│   │   │   └── sessions.ts
 │   │   └── App.tsx
 │   └── index.html
 │
-├── server/                     # Node.js + Express backend
+├── server/                     # Node.js + Express + TypeScript
 │   ├── src/
 │   │   ├── routes/
-│   │   │   ├── auth.ts
+│   │   │   ├── auth.ts                  # POST /auth/login, GET /auth/me
 │   │   │   ├── users.ts
 │   │   │   ├── scenarios.ts
-│   │   │   ├── sessions.ts
-│   │   │   └── admin.ts
+│   │   │   ├── disc-profiles.ts
+│   │   │   ├── rubric.ts
+│   │   │   ├── sessions.ts              # session lifecycle + ElevenLabs signed URL
+│   │   │   └── elevenlabs-webhook.ts    # built but unused (client-side capture instead)
 │   │   ├── services/
-│   │   │   ├── whisper.ts          # STT via OpenAI
-│   │   │   ├── elevenlabs.ts       # TTS
-│   │   │   ├── claude.ts           # roleplay + coaching
-│   │   │   └── excel.ts            # .xlsx export
-│   │   ├── db/
-│   │   │   ├── schema.ts           # table definitions
-│   │   │   ├── migrations/
-│   │   │   └── queries/            # typed DB query functions
+│   │   │   ├── claude.ts                # generateCoaching() — direct Claude API
+│   │   │   ├── elevenlabs-cai.ts        # signed URL minting + HMAC verification
+│   │   │   └── voice-selector.ts        # DISC-aligned random voice selection
 │   │   ├── prompts/
-│   │   │   ├── disc-personas/      # one file per DISC profile
-│   │   │   ├── scenarios/          # one file per scenario
-│   │   │   └── coaching.ts         # coaching rubric prompt builder
+│   │   │   ├── loader.ts                # reads /content/ at startup, in-memory cache
+│   │   │   ├── persona-prompt.ts        # buildPersonaPrompt(scenario, clientDisc)
+│   │   │   └── coaching-prompt.ts       # buildCoachingPrompt(turns, events, ...)
+│   │   ├── db/
+│   │   │   ├── schema.sql               # SQL DDL (copied to dist/db/ at build)
+│   │   │   ├── connection.ts            # better-sqlite3 singleton (creates parent dir if missing)
+│   │   │   ├── migrate.ts
+│   │   │   └── seed.ts                  # seeds from /content/ + admin user
 │   │   ├── middleware/
-│   │   │   ├── auth.ts             # JWT verification
-│   │   │   └── roleGuard.ts        # admin-only route protection
+│   │   │   ├── auth.ts
+│   │   │   └── roleGuard.ts
+│   │   ├── utils/
+│   │   │   └── content-dir.ts           # finds /content/ in dev (repo root) or prod (dist/content)
+│   │   ├── types/
+│   │   │   └── index.ts
 │   │   └── index.ts
-│   └── package.json
+│   ├── tests/                           # Jest + supertest, in-memory SQLite
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── railway.toml                # Railway config: build from repo root, cd server
 │
 ├── docs/
-│   ├── superpowers/plans/          # implementation sub-plans
-│   ├── admin-guide.md              # owner: add users, update scenarios
-│   └── disc-profiles.md            # company DISC language reference
+│   └── superpowers/plans/      # phase-by-phase plans
 │
-└── data/
-    └── sessions.xlsx               # auto-updated export file
+└── data/                       # Local dev only — production uses /data on Railway volume
+    └── .gitkeep
 ```
 
 ---
@@ -174,25 +184,45 @@ The `events` table is the source of truth for interruption tracking. Coaching re
 
 ## Environment Variables
 
-**Backend (`server/.env`):**
+**Backend dev (`server/.env`):**
 ```
-DATABASE_PATH=../data/simulator.db
-EXCEL_PATH=../data/sessions.xlsx
+DATABASE_PATH=./data/simulator.db        # relative — local dev
+EXCEL_PATH=./data/sessions.xlsx
 JWT_SECRET=<strong random string>
+JWT_EXPIRES_IN=7d
 ANTHROPIC_API_KEY=sk-ant-...
-ELEVENLABS_API_KEY=...
-ELEVENLABS_VOICE_ID=...           # chosen voice for AI client
-ELEVENLABS_AGENT_ID=...           # the configured Conversational AI agent
-ELEVENLABS_WEBHOOK_SECRET=...     # to verify incoming webhook signatures
-PORT=3001
+ELEVENLABS_API_KEY=sk_...
+ELEVENLABS_AGENT_ID=...                  # the configured Conversational AI agent (no "agent_" prefix)
+ADMIN_PASSWORD=<password for seeded admin user>
+PORT=3002                                # 3001 conflicts with gmail-mcp on Tyler's Mac
 CLIENT_ORIGIN=http://localhost:5173
+NODE_ENV=development
 ```
 
-> **Note:** OpenAI/Whisper is no longer required — ElevenLabs Conversational AI handles speech-to-text natively. We removed `OPENAI_API_KEY` from the stack.
+**Backend production (Railway env vars):**
+```
+DATABASE_PATH=/data/simulator.db         # absolute — Railway volume mount
+EXCEL_PATH=/data/sessions.xlsx
+PORT=3001                                # matches Generate Domain dialog
+NODE_ENV=production
+CLIENT_ORIGIN=https://<vercel-url>       # locked down after Vercel deploys; "*" temporarily during setup
+# Plus all the same secrets: JWT_SECRET (different from dev!), ANTHROPIC_API_KEY,
+# ELEVENLABS_API_KEY, ELEVENLABS_AGENT_ID, JWT_EXPIRES_IN, ADMIN_PASSWORD
+```
+
+**No longer used:**
+- `OPENAI_API_KEY` — ElevenLabs CAI handles STT natively
+- `ELEVENLABS_VOICE_ID` — superseded by the voice pool in `/content/voices/`
+- `ELEVENLABS_WEBHOOK_SECRET` — webhooks aren't used; transcript captured client-side
+- `RESEND_API_KEY` — Resend isn't set up yet (will be added when password reset is needed)
 
 **Frontend (`client/.env`):**
 ```
-VITE_API_BASE_URL=http://localhost:3001
+# Dev:
+VITE_API_BASE_URL=http://localhost:3002
+
+# Vercel production env var:
+# VITE_API_BASE_URL=https://<railway-url>
 ```
 
 ---
@@ -282,14 +312,38 @@ Placeholder content for the first three has been drafted in `/content/` so devel
 
 ## Phase Summary
 
-| Phase | What Gets Built | Est. Dev Time |
+| Phase | What Gets Built | Status |
 |---|---|---|
-| 1 — Foundation | Backend, DB, auth, user/scenario CRUD | 1.5 weeks |
-| 2 — AI Engine | Claude roleplay + coaching prompts | 1.5 weeks |
-| 3 — Voice Pipeline | Whisper STT + ElevenLabs TTS + audio UI | 1.5 weeks |
-| 4 — PM Frontend | Full PM simulation + debrief experience | 1.5 weeks |
-| 5 — Admin Dashboard | Dashboards, Excel export, config UI | 1 week |
-| 6 — Polish + Deploy | QA, deployment, owner documentation | 1 week |
-| **Total** | | **~8 weeks** |
+| 1 — Foundation | Backend, DB, auth, user/scenario CRUD | ✅ Done |
+| 2 — AI Engine | Claude coaching + persona prompt builders | ✅ Done |
+| 3 — Voice Pipeline | ElevenLabs CAI + voice selector + signed URLs | ✅ Done |
+| 4 — PM Frontend | Login → scenario → DISC → simulation → debrief → history | ✅ Done |
+| 5 — Admin Dashboard | All-PM view, score trends, scenario/rubric/voice config, Excel export | ⏳ Not started — deferred until after deploy |
+| 6 — Deploy | Production hosting on Railway + Vercel | 🔶 Backend done, frontend pending |
 
-Each phase has its own detailed sub-plan in `docs/superpowers/plans/`.
+Each phase has its own detailed plan in `docs/superpowers/plans/`.
+
+---
+
+## Production Status
+
+- **Backend:** Live at `https://communication-training-simulator-project-manager-production.up.railway.app`
+  - `/health` returns 200 ✅
+  - Hobby plan ($5/mo)
+  - Volume mounted at `/data` for SQLite + Excel persistence
+- **Frontend:** Not yet deployed to Vercel (next step)
+- **Repo:** `https://github.com/PlanForwardTraining/Communication-Training-Simulator-Project-Manager`
+
+## Production Build Notes
+
+The production build has a few non-obvious behaviors worth knowing:
+
+1. **`/content/` is bundled into `server/dist/content/` during build** — Railway only deploys the build context, so the server is self-contained at runtime. Path resolution helper at `server/src/utils/content-dir.ts` finds content in either `dist/content/` (prod) or repo root (dev).
+
+2. **`server/package.json` `start` runs migrate → seed → server** — first-deploy seeds an admin user from `ADMIN_PASSWORD` env var. Idempotent on subsequent deploys (uses INSERT OR IGNORE).
+
+3. **`railway.toml` at repo root drives the build** — DO NOT set Railway's "Root Directory" UI setting; that restricts build context and breaks the `cp -r ../content` step. The TOML's `cd server && ...` works because the build runs from repo root.
+
+4. **`engines.node` pinned to `>=20`** — `better-sqlite3@12+` requires Node 20+. Nixpacks defaults to Node 18 without this pin.
+
+5. **`npm install --include=dev` in build command** — `NODE_ENV=production` makes `npm install` skip devDependencies, but `tsc` is a devDependency.
