@@ -9,8 +9,8 @@ import db from '../src/db/connection';
 import app from '../src/index';
 
 // Mock the Claude service to avoid real API calls in tests
-jest.mock('../src/services/claude', () => ({
-  generateCoaching: jest.fn().mockResolvedValue({
+jest.mock('../src/services/claude', () => {
+  const mock = {
     strengths: 'Good empathy shown.',
     misses: 'Could have been clearer.',
     alternatives: 'Try saying: I understand this is difficult.',
@@ -20,8 +20,27 @@ jest.mock('../src/services/claude', () => ({
       solutionOrientation: 4, ownership: 4, composure: 4, activeListening: 4,
     },
     totalScore: 74,
-  }),
-}));
+  };
+  return {
+    generateCoaching: jest.fn().mockResolvedValue(mock),
+    generateCoachingStream: jest.fn().mockImplementation(
+      (_t: unknown, _e: unknown, _p: unknown, _c: unknown, _r: unknown, _onProgress: unknown) =>
+        Promise.resolve(mock),
+    ),
+  };
+});
+
+function parseSseComplete(text: string): Record<string, unknown> | null {
+  for (const evt of text.split('\n\n')) {
+    const dataLine = evt.split('\n').find(l => l.startsWith('data: '));
+    if (!dataLine) continue;
+    try {
+      const payload = JSON.parse(dataLine.slice(6));
+      if (payload.type === 'complete') return payload;
+    } catch { /* skip */ }
+  }
+  return null;
+}
 
 // Mock the ElevenLabs CAI service to avoid real API calls
 jest.mock('../src/services/elevenlabs-cai', () => ({
@@ -218,8 +237,9 @@ describe('POST /api/sessions/:id/end', () => {
         ],
       });
     expect(res.status).toBe(200);
-    expect(res.body.totalScore).toBe(74);
-    expect(res.body.strengths).toBeDefined();
-    expect(res.body.scoreBreakdown).toBeDefined();
+    const complete = parseSseComplete(res.text);
+    expect(complete?.totalScore).toBe(74);
+    expect(complete?.strengths).toBeDefined();
+    expect(complete?.scoreBreakdown).toBeDefined();
   });
 });

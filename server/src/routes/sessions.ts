@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import db from '../db/connection';
 import { requireAuth } from '../middleware/auth';
 import { requireAdmin } from '../middleware/roleGuard';
-import { generateCoaching } from '../services/claude';
+import { generateCoachingStream } from '../services/claude';
 import { getDiscProfile, getRubric } from '../prompts/loader';
 import { TurnRecord, EventRecord, User } from '../types';
 import { getSignedUrlForSession } from '../services/elevenlabs-cai';
@@ -154,9 +154,38 @@ router.post('/:id/end', requireAuth, async (req: Request, res: Response): Promis
     return;
   }
 
+  // Switch to Server-Sent Events for live coaching progress. The client
+  // streams progress updates while Claude generates the response, and
+  // receives the final coaching JSON in a 'complete' event.
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // tell upstream proxies not to buffer
+  res.flushHeaders?.();
+
+  const sendEvent = (data: unknown) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  // Heartbeat every 15s in case proxies still try to buffer
+  const heartbeat = setInterval(() => {
+    res.write(`: heartbeat\n\n`);
+  }, 15000);
+
   try {
     const rubric = getRubric();
-    const coaching = await generateCoaching(turns, events, pmDisc, clientDisc, rubric);
+    sendEvent({ type: 'started' });
+
+    const coaching = await generateCoachingStream(
+      turns,
+      events,
+      pmDisc,
+      clientDisc,
+      rubric,
+      ({ charsReceived }) => {
+        sendEvent({ type: 'progress', charsReceived });
+      },
+    );
 
     // Mark session as ended
     db.prepare('UPDATE sessions SET ended_at = CURRENT_TIMESTAMP, total_score = ? WHERE id = ?')
@@ -183,13 +212,16 @@ router.post('/:id/end', requireAuth, async (req: Request, res: Response): Promis
       console.error('Excel regeneration failed (non-fatal):', err);
     });
 
-    res.json({
-      sessionId,
-      ...coaching,
-    });
+    sendEvent({ type: 'complete', sessionId, ...coaching });
   } catch (err) {
     console.error('Coaching generation failed:', err);
-    res.status(500).json({ error: 'Failed to generate coaching' });
+    sendEvent({
+      type: 'error',
+      error: err instanceof Error ? err.message : 'Failed to generate coaching',
+    });
+  } finally {
+    clearInterval(heartbeat);
+    res.end();
   }
 });
 

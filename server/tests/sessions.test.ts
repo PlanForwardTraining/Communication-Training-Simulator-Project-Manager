@@ -20,8 +20,10 @@ jest.mock('../src/services/elevenlabs-cai', () => ({
 }));
 
 // Mock the Claude service to avoid real API calls in tests
-jest.mock('../src/services/claude', () => ({
-  generateCoaching: jest.fn().mockResolvedValue({
+jest.mock('../src/services/claude', () => {
+  // Defined inside the factory because jest.mock is hoisted above any
+  // top-level let/const, and this object can't be a closure over an outer var.
+  const mock = {
     strengths: 'Good empathy shown.',
     misses: 'Could have been clearer.',
     alternatives: 'Try saying: I understand this is difficult.',
@@ -31,8 +33,30 @@ jest.mock('../src/services/claude', () => ({
       solutionOrientation: 4, ownership: 4, composure: 4, activeListening: 4,
     },
     totalScore: 74,
-  }),
-}));
+  };
+  return {
+    generateCoaching: jest.fn().mockResolvedValue(mock),
+    generateCoachingStream: jest.fn().mockImplementation(
+      (_t: unknown, _e: unknown, _p: unknown, _c: unknown, _r: unknown, _onProgress: unknown) =>
+        Promise.resolve(mock),
+    ),
+  };
+});
+
+// The end-session route streams responses as Server-Sent Events. supertest
+// accumulates the whole response into res.text — pull the 'complete' payload
+// out of it for assertions.
+function parseSseComplete(text: string): Record<string, unknown> | null {
+  for (const evt of text.split('\n\n')) {
+    const dataLine = evt.split('\n').find(l => l.startsWith('data: '));
+    if (!dataLine) continue;
+    try {
+      const payload = JSON.parse(dataLine.slice(6));
+      if (payload.type === 'complete') return payload;
+    } catch { /* not a JSON event, skip */ }
+  }
+  return null;
+}
 
 beforeAll(() => {
   runMigrations(db as unknown as Database.Database);
@@ -115,9 +139,10 @@ describe('POST /api/sessions/:id/end', () => {
       .post(`/api/sessions/${sessionId}/end`)
       .set('Authorization', `Bearer ${pmToken}`);
     expect(res.status).toBe(200);
-    expect(res.body.totalScore).toBe(74);
-    expect(res.body.strengths).toBeDefined();
-    expect(res.body.scoreBreakdown).toBeDefined();
+    const complete = parseSseComplete(res.text);
+    expect(complete?.totalScore).toBe(74);
+    expect(complete?.strengths).toBeDefined();
+    expect(complete?.scoreBreakdown).toBeDefined();
   });
 
   it('returns existing coaching if session already ended', async () => {
@@ -150,8 +175,9 @@ describe('POST /api/sessions/:id/end', () => {
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.totalScore).toBe(74); // from mock
-    expect(res.body.scoreBreakdown).toBeDefined();
+    const complete = parseSseComplete(res.text);
+    expect(complete?.totalScore).toBe(74); // from mock
+    expect(complete?.scoreBreakdown).toBeDefined();
   });
 });
 

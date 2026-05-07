@@ -55,15 +55,83 @@ export interface SessionDetail extends SessionSummary {
   coaching: CoachingResult | null;
 }
 
+/**
+ * Stream the end-of-session coaching generation. The backend uses SSE to
+ * report cumulative chars received from Claude's streaming response, then
+ * fires a 'complete' event with the parsed coaching JSON.
+ */
+async function endSessionStream(
+  sessionId: number,
+  turns: Turn[],
+  events: SessionEvent[],
+  onProgress: (charsReceived: number) => void,
+): Promise<CoachingResult & { sessionId: number }> {
+  const token = localStorage.getItem('token');
+  const baseUrl = import.meta.env.VITE_API_BASE_URL as string;
+
+  const res = await fetch(`${baseUrl}/api/sessions/${sessionId}/end`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ turns, events }),
+  });
+
+  if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    const errBody = await res.json().catch(() => ({ error: 'Request failed' }));
+    throw new Error(errBody.error || `HTTP ${res.status}`);
+  }
+
+  if (!res.body) throw new Error('Response had no body');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let final: (CoachingResult & { sessionId: number }) | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    // SSE events are separated by blank lines
+    const events = buffer.split('\n\n');
+    buffer = events.pop() ?? '';
+
+    for (const evt of events) {
+      const dataLine = evt.split('\n').find(l => l.startsWith('data: '));
+      if (!dataLine) continue;
+      let payload: { type: string; [k: string]: unknown };
+      try {
+        payload = JSON.parse(dataLine.slice(6));
+      } catch {
+        continue;
+      }
+      if (payload.type === 'progress') {
+        onProgress(payload.charsReceived as number);
+      } else if (payload.type === 'complete') {
+        final = payload as unknown as CoachingResult & { sessionId: number };
+      } else if (payload.type === 'error') {
+        throw new Error((payload.error as string) || 'Coaching generation failed');
+      }
+    }
+  }
+
+  if (!final) throw new Error('Coaching stream ended without a result');
+  return final;
+}
+
 export const sessionsApi = {
   create: (scenarioSlug: string, clientDiscCode: string) =>
     api.post<SessionStart>('/api/sessions', { scenarioSlug, clientDiscCode }),
 
-  end: (sessionId: number, turns: Turn[], events: SessionEvent[]) =>
-    api.post<CoachingResult & { sessionId: number }>(`/api/sessions/${sessionId}/end`, {
-      turns,
-      events,
-    }),
+  end: endSessionStream,
 
   list: () => api.get<SessionSummary[]>('/api/sessions'),
 

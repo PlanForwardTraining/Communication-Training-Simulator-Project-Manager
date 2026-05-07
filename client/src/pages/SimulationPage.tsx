@@ -15,7 +15,12 @@ import { MarkdownLite } from '../utils/MarkdownLite';
 // when the response arrives, the parent unmounts this component and navigates.
 // ---------------------------------------------------------------------------
 
-function CoachingProgress() {
+// Approximate target output size — typical coaching response is 4500-7000 chars.
+// We use 6000 as the denominator; if Claude exceeds it, the bar caps at 95%
+// until the actual stream completes (parent navigates away).
+const EXPECTED_OUTPUT_CHARS = 6000;
+
+function CoachingProgress({ charsReceived }: { charsReceived: number }) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -23,17 +28,22 @@ function CoachingProgress() {
     return () => clearInterval(interval);
   }, []);
 
-  // 1 - e^(-t/30) approaches 1 asymptotically. Capped at 95% so the bar
-  // doesn't visually finish before the real response arrives.
-  const progress = Math.min(95, 95 * (1 - Math.exp(-elapsed / 30)));
+  // Real progress comes from streamed chars. Before any chars arrive (Claude is
+  // still thinking / first token), use a small time-based crawl up to 5% so the
+  // bar isn't frozen at 0. Once chars start flowing, real progress takes over.
+  const initialCrawl = Math.min(5, elapsed * 0.5);
+  const realProgress = (charsReceived / EXPECTED_OUTPUT_CHARS) * 100;
+  const progress = Math.min(95, Math.max(initialCrawl, realProgress));
 
+  // Stage label progresses with the actual stream: pre-output is "reading
+  // the transcript" (Claude is still processing the prompt), then we walk
+  // through the labels as chars come in.
   const stage =
-    elapsed < 15 ? 'Reading the transcript…' :
-    elapsed < 35 ? 'Identifying Sandler techniques used…' :
-    elapsed < 60 ? 'Scoring against the rubric…' :
-    elapsed < 90 ? 'Writing your DISC adaptation notes…' :
-    elapsed < 120 ? 'Pulling together your coaching bullets…' :
-    'Just about there…';
+    charsReceived === 0 ? 'Reading the transcript…' :
+    realProgress < 25 ? 'Identifying Sandler techniques used…' :
+    realProgress < 55 ? 'Scoring against the rubric…' :
+    realProgress < 80 ? 'Writing your DISC adaptation notes…' :
+    'Pulling together your coaching bullets…';
 
   const mins = Math.floor(elapsed / 60);
   const secs = (elapsed % 60).toString().padStart(2, '0');
@@ -48,13 +58,13 @@ function CoachingProgress() {
       </div>
       <div className="w-full h-1.5 bg-navy-700 rounded-full overflow-hidden">
         <div
-          className="h-full bg-gold-500 transition-all duration-1000 ease-out"
+          className="h-full bg-gold-500 transition-all duration-300 ease-out"
           style={{ width: `${progress}%` }}
         />
       </div>
       <p className="font-body text-xs text-slate-muted text-center leading-relaxed">
-        Claude is reviewing the transcript and writing your coaching debrief.
-        This usually takes <span className="text-slate-text">1&#8211;2 minutes</span>.
+        Streaming the coaching analysis from Claude in real time. Usually
+        <span className="text-slate-text"> 1&#8211;2 minutes</span>.
       </p>
     </div>
   );
@@ -266,6 +276,7 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
   const [notesOpen, setNotesOpen] = useState(false);
   const [autoEndIn, setAutoEndIn] = useState<number | null>(null);
   const autoEndTriggeredRef = useRef(false);
+  const [coachingChars, setCoachingChars] = useState(0);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
 
@@ -439,7 +450,13 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
     }
 
     try {
-      const result = await sessionsApi.end(sessionData.sessionId, turns, events);
+      setCoachingChars(0);
+      const result = await sessionsApi.end(
+        sessionData.sessionId,
+        turns,
+        events,
+        chars => setCoachingChars(chars),
+      );
       navigate(`/sessions/${result.sessionId}/debrief`);
     } catch (err) {
       console.error('Save session failed:', err);
@@ -679,7 +696,7 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
             </button>
           </div>
         ) : ending ? (
-          <CoachingProgress />
+          <CoachingProgress charsReceived={coachingChars} />
         ) : (
           <div className="flex gap-2 w-full max-w-sm">
             <button
