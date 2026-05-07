@@ -586,20 +586,29 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
         )}
 
         {!sessionStarted ? (
-          <button
-            onClick={handleStart}
-            disabled={!sessionData.signedUrl || starting}
-            className="btn-primary w-full max-w-sm flex items-center justify-center gap-2"
-          >
-            {starting ? (
-              <>
-                <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                Requesting microphone…
-              </>
-            ) : (
-              'Start Session'
-            )}
-          </button>
+          <div className="flex gap-2 w-full max-w-sm">
+            <button
+              onClick={() => navigate(`/sessions/new/${scenarioSlug}`)}
+              disabled={starting}
+              className="btn-secondary"
+            >
+              Back
+            </button>
+            <button
+              onClick={handleStart}
+              disabled={!sessionData.signedUrl || starting}
+              className="btn-primary flex-1 flex items-center justify-center gap-2"
+            >
+              {starting ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  Requesting microphone…
+                </>
+              ) : (
+                'Start Session'
+              )}
+            </button>
+          </div>
         ) : ending ? (
           <div className="flex flex-col items-center gap-2 w-full max-w-sm">
             <div className="flex items-center gap-2 text-gold-400 font-body text-sm">
