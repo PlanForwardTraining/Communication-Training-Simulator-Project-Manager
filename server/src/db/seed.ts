@@ -107,6 +107,17 @@ function seedAdmin(): number {
   `);
 
   const result = stmt.run('Admin', email, passwordHash, 'D', 'admin');
+
+  // One-time admin password reset: if RESET_ADMIN_PASSWORD=true is set,
+  // force-update the password to match ADMIN_PASSWORD even if the user
+  // already exists. Useful when the original seed password is lost.
+  // Unset the env var after the next deploy to avoid resetting every boot.
+  if (process.env.RESET_ADMIN_PASSWORD === 'true') {
+    const update = db.prepare(`UPDATE users SET password_hash = ? WHERE email = ?`);
+    const u = update.run(passwordHash, email);
+    console.log(`[seed] RESET_ADMIN_PASSWORD=true — admin password reset (${u.changes} row updated)`);
+  }
+
   // changes === 1 means inserted, 0 means ignored (already existed)
   return result.changes;
 }
