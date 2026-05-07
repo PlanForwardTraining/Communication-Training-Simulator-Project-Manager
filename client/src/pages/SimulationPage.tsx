@@ -54,8 +54,9 @@ const CLOSING_REGEX = new RegExp(
     String.raw`\bthanks for your time\b`,
     String.raw`\bthank you for your time\b`,
 
-    // Appreciate
-    String.raw`\bappreciate (it|you|your time|the call)\b`,
+    // Appreciate — only the unambiguous closing forms. Bare "appreciate it"
+    // and "appreciate you" too often appear mid-sentence ("appreciate it, but…")
+    String.raw`\bappreciate (your time|the call)\b`,
 
     // Reciprocal
     String.raw`\byou too\b`,
@@ -70,8 +71,25 @@ const CLOSING_REGEX = new RegExp(
   'i',
 );
 
+// Words/phrases that, when they follow a matched closing, signal the speaker
+// is NOT actually closing the call (e.g. "thanks, but I have one more thing").
+const STILL_TALKING_REGEX = /^[\s,.!?]*(but|however|though|except|wait|actually|hold on|one more|one quick|before (we|you|i)|though i|actually i)\b/i;
+
 function containsClosing(text: string): boolean {
-  return CLOSING_REGEX.test(text);
+  const m = text.match(CLOSING_REGEX);
+  if (!m) return false;
+
+  const matchEnd = (m.index ?? 0) + m[0].length;
+  const tail = text.slice(matchEnd).trim();
+
+  // If the speaker keeps talking after the closing-ish phrase, they aren't
+  // actually closing. "I appreciate the call, but I have one more question" →
+  // ignore the match. Plain end-of-turn closings still pass through.
+  if (STILL_TALKING_REGEX.test(text.slice(matchEnd))) return false;
+  // A question after the closing phrase means the speaker is still asking.
+  if (tail.includes('?')) return false;
+
+  return true;
 }
 
 // ---------------------------------------------------------------------------
