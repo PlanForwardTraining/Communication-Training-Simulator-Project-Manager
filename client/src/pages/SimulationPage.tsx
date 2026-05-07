@@ -10,6 +10,57 @@ import { DiscBadge } from '../components/DiscBadge';
 import { MarkdownLite } from '../utils/MarkdownLite';
 
 // ---------------------------------------------------------------------------
+// CoachingProgress — shown after End Session while Claude generates the debrief.
+// Asymptotic progress so the bar never "completes" before the real response;
+// when the response arrives, the parent unmounts this component and navigates.
+// ---------------------------------------------------------------------------
+
+function CoachingProgress() {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 1 - e^(-t/30) approaches 1 asymptotically. Capped at 95% so the bar
+  // doesn't visually finish before the real response arrives.
+  const progress = Math.min(95, 95 * (1 - Math.exp(-elapsed / 30)));
+
+  const stage =
+    elapsed < 15 ? 'Reading the transcript…' :
+    elapsed < 35 ? 'Identifying Sandler techniques used…' :
+    elapsed < 60 ? 'Scoring against the rubric…' :
+    elapsed < 90 ? 'Writing your DISC adaptation notes…' :
+    elapsed < 120 ? 'Pulling together your coaching bullets…' :
+    'Just about there…';
+
+  const mins = Math.floor(elapsed / 60);
+  const secs = (elapsed % 60).toString().padStart(2, '0');
+
+  return (
+    <div className="flex flex-col items-center gap-3 w-full max-w-md">
+      <div className="flex items-center justify-between w-full">
+        <span className="font-display font-semibold text-sm text-gold-400">{stage}</span>
+        <span className="font-body text-xs text-slate-muted tabular-nums">
+          {mins}:{secs}
+        </span>
+      </div>
+      <div className="w-full h-1.5 bg-navy-700 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-gold-500 transition-all duration-1000 ease-out"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <p className="font-body text-xs text-slate-muted text-center leading-relaxed">
+        Claude is reviewing the transcript and writing your coaching debrief.
+        This usually takes <span className="text-slate-text">1&#8211;2 minutes</span>.
+      </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Goodbye detection — used to auto-end the call when both sides have closed.
 // Word-bounded matches on phrases people genuinely use to close phone calls.
 // Includes the soft reciprocal closes ("you too", "all set") that come after
@@ -628,15 +679,7 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
             </button>
           </div>
         ) : ending ? (
-          <div className="flex flex-col items-center gap-2 w-full max-w-sm">
-            <div className="flex items-center gap-2 text-gold-400 font-body text-sm">
-              <span className="w-4 h-4 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" />
-              Analyzing your conversation…
-            </div>
-            <p className="font-body text-xs text-slate-muted">
-              Claude is reviewing the transcript. This usually takes 5-10 seconds.
-            </p>
-          </div>
+          <CoachingProgress />
         ) : (
           <div className="flex gap-2 w-full max-w-sm">
             <button
