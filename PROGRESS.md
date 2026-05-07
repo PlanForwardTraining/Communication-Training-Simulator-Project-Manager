@@ -610,6 +610,19 @@ A round of refinements done immediately after first production deploy. Each sub-
 - [x] Stale `ANTHROPIC_API_KEY` (returned 401) replaced with the working local key on Railway via `railway variables --set`
 - [x] Coaching now generates successfully end-to-end
 
+### 13.11 — Mobile Mic Pre-Warm
+- [x] `getUserMedia({ audio: true })` called before opening the WebSocket so the AI's first message isn't lost behind the iOS Safari permission prompt
+- [x] Acquired stream tracks stopped immediately (the SDK requests its own)
+- [x] Start button shows "Requesting microphone…" with spinner during the brief permission window
+- [x] Permission denial shows a clear error with retry guidance
+
+### 13.12 — Auto-End on Mutual Goodbye
+- [x] Word-bounded `CLOSING_REGEX` covering all common closings (bye/goodbye/take care/have a good X/talk to you soon/thanks for your time/see you/appreciate it)
+- [x] Detection only fires after >= 4 turns of conversation
+- [x] Sticky banner with 5-second countdown + "Keep going" cancel button
+- [x] At zero, fires the existing end-session flow (skips the manual confirmation modal)
+- [x] Countdown clears if either side breaks the closing pattern
+
 ---
 
 ## Notes Section

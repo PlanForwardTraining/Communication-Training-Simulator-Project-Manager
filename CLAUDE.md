@@ -71,8 +71,19 @@ Backend coaching pipeline at end:
                  → structured coaching JSON + score
                  → saved to SQLite + (future) Excel export
 
-Admin Dashboard (Phase 5 — not yet built)
-  └─ Same React app, role-gated routes → same backend
+Admin Dashboard (Phase 5 v1 — live)
+  Same React app at /admin, role-gated to admin role:
+  ├─ /admin             ← cohort dashboard: KPIs, team category averages,
+  │                       flagged PMs needing attention, full PM table
+  ├─ /admin/users/:id   ← per-PM detail: trend chart, focus areas, sessions
+  ├─ /admin/sessions/:id ← full session review with transcript + coaching
+  └─ Backend admin routes (/api/admin/*) with requireAdmin guard:
+     • GET /summary, /users, /users/:id, /sessions/:id
+     • POST /users, PATCH /users/:id (create/edit/deactivate)
+     • GET /export.xlsx (multi-sheet Excel — Sessions + PMs)
+
+Excel auto-regenerates after every session end (non-blocking).
+Content-editing UIs deferred — /content/*.md is upserted on each deploy.
 ```
 
 **Conversation flow:**
@@ -112,7 +123,14 @@ Admin Dashboard (Phase 5 — not yet built)
 │   │   │   ├── DiscSelectPage.tsx       # Shows scenario brief above the DISC grid
 │   │   │   ├── SimulationPage.tsx       # ElevenLabs SDK + pre-call case file + side notes panel
 │   │   │   ├── DebriefPage.tsx          # SVG score ring + bullet-formatted Sandler-aware feedback
-│   │   │   └── HistoryPage.tsx
+│   │   │   ├── HistoryPage.tsx
+│   │   │   └── admin/                   # Admin Dashboard (Phase 5 v1)
+│   │   │       ├── AdminLayout.tsx           # Shared admin chrome with Excel export button
+│   │   │       ├── AdminDashboardPage.tsx    # Cohort KPIs, flagged PMs, full PM table
+│   │   │       ├── AdminUserDetailPage.tsx   # Per-PM trend chart + focus areas + sessions
+│   │   │       ├── AdminSessionDetailPage.tsx # Score ring + transcript + coaching
+│   │   │       ├── UserModalForm.tsx         # Create / edit / deactivate PMs
+│   │   │       └── TrendChart.tsx            # Hand-rolled SVG line chart (no recharts dep)
 │   │   ├── components/
 │   │   │   ├── DiscBadge.tsx
 │   │   │   └── ProtectedRoute.tsx
@@ -134,16 +152,18 @@ Admin Dashboard (Phase 5 — not yet built)
 ├── server/                     # Node.js + Express + TypeScript
 │   ├── src/
 │   │   ├── routes/
-│   │   │   ├── auth.ts                  # POST /auth/login, GET /auth/me
+│   │   │   ├── auth.ts                  # POST /auth/login, GET /auth/me (rejects active=0)
 │   │   │   ├── users.ts
 │   │   │   ├── scenarios.ts             # list, by-slug brief (trimmed), CRUD
 │   │   │   ├── disc-profiles.ts
 │   │   │   ├── rubric.ts
 │   │   │   ├── sessions.ts              # session lifecycle + ElevenLabs signed URL
+│   │   │   ├── admin.ts                 # /api/admin/* — summary, users, sessions, export
 │   │   │   └── elevenlabs-webhook.ts    # built but unused (client-side capture instead)
 │   │   ├── services/
 │   │   │   ├── claude.ts                # generateCoaching() — direct Claude API
 │   │   │   ├── elevenlabs-cai.ts        # signed URL + persona + first_message + HMAC
+│   │   │   ├── excel.ts                 # regenerateExcel() — multi-sheet workbook
 │   │   │   └── voice-selector.ts        # DISC-aligned random; returns clientFirstName
 │   │   ├── prompts/
 │   │   │   ├── loader.ts                # reads /content/ at startup; serves Sandler primer too
@@ -152,7 +172,7 @@ Admin Dashboard (Phase 5 — not yet built)
 │   │   ├── db/
 │   │   │   ├── schema.sql               # SQL DDL (copied to dist/db/ at build)
 │   │   │   ├── connection.ts            # better-sqlite3 singleton (creates parent dir if missing)
-│   │   │   ├── migrate.ts
+│   │   │   ├── migrate.ts               # Runs schema + idempotent ALTERs for prod-volume DBs
 │   │   │   └── seed.ts                  # UPSERTs from /content/; rubric is delete+reinsert
 │   │   ├── middleware/
 │   │   │   ├── auth.ts
@@ -286,6 +306,12 @@ cd server && npm run build
 **Coaching is Sandler-first.** The post-call coaching engine reads `/content/coaching-rubric/03-sandler-techniques.md` as a primer and analyzes the transcript through that lens. Strengths, misses, alternatives, and DISC adaptation notes are returned as 3-5 bulleted lines each, with specific Sandler techniques cited by name (Up-Front Contract, Pain Funnel, Reversing, No Mind Reading, Negative Reverse, Closing the File, Pendulum, Tonality, 3rd Person Story). Voss labels and calibrated questions are pulled in where they fit better than the Sandler equivalent. The goal of every debrief: send the PM home with one or two specific techniques to practice next session, not a generic "be more empathetic" directive.
 
 **The PM's view vs. the AI's view of a scenario are different by design.** Each scenario markdown file has an `<!-- BRIEF END -->` marker. Above the marker = what the PM realistically walks into the call knowing (Setup, What's Happened, What the Client Knows, plus per-scenario context like "What You Already Have In Hand"). Below the marker = answer-key material (Inside the Client's Head, How They Will Likely React, What Success Looks Like, Common Pitfalls, Coaching Focus) that the AI uses to roleplay realistically and the coaching engine uses to score against. The PM never sees the answer key. The AI sees the full file. The brief is shown both on the DISC select page and as a persistent side panel during the call.
+
+**Admin "focus areas" surface patterns, not single bad days.** A category is flagged for a PM only when it averages below 3 across at least 3 sessions — single low scores never trigger flags. A PM is flagged for "needing attention" when at least one of three things is true: (a) no practice in 14+ days, (b) declining recent-3 vs prior-3 average score, or (c) two or more weak categories. The dashboard surfaces the top 5 most-concerning PMs sorted by reasons-count then lowest avg. This gives the owner an at-a-glance read on where to focus coaching effort.
+
+**Auto-end on mutual goodbye.** The simulation page detects closing phrases (word-bounded matches on `bye`, `goodbye`, `take care`, `have a good day/evening/...`, `talk to you soon/later`, `thanks for your time`, etc.) in the most recent turn from each side. After at least 4 turns of conversation, when both the latest PM turn AND the latest client turn contain a closing, a 5-second sticky countdown banner appears with a "Keep going" cancel button. At zero, the existing end-session flow fires (skipping the modal). Conservative on purpose — the regex prefers missed goodbyes over cut-off conversations.
+
+**Mobile mic permission is pre-warmed.** On iOS Safari, the browser's mic permission prompt blocks audio I/O — so the AI's `firstMessage` ("Hello, this is X") was firing while the user was still tapping Allow. The Start button now calls `getUserMedia({ audio: true })` first to confirm permission, stops the resulting stream (the SDK requests its own), then opens the WebSocket. The greeting plays after permission is granted.
 
 **PMs cannot change their own DISC profile.** Only admin can set/update. Enforced at the API layer.
 

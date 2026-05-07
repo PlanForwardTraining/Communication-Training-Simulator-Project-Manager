@@ -703,58 +703,104 @@ git push
 
 ## Part 7 — Build the Admin Dashboard (Phase 5)
 
-### 7.1 — Add the Excel + Charts Libraries
+### 7.1 — Add the Excel Library
 
 ```bash
 cd server && npm install exceljs
-cd ../client && npm install recharts
 ```
 
-### 7.2 — Build the Excel Export Service
+> No `recharts` — the trend chart is hand-rolled SVG. One less dep, one less bundle bloat.
 
-- [ ] `server/src/services/excel.ts` — `regenerateExcel()` writes `/data/sessions.xlsx` with sheets:
-  - **All Sessions** — one row per session (PM, DISC, scenario, score, date)
-  - **Per-PM** — one sheet per PM with their full history
-  - **Score Trends** — date + score columns suitable for charting
-- [ ] Hook `regenerateExcel()` into the `POST /api/sessions/:id/end` route after coaching is saved
-- [ ] `GET /api/admin/export` — streams the file for download
+### 7.2 — Schema migration: `users.active` column
 
-### 7.3 — Build the Admin Routes
+The admin dashboard supports soft-deactivating PMs (so session history is preserved). The `users` table needs an `active` boolean column.
 
-- [ ] `server/src/routes/admin.ts`:
-  - `GET /api/admin/summary` — total sessions, avg score, active PMs
-  - `GET /api/admin/users/:id/sessions` — sessions for one PM
-  - All routes guarded by `requireAdmin()`
+- [x] Add `active INTEGER NOT NULL DEFAULT 1` to `users` table in `server/src/db/schema.sql`
+- [x] In `server/src/db/migrate.ts`, add an idempotent `ensureColumn()` helper that runs `ALTER TABLE users ADD COLUMN active ...` if the column doesn't already exist (SQLite has no `ADD COLUMN IF NOT EXISTS`, so check `PRAGMA table_info` first)
+- [x] Update `server/src/routes/auth.ts` login route to reject inactive users with HTTP 403
 
-### 7.4 — Build the Admin Pages
+### 7.3 — Build the Excel Export Service
 
-- [ ] `client/src/pages/AdminDashboardPage.tsx` — summary cards, table of all PMs with scores
-- [ ] `client/src/pages/AdminUserDetailPage.tsx` — one PM's full history with score-over-time line chart
-- [ ] `client/src/pages/AdminSessionDetailPage.tsx` — full transcript + coaching for any session
-- [ ] `client/src/pages/AdminScenariosPage.tsx` — edit scenario titles/descriptions/body; pin a voice or enable "forced random"
-- [ ] `client/src/pages/AdminUsersPage.tsx` — add/edit users, set DISC, reset password
-- [ ] `client/src/pages/AdminRubricPage.tsx` — edit rubric items and weights (must total 100%)
-- [ ] `client/src/pages/AdminVoicesPage.tsx` — list voice pool, play preview audio, toggle active/inactive, show usage stats per voice
-- [ ] `client/src/pages/AdminExportPage.tsx` — download Excel button
+- [x] `server/src/services/excel.ts` exports:
+  - `EXCEL_PATH` — resolves from `process.env.EXCEL_PATH` (Railway: `/data/sessions.xlsx`; dev: `./data/sessions.xlsx`)
+  - `regenerateExcel()` — writes a multi-sheet workbook:
+    - **Sessions sheet** — one row per completed session: ID, date, PM (name/email/DISC), scenario, client DISC, voice, total score, all 7 category scores, and the four bullet-format coaching strings (strengths, misses, alternatives, DISC adaptation note)
+    - **PMs sheet** — rolled-up per-user stats: total sessions, last session date, average score
+  - Both sheets get bold headers + frozen top row + sensible column widths
+- [x] Hook `regenerateExcel()` into `POST /api/sessions/:id/end` AFTER coaching is saved. Wrap in `.catch()` — Excel failures must NOT block the user's coaching response.
 
-### 7.5 — Test It
+### 7.4 — Build the Admin Routes
+
+- [x] `server/src/routes/admin.ts` — every route guarded by `requireAuth + requireAdmin`:
+  - `GET /api/admin/summary` — cohort KPIs (total active PMs, sessions this week, all-time sessions, team avg score) + team-wide category averages + top-3 weakest categories + top-5 PMs needing attention
+  - `GET /api/admin/users` — all PMs with rolled-up stats (sessions, last activity, average, trend, focus areas)
+  - `GET /api/admin/users/:id` — one PM's full detail (stats + trend points + per-category averages + sessions list with scenario/voice/DISC info)
+  - `GET /api/admin/sessions/:id` — any session in detail (joined with PM, scenario, DISC) with transcript + events + coaching
+  - `POST /api/admin/users` — create PM (name, email, password, DISC, role)
+  - `PATCH /api/admin/users/:id` — edit (name, DISC, role, password, active flag)
+  - `GET /api/admin/export.xlsx` — regenerates Excel on demand, then streams the file with proper Content-Type + Content-Disposition
+
+#### Focus area logic
+
+In `admin.ts`, define:
+- `FOCUS_THRESHOLD = 3.0` — categories below this average are flagged
+- `FOCUS_MIN_SESSIONS = 3` — patterns, not single bad days
+- `ATTENTION_INACTIVE_DAYS = 14` — PMs idle this long get flagged
+
+A PM is flagged "needs attention" if any of: zero sessions, >= 14 days since last session, declining recent-3 vs prior-3 average, or >= 2 weak categories. Sort flagged PMs by reasons-count (most concerning first), then by lowest avg.
+
+### 7.5 — Build the Admin Pages
+
+- [x] `client/src/pages/admin/AdminLayout.tsx` — sticky header with wordmark + Excel export button + sign out. Used by all admin pages.
+- [x] `client/src/pages/admin/AdminDashboardPage.tsx`:
+  - 4 KPI cards (active PMs / sessions this week / team avg / flagged count)
+  - "Team Performance by Category" strip with color-graded bars
+  - "PMs Needing Attention" cards (clickable → user detail)
+  - Full PM table (DISC, sessions, last activity, avg, trend arrow, focus-area pills)
+  - "+ Add PM" → opens UserModalForm
+- [x] `client/src/pages/admin/AdminUserDetailPage.tsx`:
+  - Header summary (sessions, average, last session, trend)
+  - SVG trend chart with mean baseline (`TrendChart.tsx`)
+  - Focus areas list — categories below 3 across at least 3 sessions
+  - Category Performance bars (red highlight on flagged categories)
+  - Session history table (clickable → session detail)
+  - "Edit" button → UserModalForm in edit mode (rename, password reset, DISC change, deactivate)
+- [x] `client/src/pages/admin/AdminSessionDetailPage.tsx`:
+  - Score ring + breakdown (same visual as PM debrief)
+  - Full Sandler-style coaching feedback (rendered via MarkdownLite)
+  - Full transcript with named bubbles
+- [x] `client/src/pages/admin/UserModalForm.tsx` — create + edit + deactivate. No hard delete (preserves session history).
+- [x] `client/src/pages/admin/TrendChart.tsx` — pure SVG line chart, fits parent width, mean baseline
+- [x] `client/src/api/admin.ts` — typed fetch wrappers for all admin endpoints
+- [x] Wire admin routes in `client/src/App.tsx` with `<ProtectedRoute requireAdmin>`
+- [x] On `ScenarioSelectPage`, if `user.role === 'admin'` show a gold "Admin" link in the header
+
+#### Intentionally deferred
+
+These were in the original Phase 5 scope but skipped — `/content/*.md` is upserted on every deploy, so editing markdown and pushing is sufficient for 5 scenarios. Build them if iteration speed becomes a bottleneck:
+
+- `AdminScenariosPage.tsx` (UI for editing scenario markdown)
+- `AdminRubricPage.tsx` (UI for editing rubric weights/levels)
+- `AdminVoicesPage.tsx` (UI for voice library + activate/pin)
+
+### 7.6 — Test It
 
 Log in as admin in your local browser. Walk through:
 
-- Dashboard shows all PMs and their scores
-- Click into a PM → see their session history with chart
-- Click into a session → see full transcript + coaching
-- Edit a scenario → start a new session as a PM → confirm the edited scenario shows up
-- Add a new PM → log out → log in as them
-- Click "Download Excel" → open the file → confirm sheets are populated
+- Dashboard shows 4 KPIs, team category strip, flagged PMs (or empty state)
+- Click into a PM → trend chart renders, focus areas surface persistent weaknesses
+- Click into a session → full transcript + Sandler-style bullet coaching renders
+- Add a new PM → log out → log in as them ✓
+- Edit a PM → uncheck "Active" → save → log out → try to log in as that PM → 403 with "Account is inactive" ✓
+- Click "Export Excel" → open the file → confirm Sessions sheet has all category scores + coaching strings, PMs sheet has rolled-up stats ✓
 
-**✅ Phase 5 done when:** All of the above work, AND `data/sessions.xlsx` updates automatically every time a session ends.
+**✅ Phase 5 v1 done when:** All of the above work, all 31 server tests still pass, AND `data/sessions.xlsx` is regenerated automatically every time a session ends.
 
 Commit:
 
 ```bash
 git add .
-git commit -m "Phase 5: admin dashboard, Excel export, content config"
+git commit -m "Phase 5: admin dashboard with focus-area logic + Excel export"
 git push
 ```
 
@@ -1337,6 +1383,25 @@ railway variables --set "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}"
 ```
 
 Coaching now generates end-to-end on production.
+
+### 13.11 — Mobile Mic Pre-Warm
+
+On iOS Safari (and to a lesser extent mobile Chrome), the browser's microphone permission prompt blocks audio I/O — so the AI's `firstMessage` ("Hello, this is X.") was firing while the user was still tapping Allow, and the greeting was being missed.
+
+Fix in `SimulationPage.tsx#handleStart`: call `navigator.mediaDevices.getUserMedia({ audio: true })` BEFORE opening the WebSocket. Once permission is granted, immediately `stream.getTracks().forEach(t => t.stop())` so the SDK can request its own capture without contention. Show "Requesting microphone…" with a spinner on the Start button during this brief window. On permission denial, surface a clear error.
+
+The greeting now plays *after* permission is granted, in both desktop and mobile flows.
+
+### 13.12 — Auto-End on Mutual Goodbye
+
+Manually clicking End Session at the end of a natural-flowing conversation felt awkward. Added auto-end detection:
+
+- A regex matches word-bounded closing phrases: `bye`, `goodbye`, `take care`, `have a good/great day/evening/night/weekend/one`, `talk to you soon/later`, `thanks for your time`, `see you soon/later`, `appreciate it/you/your time`.
+- After at least 4 turns of conversation, when both the most recent PM turn AND the most recent client turn contain a closing, a sticky banner appears at the top of the transcript: *"Wrapping up — ending in 5s [Keep going]"*.
+- Counts down once per second. At zero, the existing end-session flow fires (skipping the manual confirmation modal).
+- If either side speaks again with non-closing text, the latest-turn check fails and the countdown clears — they're not actually wrapping up.
+
+Conservative regex on purpose: better to miss a goodbye and require the manual button than to cut off an active conversation.
 
 ---
 
