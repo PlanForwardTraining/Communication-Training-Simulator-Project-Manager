@@ -11,12 +11,30 @@ import { MarkdownLite } from '../utils/MarkdownLite';
 
 // ---------------------------------------------------------------------------
 // Goodbye detection — used to auto-end the call when both sides have closed.
-// We're conservative: word-bounded matches on phrases that are unambiguously
-// closings. Better to miss a goodbye than to cut off an active conversation.
+// Word-bounded matches on phrases people genuinely use to close phone calls.
+// Includes the soft reciprocal closes ("you too", "all set") that come after
+// the other party has already started wrapping up — those are how natural
+// phone calls actually end in American English, not just literal "bye".
 // ---------------------------------------------------------------------------
 
-const CLOSING_REGEX =
-  /(\bgoodbye\b|\bbye\b|\btake care\b|\bhave a (good|great) (day|evening|night|weekend|one|rest of)\b|\btalk to you (soon|later)\b|\bthanks for your time\b|\bsee you (soon|later|next time|on)\b|\btalk soon\b|\bappreciate (it|you|your time)\b)/i;
+const CLOSING_REGEX = new RegExp(
+  [
+    String.raw`\bgoodbye\b`,
+    String.raw`\bbye\b`,
+    String.raw`\btake care\b`,
+    String.raw`\bhave a (good|great|nice) (day|evening|night|weekend|one|rest of)\b`,
+    String.raw`\btalk to you (soon|later|then|tomorrow|\w+day)\b`,
+    String.raw`\btalk soon\b`,
+    String.raw`\bwe(?:'|')?ll talk (then|soon|later|tomorrow)\b`,
+    String.raw`\bsee you (soon|later|next time|then|tomorrow|\w+day|on \w+)\b`,
+    String.raw`\bthanks for your time\b`,
+    String.raw`\bappreciate (it|you|your time)\b`,
+    String.raw`\byou too\b`,                    // reciprocal close
+    String.raw`\ball set\b`,                    // "yep, all set"
+    String.raw`\bsounds good[,.]? (bye|thanks|talk)`,
+  ].join('|'),
+  'i',
+);
 
 function containsClosing(text: string): boolean {
   return CLOSING_REGEX.test(text);
