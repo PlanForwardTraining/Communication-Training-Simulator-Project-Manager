@@ -10,6 +10,19 @@ import { DiscBadge } from '../components/DiscBadge';
 import { MarkdownLite } from '../utils/MarkdownLite';
 
 // ---------------------------------------------------------------------------
+// Goodbye detection — used to auto-end the call when both sides have closed.
+// We're conservative: word-bounded matches on phrases that are unambiguously
+// closings. Better to miss a goodbye than to cut off an active conversation.
+// ---------------------------------------------------------------------------
+
+const CLOSING_REGEX =
+  /(\bgoodbye\b|\bbye\b|\btake care\b|\bhave a (good|great) (day|evening|night|weekend|one|rest of)\b|\btalk to you (soon|later)\b|\bthanks for your time\b|\bsee you (soon|later|next time|on)\b|\btalk soon\b|\bappreciate (it|you|your time)\b)/i;
+
+function containsClosing(text: string): boolean {
+  return CLOSING_REGEX.test(text);
+}
+
+// ---------------------------------------------------------------------------
 // Notes panel — the PM's case-file reference during the call
 // ---------------------------------------------------------------------------
 
@@ -125,10 +138,13 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
   const [turns, setTurns] = useState<Turn[]>([]);
   const [events, setEvents] = useState<SessionEvent[]>([]);
   const [sessionStarted, setSessionStarted] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [ending, setEnding] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [endingError, setEndingError] = useState<string | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [autoEndIn, setAutoEndIn] = useState<number | null>(null);
+  const autoEndTriggeredRef = useRef(false);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
 
@@ -139,6 +155,29 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
       el.scrollTop = el.scrollHeight;
     }
   }, [turns]);
+
+  // Detect mutual goodbye and start the auto-end countdown.
+  // Both sides must have said a closing in their MOST RECENT respective turn.
+  // If the PM speaks again with a non-closing, the countdown clears — they're
+  // not actually wrapping up. Conservative on purpose to avoid false ends.
+  useEffect(() => {
+    if (!sessionStarted || ending || autoEndTriggeredRef.current) return;
+    if (turns.length < 4) return; // need a meaningful exchange first
+
+    const lastPm = [...turns].reverse().find(t => t.speaker === 'pm');
+    const lastClient = [...turns].reverse().find(t => t.speaker === 'client');
+    const mutualGoodbye =
+      !!lastPm && !!lastClient &&
+      containsClosing(lastPm.content) &&
+      containsClosing(lastClient.content);
+
+    if (mutualGoodbye && autoEndIn === null) {
+      setAutoEndIn(5);
+    } else if (!mutualGoodbye && autoEndIn !== null) {
+      // One side broke the closing pattern (e.g. PM kept talking) — cancel.
+      setAutoEndIn(null);
+    }
+  }, [turns, sessionStarted, ending, autoEndIn]);
 
   const [connectError, setConnectError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
@@ -205,10 +244,31 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
 
   const { status, mode } = conversation;
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
     setConnectError(null);
-    setDebugInfo('Starting…');
+    setStarting(true);
+    setDebugInfo('Requesting microphone access…');
+
+    // Pre-warm microphone permission BEFORE opening the WebSocket. On mobile
+    // (especially iOS Safari), the browser permission prompt blocks audio I/O,
+    // so the AI's first message ("Hello, this is X") fires while the user is
+    // still tapping "Allow" — and gets missed. Requesting first, then starting
+    // the session, ensures the greeting plays after permission is granted.
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // We don't need to keep the stream — the SDK will request its own. Stop
+      // the tracks so we don't have two captures contending for the mic.
+      stream.getTracks().forEach(t => t.stop());
+    } catch (err) {
+      console.error('[mic] permission denied or unavailable:', err);
+      setConnectError('Microphone access is required to run a session. Please grant permission and try again.');
+      setStarting(false);
+      return;
+    }
+
+    setDebugInfo('Connecting…');
     setSessionStarted(true);
+    setStarting(false);
 
     console.log('[ElevenLabs] startSession with', {
       signedUrl: sessionData.signedUrl.slice(0, 80) + '...',
@@ -241,6 +301,8 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
     setShowConfirm(false);
     setEnding(true);
     setEndingError(null);
+    autoEndTriggeredRef.current = true;
+    setAutoEndIn(null);
 
     try {
       conversation.endSession();
@@ -266,6 +328,18 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
       setEnding(false);
     }
   }, [conversation, sessionData.sessionId, turns, events, navigate]);
+
+  // Countdown tick + auto-trigger when it hits zero
+  useEffect(() => {
+    if (autoEndIn === null) return;
+    if (autoEndIn <= 0) {
+      autoEndTriggeredRef.current = true;
+      handleEndConfirmed();
+      return;
+    }
+    const t = setTimeout(() => setAutoEndIn(n => (n === null ? null : n - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [autoEndIn, handleEndConfirmed]);
 
   const interruptionCount = events.filter(
     (e) => e.type === 'user_interrupted_agent' || e.type === 'agent_interrupted_user',
@@ -372,9 +446,26 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
       {/* ------------------------------------------------------------------ */}
       <div
         ref={transcriptRef}
-        className="flex-1 overflow-y-auto px-4 py-6 space-y-3"
+        className="flex-1 overflow-y-auto px-4 py-6 space-y-3 relative"
         style={{ scrollBehavior: 'smooth' }}
       >
+        {/* Auto-end banner — sticky at top of transcript when mutual goodbye detected */}
+        {autoEndIn !== null && autoEndIn > 0 && (
+          <div className="sticky top-0 z-10 -mx-4 -mt-6 mb-3 px-4 py-3 bg-gold-500/10 border-b border-gold-500/30 backdrop-blur flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-gold-500 animate-pulse" />
+              <span className="font-body text-sm text-gold-400">
+                <span className="font-semibold">Wrapping up</span> — ending in {autoEndIn}s
+              </span>
+            </div>
+            <button
+              onClick={() => setAutoEndIn(null)}
+              className="font-body text-xs font-semibold text-slate-text px-3 py-1 rounded-md bg-navy-700 hover:bg-navy-600 border border-navy-600 whitespace-nowrap"
+            >
+              Keep going
+            </button>
+          </div>
+        )}
         {turns.length === 0 && !sessionStarted && (
           <div className="max-w-md mx-auto mt-8 sm:mt-12 card p-7 text-center border-l-4 border-l-gold-500">
             <p className="font-body text-[10px] uppercase tracking-widest text-gold-500 mb-2">
@@ -445,10 +536,17 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
         {!sessionStarted ? (
           <button
             onClick={handleStart}
-            disabled={!sessionData.signedUrl}
-            className="btn-primary w-full max-w-sm"
+            disabled={!sessionData.signedUrl || starting}
+            className="btn-primary w-full max-w-sm flex items-center justify-center gap-2"
           >
-            Start Session
+            {starting ? (
+              <>
+                <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                Requesting microphone…
+              </>
+            ) : (
+              'Start Session'
+            )}
           </button>
         ) : ending ? (
           <div className="flex flex-col items-center gap-2 w-full max-w-sm">
