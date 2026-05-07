@@ -24,13 +24,13 @@ The PM never picks the voice directly. The same scenario+DISC combination played
 
 | File | Voice ID | Gender | ElevenLabs Description | Best Fit For (DISC) |
 |---|---|---|---|---|
-| [01-adam-dominant-male.md](01-adam-dominant-male.md) | `pNInz6obpgDQGcFmaJgB` | Male | Dominant, Firm | D, D/I, D/C |
+| [01-adam-dominant-male.md](01-adam-dominant-male.md) | `s3TPKV1kjDlVtZbl4Ksh` | Male | Engaging, Friendly, Bright | D, D/I, D/C |
 | [02-bella-warm-female.md](02-bella-warm-female.md) | `hpp4J3VqNfWAUOO0d1Us` | Female | Professional, Bright, Warm | I/S, S, C |
 | [03-brian-deep-male.md](03-brian-deep-male.md) | `nPczCjzI2devNBz1zQrb` | Male | Deep, Resonant and Comforting | S, S/C, D/C |
 | [04-chris-casual-male.md](04-chris-casual-male.md) | `iP95p4xoKVk53GoZ742B` | Male | Charming, Down-to-Earth | I/S, S, I |
 | [05-eric-trustworthy-male.md](05-eric-trustworthy-male.md) | `cjVigY5qzO86Huf0OWal` | Male | Smooth, Trustworthy | C, D/C, S/C |
 | [06-jessica-warm-female.md](06-jessica-warm-female.md) | `cgSgspJ2msm6clMCkdW9` | Female | Playful, Bright, Warm | I, I/S, D/I |
-| [07-liam-energetic-male.md](07-liam-energetic-male.md) | `TX3LPaxmHKxFdv7VOQHJ` | Male | Energetic, Confident | I, D/I, D |
+| [07-liam-energetic-male.md](07-liam-energetic-male.md) | `TX3LPaxmHKxFdv7VOQHJ` | Male | Energetic, Confident | I, D/I |
 | [08-matilda-professional-female.md](08-matilda-professional-female.md) | `XrExE9yKIg1WjnnlVkGX` | Female | Knowledgable, Professional | C, D/C, S/C |
 | [09-roger-relaxed-male.md](09-roger-relaxed-male.md) | `CwhRBWXzGAHq8TQ4Fs17` | Male | Laid-Back, Casual, Resonant | S, S/C, I/S |
 | [10-sarah-confident-female.md](10-sarah-confident-female.md) | `EXAVITQu4vr4xnSDxMaL` | Female | Mature, Reassuring, Confident | S, I/S, C |
@@ -44,7 +44,7 @@ The PM never picks the voice directly. The same scenario+DISC combination played
 | [13-eryn-friendly-female.md](13-eryn-friendly-female.md) | `kdnRe2koJdOK4Ovxn2DI` | Female | Genuine, Friendly and Natural | I/S, S, I |
 | [14-joey-support-male.md](14-joey-support-male.md) | `h2I5OFX58E5TL5AitYwR` | Male | Friendly Customer Support | I/S, I, S |
 | [15-kiora-natural-female.md](15-kiora-natural-female.md) | `hGQkZQUA5RiOXIw7P9iO` | Female | Authentic, Natural Conversation | S, I/S, C |
-| [16-mark-relaxed-male.md](16-mark-relaxed-male.md) | `1SM7GgM6IMuvQlz2BwM3` | Male | Casual, Relaxed and Light | I/S, S, I |
+| [16-mark-relaxed-male.md](16-mark-relaxed-male.md) | `UgBBYS2sOqTuMpoF3BR0` | Male | Natural Conversations | D, I/S, S, I |
 | [17-michael-approachable-male.md](17-michael-approachable-male.md) | `ljX1ZrXuDIIRVcmiVSyR` | Male | Genuine and Approachable | I/S, S, S/C, C |
 | [18-russell-excited-male.md](18-russell-excited-male.md) | `ZauUyVXAz5znrgRuElJ5` | Male | Young, Outgoing and Excited | I, D/I |
 | [19-tori-casual-female.md](19-tori-casual-female.md) | `lAxf5ma5HGtzxC434SWT` | Female | Tori (casual, young) | I, I/S, D/I |
