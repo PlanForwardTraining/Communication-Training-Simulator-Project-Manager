@@ -340,7 +340,7 @@ Placeholder content for the first three has been drafted in `/content/` so devel
 | 2 — AI Engine | Claude coaching + persona prompt builders | ✅ Done |
 | 3 — Voice Pipeline | ElevenLabs CAI + voice selector + signed URLs | ✅ Done |
 | 4 — PM Frontend | Login → scenario → DISC → simulation → debrief → history | ✅ Done |
-| 5 — Admin Dashboard | All-PM view, score trends, scenario/rubric/voice config, Excel export | ⏳ Not started — deferred until after deploy |
+| 5 — Admin Dashboard | All-PM view, trend chart, auto-flagged focus areas, Excel export, user CRUD | ✅ v1 done — content-editing UIs (scenarios/rubric/voices) deferred since `/content/*.md` is editable directly |
 | 6 — Deploy | Production hosting on Railway + Vercel | ✅ Backend (Railway) + Frontend (Vercel) both live |
 | Post-deploy polish | Brief panel, named client, Sandler coaching, bullet feedback, content sync | ✅ Done — see Production Build Notes |
 

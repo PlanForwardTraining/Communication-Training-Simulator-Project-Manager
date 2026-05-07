@@ -16,7 +16,8 @@ router.post('/login', (req: Request, res: Response): void => {
     return;
   }
 
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User | undefined;
+  const user = db.prepare('SELECT * FROM users WHERE email = ?')
+    .get(email) as (User & { active?: number }) | undefined;
 
   if (!user) {
     res.status(401).json({ error: 'Invalid credentials' });
@@ -26,6 +27,11 @@ router.post('/login', (req: Request, res: Response): void => {
   const valid = bcrypt.compareSync(password, user.password_hash);
   if (!valid) {
     res.status(401).json({ error: 'Invalid credentials' });
+    return;
+  }
+
+  if (user.active === 0) {
+    res.status(403).json({ error: 'Account is inactive. Contact your admin.' });
     return;
   }
 

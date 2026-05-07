@@ -6,6 +6,7 @@ import { generateCoaching } from '../services/claude';
 import { getDiscProfile, getRubric } from '../prompts/loader';
 import { TurnRecord, EventRecord, User } from '../types';
 import { getSignedUrlForSession } from '../services/elevenlabs-cai';
+import { regenerateExcel } from '../services/excel';
 
 const router = Router();
 
@@ -172,6 +173,12 @@ router.post('/:id/end', requireAuth, async (req: Request, res: Response): Promis
       JSON.stringify(coaching.scoreBreakdown),
       coaching.totalScore
     );
+
+    // Regenerate the Excel export so admin reports stay fresh.
+    // Failures here must NOT block the user's coaching response — log and move on.
+    regenerateExcel().catch(err => {
+      console.error('Excel regeneration failed (non-fatal):', err);
+    });
 
     res.json({
       sessionId,

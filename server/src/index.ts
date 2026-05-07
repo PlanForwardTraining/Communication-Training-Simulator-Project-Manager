@@ -7,6 +7,7 @@ import scenariosRouter from './routes/scenarios';
 import discProfilesRouter from './routes/disc-profiles';
 import rubricRouter from './routes/rubric';
 import sessionsRouter from './routes/sessions';
+import adminRouter from './routes/admin';
 import elevenLabsWebhookRouter from './routes/elevenlabs-webhook';
 
 dotenv.config();
@@ -36,6 +37,7 @@ app.use('/api/scenarios', scenariosRouter);
 app.use('/api/disc-profiles', discProfilesRouter);
 app.use('/api/rubric-items', rubricRouter);
 app.use('/api/sessions', sessionsRouter);
+app.use('/api/admin', adminRouter);
 
 // 404 handler
 app.use((_req, res) => {

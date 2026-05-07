@@ -39,6 +39,14 @@ export function ScenarioSelectPage() {
             <p className="font-body text-xs text-slate-muted mt-0.5">Welcome, {user?.name}</p>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
+            {user?.role === 'admin' && (
+              <button
+                onClick={() => navigate('/admin')}
+                className="btn-ghost text-sm text-gold-500"
+              >
+                Admin
+              </button>
+            )}
             <button onClick={() => navigate('/history')} className="btn-ghost text-sm">
               History
             </button>

@@ -7,6 +7,9 @@ import { DiscSelectPage } from './pages/DiscSelectPage';
 import { SimulationPage } from './pages/SimulationPage';
 import { DebriefPage } from './pages/DebriefPage';
 import { HistoryPage } from './pages/HistoryPage';
+import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
+import { AdminUserDetailPage } from './pages/admin/AdminUserDetailPage';
+import { AdminSessionDetailPage } from './pages/admin/AdminSessionDetailPage';
 
 function App() {
   const auth = useAuth();
@@ -52,6 +55,30 @@ function App() {
           element={
             <ProtectedRoute user={auth.user} loading={auth.loading}>
               <HistoryPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute user={auth.user} loading={auth.loading} requireAdmin>
+              <AdminDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users/:id"
+          element={
+            <ProtectedRoute user={auth.user} loading={auth.loading} requireAdmin>
+              <AdminUserDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/sessions/:id"
+          element={
+            <ProtectedRoute user={auth.user} loading={auth.loading} requireAdmin>
+              <AdminSessionDetailPage />
             </ProtectedRoute>
           }
         />

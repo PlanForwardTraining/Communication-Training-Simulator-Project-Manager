@@ -234,7 +234,7 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [x] Both servers running (backend :3002, frontend :5173) ✅
 - [x] Frontend builds cleanly (`✓ built in 371ms`) ✅
 - [x] Title: "PlanForward Training" ✅
-- [ ] Full flow verified in browser (login → simulate → debrief → history) *(do this now)*
+- [x] Full flow verified in browser (login → simulate → debrief → history) *(do this now)*
 - [ ] Works on iPhone Safari *(test after browser verification)*
 - [ ] **Phase 4 complete** — commit and push
 
@@ -245,37 +245,46 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 🔗 [Guide reference](REBUILD_ME_GUIDE.md#part-7--build-the-admin-dashboard-phase-5)
 
 ### 7.1 — Install Libraries
-- [ ] Install `exceljs` in server
-- [ ] Install `recharts` in client
+- [x] Install `exceljs` in server
+- [ ] ~~Install `recharts` in client~~ — used a hand-rolled SVG `TrendChart` instead (no dep)
 
 ### 7.2 — Excel Export Service
-- [ ] `server/src/services/excel.ts` with `regenerateExcel()`
-- [ ] Hook into `POST /api/sessions/:id/end`
-- [ ] `GET /api/admin/export` route
+- [x] `server/src/services/excel.ts` with `regenerateExcel()` (Sessions sheet + PMs sheet)
+- [x] Hook into `POST /api/sessions/:id/end` (non-blocking — failures log only)
+- [x] `GET /api/admin/export.xlsx` route (regenerates on demand + serves the file)
 
 ### 7.3 — Admin Routes
-- [ ] `GET /api/admin/summary`
-- [ ] `GET /api/admin/users/:id/sessions`
-- [ ] `requireAdmin()` guard on all admin routes
+- [x] `GET /api/admin/summary` (cohort KPIs + team category averages + flagged PMs)
+- [x] `GET /api/admin/users` and `GET /api/admin/users/:id` (with trend points + category averages)
+- [x] `GET /api/admin/sessions/:id` (full session detail with transcript + coaching)
+- [x] `POST /api/admin/users` and `PATCH /api/admin/users/:id`
+- [x] `requireAdmin()` guard on all admin routes
+- [x] Schema migration: `users.active` column added (idempotent ALTER in migrate.ts)
+- [x] Login rejects inactive users with 403
 
 ### 7.4 — Admin Pages
-- [ ] `AdminDashboardPage.tsx`
-- [ ] `AdminUserDetailPage.tsx`
-- [ ] `AdminSessionDetailPage.tsx`
-- [ ] `AdminScenariosPage.tsx` (with voice pin + forced-random options)
-- [ ] `AdminUsersPage.tsx`
-- [ ] `AdminRubricPage.tsx`
-- [ ] `AdminVoicesPage.tsx` (preview audio, toggle active, usage stats)
-- [ ] `AdminExportPage.tsx`
+- [x] `AdminDashboardPage.tsx` — KPIs, team category strip, flagged PMs cards, full PM table
+- [x] `AdminUserDetailPage.tsx` — trend chart, focus areas, category bars, session history
+- [x] `AdminSessionDetailPage.tsx` — score ring, breakdown, full coaching, transcript
+- [x] `AdminLayout.tsx` — shared admin chrome with Excel export button
+- [x] `UserModalForm.tsx` — add + edit + deactivate (no hard delete)
+- [x] `TrendChart.tsx` — small SVG line chart (mean baseline)
+- [x] Admin link surfaced on `ScenarioSelectPage` header (gold "Admin" button) for admin users
+- [ ] ~~`AdminScenariosPage.tsx`~~ — deferred (edit `/content/*.md` and push; seed upserts)
+- [ ] ~~`AdminRubricPage.tsx`~~ — deferred (same — content lives in markdown)
+- [ ] ~~`AdminVoicesPage.tsx`~~ — deferred (same)
 
 ### 7.5 — Verify
-- [ ] Dashboard shows all PMs and scores
-- [ ] Score chart renders
-- [ ] Editing a scenario takes effect on next session
-- [ ] Adding a PM enables immediate login
-- [ ] Excel export downloads valid multi-sheet file
-- [ ] Excel auto-regenerates on session end
-- [ ] **Phase 5 complete** — commit and push
+- [x] Dashboard shows all PMs with rolled-up stats
+- [x] Trend chart renders with mean baseline
+- [x] "Focus areas" auto-flagged when avg < 3 across ≥3 sessions per category
+- [x] "PMs needing attention" flagged for stale activity (≥14d) / declining trend / ≥2 weak categories
+- [x] Adding a PM enables immediate login
+- [x] Deactivating a PM blocks their login (active=0 → 403 on auth)
+- [x] Excel export downloads valid multi-sheet file (Sessions + PMs)
+- [x] Excel auto-regenerates on every session end (non-blocking)
+- [x] All 31 server tests still pass
+- [x] **Phase 5 complete** — committed and pushed
 
 ---
 
