@@ -2,17 +2,27 @@ import type { ReactNode } from 'react';
 
 function renderInline(text: string): ReactNode[] {
   const parts: ReactNode[] = [];
-  const regex = /\*\*(.+?)\*\*/g;
+  // Match **bold** OR *italic*. Bold must come first so we don't greedily catch the
+  // outer asterisks of **bold** as italics. Quotes inside italics (*"..."*) are common.
+  const regex = /\*\*(.+?)\*\*|\*([^*\n]+?)\*/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
   while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
-    parts.push(
-      <strong key={`b${key++}`} className="font-semibold text-slate-text">
-        {match[1]}
-      </strong>,
-    );
+    if (match[1] !== undefined) {
+      parts.push(
+        <strong key={`b${key++}`} className="font-semibold text-slate-text">
+          {match[1]}
+        </strong>,
+      );
+    } else {
+      parts.push(
+        <em key={`i${key++}`} className="italic text-slate-text/90">
+          {match[2]}
+        </em>,
+      );
+    }
     lastIndex = regex.lastIndex;
   }
   if (lastIndex < text.length) parts.push(text.slice(lastIndex));

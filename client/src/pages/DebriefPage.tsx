@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { sessionsApi, type CoachingResult } from '../api/sessions';
+import { MarkdownLite } from '../utils/MarkdownLite';
 
 function ScoreRing({ score }: { score: number }) {
   const radius = 52;
@@ -54,8 +55,8 @@ function CategoryBar({ name, score }: { name: string; score: number }) {
 function FeedbackSection({ title, content, borderColor }: { title: string; content: string; borderColor: string }) {
   return (
     <div className={`card p-5 border-l-4 ${borderColor}`}>
-      <h3 className="font-display text-sm font-semibold text-slate-text mb-2">{title}</h3>
-      <p className="font-body text-sm text-slate-muted leading-relaxed whitespace-pre-line">{content}</p>
+      <h3 className="font-display text-sm font-semibold text-slate-text mb-3">{title}</h3>
+      <MarkdownLite source={content} />
     </div>
   );
 }

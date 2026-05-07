@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { buildCoachingPrompt } from '../prompts/coaching-prompt';
 import { CoachingResult, TurnRecord, EventRecord } from '../types';
-import { DiscProfileContent, RubricItemContent } from '../prompts/loader';
+import { DiscProfileContent, RubricItemContent, getSandlerPrimer } from '../prompts/loader';
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -14,11 +14,11 @@ export async function generateCoaching(
   clientDisc: DiscProfileContent,
   rubric: RubricItemContent[]
 ): Promise<CoachingResult> {
-  const prompt = buildCoachingPrompt(turns, events, pmDisc, clientDisc, rubric);
+  const prompt = buildCoachingPrompt(turns, events, pmDisc, clientDisc, rubric, getSandlerPrimer());
 
   const message = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 2048,
+    max_tokens: 3072,
     messages: [
       {
         role: 'user',

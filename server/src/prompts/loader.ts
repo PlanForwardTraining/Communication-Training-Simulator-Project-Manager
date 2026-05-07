@@ -88,10 +88,20 @@ function loadRubric(): RubricItemContent[] {
   return items;
 }
 
+function loadSandlerPrimer(): string {
+  const filePath = path.join(CONTENT_DIR, 'coaching-rubric', '03-sandler-techniques.md');
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch {
+    return '';
+  }
+}
+
 // Load once at startup and cache
 const scenarios = loadScenarios();
 const discProfiles = loadDiscProfiles();
 const rubricItems = loadRubric();
+const sandlerPrimer = loadSandlerPrimer();
 
 export function getScenario(slug: string): ScenarioContent | undefined {
   return scenarios.get(slug);
@@ -103,6 +113,10 @@ export function getDiscProfile(code: string): DiscProfileContent | undefined {
 
 export function getRubric(): RubricItemContent[] {
   return rubricItems;
+}
+
+export function getSandlerPrimer(): string {
+  return sandlerPrimer;
 }
 
 export function getAllScenarios(): ScenarioContent[] {

@@ -6,22 +6,24 @@ export function buildCoachingPrompt(
   events: EventRecord[],
   pmDisc: DiscProfileContent,
   clientDisc: DiscProfileContent,
-  rubric: RubricItemContent[]
+  rubric: RubricItemContent[],
+  sandlerPrimer: string,
 ): string {
-  // Format the transcript
   const transcript = turns
     .map(t => `${t.speaker === 'pm' ? 'PM' : 'Client'}: ${t.content}`)
     .join('\n');
 
-  // Count interruptions (PM interrupted client)
   const pmInterruptions = events.filter(e => e.type === 'user_interrupted_agent').length;
 
-  // Format rubric
   const rubricText = rubric
     .map(r => `- **${r.name}** (${r.weight}%): ${r.description}`)
     .join('\n');
 
-  return `You are an expert communication coach reviewing a roleplay session. A project manager (PM) just had a practice conversation with an AI client. Analyze the conversation and provide structured coaching.
+  return `You are an expert communication coach reviewing a roleplay session. A project manager (PM) just had a practice conversation with an AI client. Your job is to analyze the conversation through the lens of **Sandler Sales Methodology** as the primary framework, supplemented by other respected sales/communication frameworks (Voss labels, calibrated questions, classic active listening) where they fit better.
+
+## Coaching Lens — Sandler & Supplementary Frameworks
+
+${sandlerPrimer}
 
 ## PM's DISC Profile
 
@@ -48,15 +50,15 @@ ${rubricText}
 
 **Scoring scale:** 1 = Significantly below standard, 2 = Below standard, 3 = Meets standard, 4 = Above standard, 5 = Exceptional
 
-## Your Task
+## Output Format
 
-Analyze the conversation and return a JSON object with EXACTLY this structure (no markdown, no explanation — raw JSON only):
+Return a JSON object with EXACTLY this structure (no markdown wrapper, no explanation outside the JSON — raw JSON only):
 
 {
-  "strengths": "2-3 specific things the PM did well, with quotes from the transcript",
-  "misses": "2-3 specific gaps or mistakes, with quotes from the transcript",
-  "alternatives": "Concrete alternative phrases the PM could have used, tailored to the client's DISC profile",
-  "discAdaptation": "Specific coaching on how the PM's natural ${pmDisc.code} style helped or hurt when speaking with this ${clientDisc.code} client, and what adjustments to make next time",
+  "strengths": "<bullet list>",
+  "misses": "<bullet list>",
+  "alternatives": "<bullet list>",
+  "discAdaptation": "<bullet list>",
   "scoreBreakdown": {
     "empathy": <1-5>,
     "clarity": <1-5>,
@@ -69,7 +71,43 @@ Analyze the conversation and return a JSON object with EXACTLY this structure (n
   "totalScore": <0-100 weighted score>
 }
 
-The totalScore formula: ((empathy * 0.13) + (clarity * 0.13) + (discAdaptation * 0.22) + (solutionOrientation * 0.12) + (ownership * 0.12) + (composure * 0.13) + (activeListening * 0.15)) / 5 * 100, rounded to nearest integer.
+### How to format each bullet list
 
-Be specific, be direct, and be honest. This is a learning tool — vague or overly positive feedback does not help the PM improve.`;
+Each of strengths / misses / alternatives / discAdaptation must be a **single string containing 3-5 markdown bullets**, separated by newline characters (\\n). Do not number them — use \`- \` at the start of each bullet. Each bullet should be 1-3 sentences. Use \`**bold**\` to highlight the technique name or the specific phrase being discussed.
+
+**strengths** (3-5 bullets) — what the PM did well. Each bullet should:
+- Quote a specific moment from the transcript (in quotes)
+- Name the Sandler technique used (e.g. "Up-Front Contract", "Pain Funnel", "Reversing", "Closing the File", "Pendulum") OR the supplementary technique if more apt (e.g. "Voss-style label", "calibrated How question")
+- Explain in one sentence why it worked here
+
+Example bullet:
+\`- **Up-Front Contract** — opened the call with *"I want to walk through three things and end with a clear next step — does that work?"* This set the tone before the financial news landed and removed the client's instinct to brace.\`
+
+**misses** (3-5 bullets) — gaps or mistakes. Each bullet should:
+- Quote the moment
+- Name the Sandler technique that would have made this stronger
+- One sentence on the cost of the miss
+
+Example bullet:
+\`- **Mind-Reading instead of Pain Funnel** — when the client said *"this is just a lot,"* you replied *"I know, I'm so sorry."* A second-layer question (*"what's the part that's hitting hardest right now?"*) would have surfaced whether the issue was the money, the surprise, or the trust — three different fixes.\`
+
+**alternatives** (3-5 bullets) — concrete rewrites tailored to this client's DISC. Each bullet should:
+- Quote what the PM actually said (in quotes)
+- Offer a Sandler-shaped rewrite (in quotes), in the PM's voice given their DISC profile (${pmDisc.code}), respectful of the client's DISC (${clientDisc.code})
+- One short sentence on which technique it leans on
+
+Example bullet:
+\`- You said: *"I think we should do Option A."* Try: *"Honestly, I'm not sure either option is the obvious right answer for you. What would have to be true for Option A to feel like the right call?"* — that's a **Negative Reverse** + **Reversing**, which fits a C client's need to think it through.\`
+
+**discAdaptation** (3-5 bullets) — coaching specifically on the ${pmDisc.code} → ${clientDisc.code} interaction. Each bullet should:
+- Identify a moment where the PM's natural style helped or hurt
+- Reference how Sandler techniques work differently across DISC profiles (e.g. Pain Funnel works especially well with C; Reversing tends to escalate D unless paced; Up-Front Contracts calm S clients)
+- One concrete adjustment for next time
+
+## Score Calculation
+
+The totalScore formula:
+\`((empathy * 0.13) + (clarity * 0.13) + (discAdaptation * 0.22) + (solutionOrientation * 0.12) + (ownership * 0.12) + (composure * 0.13) + (activeListening * 0.15)) / 5 * 100\`, rounded to nearest integer.
+
+Be specific, be direct, be honest. This is a learning tool — vague or overly positive feedback does not help the PM improve. The PM should leave the debrief with **one or two specific Sandler techniques to practice next session**, not a generic directive to "be more empathetic."`;
 }
