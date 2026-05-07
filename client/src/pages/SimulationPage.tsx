@@ -19,19 +19,53 @@ import { MarkdownLite } from '../utils/MarkdownLite';
 
 const CLOSING_REGEX = new RegExp(
   [
+    // Direct goodbyes
     String.raw`\bgoodbye\b`,
     String.raw`\bbye\b`,
+
+    // "Take care" family
     String.raw`\btake care\b`,
-    String.raw`\bhave a (good|great|nice) (day|evening|night|weekend|one|rest of)\b`,
+    String.raw`\btake it easy\b`,
+    String.raw`\bbe well\b`,
+    String.raw`\bcheers\b`,
+
+    // "Have a [adjective] [day/etc]"
+    String.raw`\bhave a (good|great|nice|wonderful|lovely|terrific|awesome|blessed|safe) (day|evening|night|weekend|one|rest of|holiday|trip)\b`,
+
+    // Talk / speak / catch up
     String.raw`\btalk to you (soon|later|then|tomorrow|\w+day)\b`,
-    String.raw`\btalk soon\b`,
-    String.raw`\bwe(?:'|')?ll talk (then|soon|later|tomorrow)\b`,
-    String.raw`\bsee you (soon|later|next time|then|tomorrow|\w+day|on \w+)\b`,
+    String.raw`\btalk (soon|later)\b`,
+    String.raw`\bspeak (soon|later)\b`,
+    String.raw`\bspeak to you (soon|later|then|tomorrow|\w+day)\b`,
+    String.raw`\bcatch you (later|on \w+|\w+day|tomorrow)\b`,
+    String.raw`\bwe(?:'|')?ll (talk|speak|catch up) (then|soon|later|tomorrow|\w+day)\b`,
+
+    // See you
+    String.raw`\bsee you (soon|later|next time|then|tomorrow|\w+day|on \w+|around)\b`,
+
+    // Until
+    String.raw`\buntil next time\b`,
+    String.raw`\buntil (then|soon|tomorrow|\w+day)\b`,
+
+    // "I'll let you go" / "let me let you go"
+    String.raw`\b(i(?:'|')?ll|i will|let me) let you (go|get back)\b`,
+
+    // Thanks (unambiguous closing forms only)
     String.raw`\bthanks for your time\b`,
-    String.raw`\bappreciate (it|you|your time)\b`,
-    String.raw`\byou too\b`,                    // reciprocal close
-    String.raw`\ball set\b`,                    // "yep, all set"
-    String.raw`\bsounds good[,.]? (bye|thanks|talk)`,
+    String.raw`\bthank you for your time\b`,
+
+    // Appreciate
+    String.raw`\bappreciate (it|you|your time|the call)\b`,
+
+    // Reciprocal
+    String.raw`\byou too\b`,
+
+    // Acknowledgment closes
+    String.raw`\ball set\b`,
+    String.raw`\ball the best\b`,
+
+    // Soft "sounds good + X" closings
+    String.raw`\bsounds good[,.]? (bye|thanks|talk|that(?:'|')?ll work)\b`,
   ].join('|'),
   'i',
 );
@@ -370,7 +404,7 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
     .join(' ');
 
   return (
-    <div className="min-h-screen bg-navy-900 flex flex-col select-none">
+    <div className="h-screen bg-navy-900 flex flex-col select-none overflow-hidden" style={{ height: '100dvh' }}>
       {/* ------------------------------------------------------------------ */}
       {/* Header                                                               */}
       {/* ------------------------------------------------------------------ */}

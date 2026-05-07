@@ -104,6 +104,20 @@ export function MarkdownLite({ source }: { source: string }) {
       continue;
     }
 
+    if (line.startsWith('### ')) {
+      flushPara();
+      flushList();
+      elements.push(
+        <h4
+          key={`h${key++}`}
+          className="font-display font-semibold text-sm text-slate-text mt-4 mb-2"
+        >
+          {renderInline(line.slice(4))}
+        </h4>,
+      );
+      continue;
+    }
+
     const olMatch = line.match(/^\d+\.\s+(.+)/);
     if (olMatch) {
       flushPara();
