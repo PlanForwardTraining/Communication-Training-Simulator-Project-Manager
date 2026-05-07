@@ -23,11 +23,11 @@ verified: true
 
 ## Compatible DISC Client Profiles
 
-This voice fits: **I, D/I**
+This voice fits: **I, D/I, D**
 
-**Why:** Energetic, confident delivery fits D/I clients — visionary, fast-paced, charismatic — and works well for I clients in active engagement. Removed from the standalone D pool on 2026-05-07; user testing showed Liam read as too aggressive for pure-D scenarios.
+**Why:** Energetic, confident delivery fits D/I clients — visionary, fast-paced, charismatic. Also reads convincingly as a younger D-type when given a sharp script.
 
-**Avoid for:** S, S/C — pace is incompatible with those slower profiles. **Avoid for D** — too combative without the relational warmth a D/I requires.
+**Avoid for:** S, S/C — pace is incompatible with those slower profiles.
 
 ## Sample Verification Line
 
