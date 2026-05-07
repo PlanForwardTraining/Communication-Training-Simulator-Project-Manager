@@ -20,6 +20,8 @@ This guide is the orchestrator — it tells you **what to do, in what order, wit
 - [Part 9 — Deploy to Production](#part-9--deploy-to-production)
 - [Part 10 — Go Live](#part-10--go-live)
 - [Part 11 — Operate the System](#part-11--operate-the-system)
+- [Part 12 — Billing & Payment Transfer](#part-12--billing--payment-transfer)
+- [Part 13 — Post-Deploy UX & Coaching Polish](#part-13--post-deploy-ux--coaching-polish)
 - [Appendix A — Environment Variables Reference](#appendix-a--environment-variables-reference)
 - [Appendix B — Cost Monitoring](#appendix-b--cost-monitoring)
 - [Appendix C — Glossary](#appendix-c--glossary)
@@ -871,26 +873,53 @@ Fix any build errors before continuing.
 
 The migrations + seed run automatically as part of `npm start` (see `server/package.json`). No manual step needed.
 
-### 9.3 — Deploy the Frontend to Vercel
+### 9.3 — Deploy the Frontend to Vercel ✅ DONE
 
-1. Go to [vercel.com/new](https://vercel.com/new), logged in as the company Gmail account
+**Production URL:** `https://pm-training-simulator.vercel.app`
+
+1. Go to [vercel.com/new](https://vercel.com/new), logged in as the company Gmail account (`planforwardtraining@gmail.com`)
 2. Import the repo
 3. Set **Root Directory** to `client`
 4. Vercel auto-detects Vite. Confirm:
    - Build Command: `npm run build`
    - Output Directory: `dist`
 5. Under **Environment Variables**, add:
-   - `VITE_API_BASE_URL=https://<your-railway-url>`
+   - `VITE_API_BASE_URL=https://communication-training-simulator-project-manager-production.up.railway.app`
 6. Deploy
-7. Vercel gives you a URL like `https://communication-training-simulator-xyz.vercel.app`. Test it — log in and click around.
+7. Vercel gives you a URL like `https://pm-training-simulator.vercel.app` (production alias) and a hash URL for the specific deployment. Use the clean alias.
 
-### 9.3a — Lock down CORS to your Vercel URL
+**Vercel Hobby plan caveat — important.** Hobby refuses deploys when the GitHub commit author is a different account than the Vercel project owner. Two ways through:
 
-Back in Railway:
+- **Make the GitHub repo public** (easiest, current setup) — Hobby allows any author to deploy public repos. Nothing sensitive is in git (secrets are env vars, content is placeholder).
+- **OR** author every commit using the Vercel-account email (`git commit --author="Plan Forward Training <planforwardtraining@gmail.com>" ...`).
+
+If you ever flip the repo back to private without upgrading to Pro, you'll need the second option for every push.
+
+### 9.3a — Lock down CORS to your Vercel URL ✅ DONE
+
+Back in Railway (or via the Railway CLI for speed):
+
+```bash
+railway login
+railway link --project profound-surprise
+railway variables --set "CLIENT_ORIGIN=https://pm-training-simulator.vercel.app"
+```
+
+Or in the dashboard:
 
 1. Service → **Variables**
-2. Edit `CLIENT_ORIGIN` from `*` to your Vercel URL (e.g. `https://something.vercel.app`)
-3. Save → wait for redeploy
+2. Edit `CLIENT_ORIGIN` from `*` to your Vercel URL (no trailing slash)
+3. Save → Railway redeploys automatically (~1 minute)
+
+Verify with:
+
+```bash
+curl -s -I -H "Origin: https://pm-training-simulator.vercel.app" \
+  https://communication-training-simulator-project-manager-production.up.railway.app/health \
+  | grep -i access-control
+```
+
+You should see `access-control-allow-origin: https://pm-training-simulator.vercel.app`.
 
 ### 9.4 — Connect the Custom Domain
 
@@ -1161,6 +1190,153 @@ Configure in each console:
 | **Interruption** | Speaker overlap event — the rubric's Active Listening category specifically scores PM→client interruptions |
 | **Vite** | Build tool for the frontend |
 | **Volume** | A persistent disk on Railway that survives deploys |
+
+---
+
+## Part 13 — Post-Deploy UX & Coaching Polish
+
+A round of refinements done immediately after the first production deploy. Every change in this section landed via push to `main` and auto-deployed to Railway + Vercel. This is captured here so a future rebuild lands at the polished state, not the bare-deploy state.
+
+### 13.1 — ElevenLabs Agent Runtime Hardening
+
+The ElevenLabs CAI agent ships with two defaults that quietly break per-session overrides if not addressed:
+
+1. The agent has its own default `first_message` that fires the moment the call connects, **before** any per-session prompt override is processed. If it's set to a scenario-specific line, every session will open the same way regardless of which scenario the PM picked.
+2. The agent has override flags that default to `false`. Each flag must be explicitly enabled for the corresponding override to take effect.
+
+Fix once, persists across deploys:
+
+```bash
+# Replace AGENT_ID + API_KEY with real values from server/.env
+curl -s -X PATCH "https://api.elevenlabs.io/v1/convai/agents/agent_<AGENT_ID>" \
+  -H "xi-api-key: <ELEVENLABS_API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "platform_settings": {
+      "overrides": {
+        "conversation_config_override": {
+          "agent": {
+            "prompt": { "prompt": true },
+            "first_message": true,
+            "language": false
+          },
+          "tts": { "voice_id": true }
+        }
+      }
+    },
+    "conversation_config": {
+      "agent": {
+        "first_message": "",
+        "prompt": {
+          "prompt": "You are roleplaying as a residential design-build client. The system will provide your specific identity, personality, and situation through a per-session override. If for any reason no override is provided, simply say \"Hello?\" and wait for the caller to identify themselves."
+        }
+      }
+    }
+  }'
+```
+
+Verify both override flags are `true` and the default `first_message` is empty.
+
+### 13.2 — Scenario Brief Endpoint + Marker
+
+PMs need to see the situation context but **must not** see the answer-key sections that the coaching engine scores against.
+
+- New endpoint: `GET /api/scenarios/by-slug/:slug` returns `{ id, slug, title, body_briefing }`.
+- The endpoint trims the body at an HTML comment marker `<!-- BRIEF END -->` and strips the `> **Status:**` placeholder blockquote.
+- Frontend `scenariosApi.getBriefing(slug)` consumes it.
+- Brief is rendered above the DISC grid on `DiscSelectPage`, and again as a side-panel "Notes" reference on `SimulationPage`.
+
+### 13.3 — Scenario Content v2 (Bespoke Per-Scenario Structure)
+
+The first draft of scenarios used a uniform 7-section template. That made every scenario feel templated and leaked the answer key into the brief. Rewrote each one with a structure appropriate to its situation:
+
+- **01 Schedule Delay** — Brief includes "What You Already Have In Hand" (mitigation toolkit) since a real PM walks in with offers ready.
+- **02 Budget Overrun** — Brief includes "What You Have Ready For The Call" (signed change orders, contract pages, pre-approved goodwill).
+- **03 Angry Client** — Removes "What the PM Must Communicate" entirely; the test is figuring it out live. Adds "What You Don't Know Yet."
+- **04 Scope Change** — Engineering options sit in the brief because the PM realistically has the engineer's packet.
+- **05 Micromanaging Client** — Adds "What You've Already Tried" so the call reads as next-escalation, not first nudge.
+
+Below the `<!-- BRIEF END -->` marker each scenario has: **Inside the Client's Head**, **How They Will Likely React** (with DISC overlays), **What Success Looks Like**, **Common Pitfalls**, **Coaching Focus**. The AI sees all of it; the PM sees none of it.
+
+### 13.4 — Sandler-First Coaching
+
+The coaching engine uses **Sandler Sales Methodology** as the primary lens, supplemented by Voss labels, calibrated questions, and classic active listening where they fit better.
+
+- Primer at `/content/coaching-rubric/03-sandler-techniques.md` covering: Up-Front Contract, Pain Funnel, Reversing, No Mind Reading, Negative Reverse / Take-Away, Closing the File, Pendulum (bonding ↔ structure), Tonality & Pace, 3rd Person Story / Pattern Interrupt.
+- `getSandlerPrimer()` exported from `prompts/loader.ts`; coaching prompt feeds it on every call.
+- `buildCoachingPrompt` directs Claude to:
+  - Output `strengths` / `misses` / `alternatives` / `discAdaptation` as **3-5 markdown bullets** each (not paragraphs)
+  - Cite Sandler techniques by name (`**Up-Front Contract**`, `**Pain Funnel**`, etc.) and italicize quoted phrases (`*"..."*`)
+  - Tie technique to DISC fit (Pain Funnel works especially well with C; Reversing must be paced with D; etc.)
+  - Send the PM home with **one or two specific Sandler reps to practice** — not a generic "be more empathetic"
+- Anthropic `max_tokens` raised 2048 → 3072 to fit the longer bullet output.
+
+### 13.5 — Rubric Weight Fix
+
+`02-scoring-levels.md` had stale per-category percentages from an earlier draft (summed to 115%). Reconciled with `01-categories-and-weights.md`:
+
+| Category | Weight |
+|---|---|
+| Empathy & Acknowledgment | 13% |
+| Clarity & Honesty | 13% |
+| DISC Adaptation | 22% |
+| Solution Orientation | 12% |
+| Ownership & Accountability | 12% |
+| Confidence & Composure | 13% |
+| Active Listening | 15% |
+| **Total** | **100%** |
+
+### 13.6 — Seed Becomes Content Sync
+
+Original `seed.ts` used `INSERT OR IGNORE` everywhere. That meant once a row existed in the production DB, edits to `/content/*.md` were silently ignored on subsequent deploys.
+
+Changed to:
+
+- **Scenarios** — `INSERT INTO scenarios (...) VALUES (...) ON CONFLICT(slug) DO UPDATE SET title=excluded.title, description=excluded.description, body_markdown=excluded.body_markdown, updated_at=CURRENT_TIMESTAMP`
+- **DISC profiles** — same pattern keyed on `code`
+- **Rubric items** — `DELETE FROM rubric_items` then re-`INSERT` (no UNIQUE constraint to upsert against)
+- **Admin user** — still `INSERT OR IGNORE` (don't reset passwords)
+
+Net effect: editing `/content/*.md` and pushing is enough to land content changes — no manual migration step.
+
+### 13.7 — Named Client + Pickup Greeting
+
+Each voice's `display_name` (Adam, Bella, Sarah, etc.) is also the client's first name. The first word of `display_name` is taken so `Adam M` → `Adam` and `Joey Patel` → `Joey`.
+
+- `VoiceSelection` extended with `clientFirstName`.
+- Persona prompt now opens with `## Your Identity / Your first name is **<Name>**` and reinforces it in the rules section.
+- Per-session `firstMessage` generated as `"Hello, this is <Name>."` — passed to the SDK via `overrides.agent.firstMessage`.
+- All 20 voices have name/gender alignment by construction (the name **is** the voice talent's name).
+
+### 13.8 — PM UX Polish
+
+Realistic phone-call posture: the PM walks into a call with a known client, not a stranger.
+
+- `SimulationPage` header shows `Speaking with <Name>` next to the DISC badge.
+- Pre-call **case-file card** in the transcript area before the PM clicks Start: large client name, DISC code, scenario title, greeting cue.
+- Persistent **left-side notes panel** on lg+ screens with the full brief.
+- Mobile **drawer** toggled by a "Notes" button in the header.
+- Transcript bubbles label client turns by name (not generic "Client").
+
+### 13.9 — Bullet-Format Coaching Render
+
+To pair with the Sandler-bulleted coaching output:
+
+- New `client/src/utils/MarkdownLite.tsx` — hand-rolled minimal renderer for `## h2`, paragraphs, `- ul`, `1. ol`, `**bold**`, `*italic*`. ~30 lines, no deps.
+- `DebriefPage` `FeedbackSection` swapped from `whitespace-pre-line` paragraphs to `<MarkdownLite source={...} />`.
+- Italic added so the typical `*"quoted phrase"*` Sandler idiom renders correctly.
+
+### 13.10 — Anthropic Key Fix on Railway
+
+Stale `ANTHROPIC_API_KEY` in Railway returned 401 from the coaching call (failed silently from the PM's perspective — they got a session with no debrief). Replaced with the working local key:
+
+```bash
+source server/.env  # exposes ANTHROPIC_API_KEY
+railway link --project profound-surprise
+railway variables --set "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}"
+```
+
+Coaching now generates end-to-end on production.
 
 ---
 

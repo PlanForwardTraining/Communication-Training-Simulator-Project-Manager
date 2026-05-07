@@ -355,23 +355,22 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [x] `PORT=3001` set + Generate Domain → port 3001
 - [x] Deploy succeeds, `/health` returns 200
 
-### 9.3 — Deploy Frontend (Vercel) ⏳ NEXT STEP
+### 9.3 — Deploy Frontend (Vercel) ✅ DONE
 
-- [ ] Go to [vercel.com/new](https://vercel.com/new), logged in as `TrainingPlanForward@gmail.com`
-- [ ] Import `Communication-Training-Simulator-Project-Manager` repo
-- [ ] **Root Directory**: `client`
-- [ ] Framework Preset: Vite (auto-detected)
-- [ ] **Environment Variables** add:
-  ```
-  VITE_API_BASE_URL=https://communication-training-simulator-project-manager-production.up.railway.app
-  ```
-- [ ] Deploy succeeds
-- [ ] Confirm app loads at `<something>.vercel.app`
+**Production URL:** `https://pm-training-simulator.vercel.app`
 
-### 9.3a — Lock down CORS (after Vercel URL is known)
+- [x] Sign in to [vercel.com/new](https://vercel.com/new) as `planforwardtraining@gmail.com`
+- [x] Import `Communication-Training-Simulator-Project-Manager` repo
+- [x] **Root Directory**: `client`
+- [x] Framework Preset: Vite (auto-detected)
+- [x] **Environment Variables**: `VITE_API_BASE_URL=https://communication-training-simulator-project-manager-production.up.railway.app`
+- [x] Deploy succeeds, app loads at `pm-training-simulator.vercel.app` (Status 200, title "PlanForward Training")
+- [x] **Vercel Hobby caveat** — repo made **public** (Hobby blocks multi-author deploys on private repos); commits authored as `planforwardtraining@gmail.com` to match project owner
 
-- [ ] Update Railway `CLIENT_ORIGIN` env var from `*` to the Vercel URL
-- [ ] Wait for redeploy
+### 9.3a — Lock down CORS (after Vercel URL is known) ✅ DONE
+
+- [x] Update Railway `CLIENT_ORIGIN` env var from `*` to `https://pm-training-simulator.vercel.app`
+- [x] Verified header `access-control-allow-origin: https://pm-training-simulator.vercel.app` returned by `/health`
 
 ### 9.4 — Custom Domain
 - [ ] Add custom domain in Vercel
@@ -535,6 +534,72 @@ After all of the above is complete:
 - [ ] Confirm coaching debrief generates correctly
 - [ ] Confirm Excel export downloads correctly (when Phase 5 is built)
 - [ ] Verify no service is silently still billing Tyler
+
+---
+
+## Part 13 — Post-Deploy UX & Coaching Polish
+
+🔗 [Guide reference](REBUILD_ME_GUIDE.md#part-13--post-deploy-ux--coaching-polish)
+
+A round of refinements done immediately after first production deploy. Each sub-section is a self-contained improvement that landed via push to `main` and auto-deployed.
+
+### 13.1 — ElevenLabs Agent Runtime Hardening
+- [x] Enable per-session override flags via `PATCH /v1/convai/agents/agent_<id>`: `agent.prompt.prompt`, `agent.first_message`, `tts.voice_id`
+- [x] Clear hardcoded default `first_message` (was reciting one specific scenario regardless of selection)
+- [x] Replace agent's default prompt with a neutral fallback (`"...say 'Hello?' and wait for the caller..."`)
+- [x] Document this in CLAUDE.md "Production Build Notes" so future deploys keep the flags on
+
+### 13.2 — Scenario Brief Endpoint + Marker
+- [x] `GET /api/scenarios/by-slug/:slug` endpoint added — trims body at `<!-- BRIEF END -->`
+- [x] Strips the `> **Status:**` placeholder blockquote from the briefing view
+- [x] Frontend `scenariosApi.getBriefing(slug)` API method
+- [x] Brief shown above DISC grid on `DiscSelectPage`
+
+### 13.3 — Scenario Content v2 (Bespoke Per-Scenario Structure)
+- [x] All 5 scenarios rewritten — same topics, situation-appropriate sections (no more cookie-cutter template)
+- [x] Each scenario file split with `<!-- BRIEF END -->` so PM brief and AI/coaching content live in one file
+- [x] Per scenario: 01 Schedule Delay, 02 Budget Overrun, 03 Angry Client, 04 Scope Change, 05 Micromanaging
+- [x] Hidden answer-key sections per scenario (Inside the Client's Head, How They Will Likely React, What Success Looks Like, Common Pitfalls, Coaching Focus)
+
+### 13.4 — Sandler-First Coaching
+- [x] `/content/coaching-rubric/03-sandler-techniques.md` primer added (Up-Front Contract, Pain Funnel, Reversing, No Mind Reading, Negative Reverse, Closing the File, Pendulum, Tonality, 3rd Person Story + Voss labels and calibrated questions as supplements)
+- [x] Loader exposes `getSandlerPrimer()`; coaching prompt feeds it on every call
+- [x] Coaching prompt rewritten to require 3-5 bullets per section with technique names cited
+- [x] Tone shifts to "send the PM home with one or two specific Sandler reps to practice"
+- [x] Anthropic `max_tokens` raised 2048 → 3072 to fit the longer bullet output
+
+### 13.5 — Rubric Weight Fix
+- [x] `02-scoring-levels.md` percentages reconciled with `01-categories-and-weights.md` (was 115%, now 13/13/22/12/12/13/15 = 100%)
+
+### 13.6 — Seed Becomes Content Sync
+- [x] `seedScenarios()` now `INSERT ... ON CONFLICT(slug) DO UPDATE`
+- [x] `seedDiscProfiles()` now `INSERT ... ON CONFLICT(code) DO UPDATE`
+- [x] `seedRubricItems()` now `DELETE` then re-`INSERT`
+- [x] Admin user remains `INSERT OR IGNORE` (don't reset passwords)
+- [x] Net effect: editing `/content/*.md` and pushing is enough — no manual migration
+
+### 13.7 — Named Client + Pickup Greeting
+- [x] Voice's `display_name` first word becomes the client's first name (`Adam M` → `Adam`)
+- [x] `VoiceSelection` extended with `clientFirstName`
+- [x] Persona prompt opens with `## Your Identity / Your first name is **<Name>**` and reinforces in rules
+- [x] Per-session `firstMessage` generated as `"Hello, this is <Name>."` — passed via SDK override
+- [x] Verified: all 20 voices have name/gender alignment by construction (name == voice talent's name)
+
+### 13.8 — PM UX Polish
+- [x] Header on `SimulationPage` shows `Speaking with <Name>`
+- [x] Pre-call case-file card (large name, DISC code, scenario title, greeting cue) before Start Session
+- [x] Persistent left-side notes panel on lg+ screens with the brief
+- [x] Mobile drawer toggled by a "Notes" header button
+- [x] Transcript bubbles label client turns by name (not "Client")
+
+### 13.9 — Bullet-Format Coaching Render
+- [x] New `client/src/utils/MarkdownLite.tsx` — renders h2, p, ul, ol, `**bold**`, `*italic*`
+- [x] `DebriefPage` `FeedbackSection` swaps `whitespace-pre-line` paragraphs for `<MarkdownLite>`
+- [x] Italic added to MarkdownLite for the typical `*"quoted phrase"*` Sandler idiom
+
+### 13.10 — Anthropic Key Fix on Railway
+- [x] Stale `ANTHROPIC_API_KEY` (returned 401) replaced with the working local key on Railway via `railway variables --set`
+- [x] Coaching now generates successfully end-to-end
 
 ---
 

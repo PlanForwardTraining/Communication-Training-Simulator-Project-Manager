@@ -18,6 +18,7 @@ This is not a product for sale. It is a world-class internal training tool.
 | **Voice (real-time)** | **ElevenLabs Conversational AI** | Phone-call-feel: continuous mic, VAD, streaming STT/TTS, echo cancellation, interruption detection — all managed |
 | **AI Brain (in-call)** | **ElevenLabs Qwen3.5-397B** *(configurable)* | Currently set to Qwen3.5-397B for sub-400ms first-token latency. Switchable to Claude Haiku/Sonnet via the agent's LLM dropdown if quality > speed is preferred. Whatever the choice, ElevenLabs CAI invokes it each turn using our persona prompt override. |
 | **AI Coaching (post-call)** | Anthropic Claude API (direct) | Always uses Claude Sonnet 4.6 — quality > speed for the coaching debrief. Separate call after session ends; analyzes full transcript + interruption events to produce structured coaching JSON. |
+| **Coaching Lens** | **Sandler Sales Methodology** (primary) + Voss labels / calibrated questions / classic active listening (supplementary) | Sandler is built around controlled, honest conversations under emotional pressure — exactly what residential design-build PMs face. Primer at `/content/coaching-rubric/03-sandler-techniques.md` is fed into every coaching prompt and the AI cites techniques by name in feedback. |
 | Excel Export | exceljs | Direct .xlsx generation, no Office dependency |
 | Auth | JWT + bcrypt | Stateless, secure, simple |
 | Deployment | Railway (backend + DB) + Vercel (frontend) | Fast, affordable, no DevOps |
@@ -31,13 +32,18 @@ Browser (React SPA + @elevenlabs/react SDK)
   │
   ├─ REST API calls ────► Express Backend (Railway)
   │                          │
-  │                          ├─ POST /api/sessions: assembles persona prompt from /content/,
+  │                          ├─ POST /api/sessions: assembles persona prompt from /content/
+  │                          │   (with the voice's first name injected as the client's identity),
   │                          │   selects voice via DISC-aligned random, mints ElevenLabs signed URL,
-  │                          │   returns { sessionId, signedUrl, agentId, voiceId, voiceName, personaPrompt }
+  │                          │   returns { sessionId, signedUrl, agentId, voiceId, voiceName,
+  │                          │             clientFirstName, personaPrompt, firstMessage }
+  │                          │
+  │                          ├─ GET /api/scenarios/by-slug/:slug: trims body at "<!-- BRIEF END -->"
+  │                          │   so the PM sees only their realistic case file, not the answer key
   │                          │
   │                          ├─ POST /api/sessions/:id/end: receives full transcript + events
   │                          │   from browser, persists to turns/events tables, calls Claude
-  │                          │   for coaching, saves coaching, regenerates Excel
+  │                          │   (Sonnet 4.6 + Sandler primer) for coaching, saves coaching
   │                          │
   │                          └─ SQLite (mounted at /data on Railway volume)
   │
@@ -70,13 +76,15 @@ Admin Dashboard (Phase 5 — not yet built)
 ```
 
 **Conversation flow:**
-1. PM hits "Start" — frontend calls `POST /api/sessions` to get `signedUrl + personaPrompt + voiceId`
-2. Frontend opens an ElevenLabs CAI session via `@elevenlabs/react` SDK, passing persona prompt + voice as `conversation_initiation_client_data` overrides
-3. PM speaks naturally — ElevenLabs streams audio, transcribes, calls the configured LLM (Qwen3.5-397B by default), streams TTS response back
-4. Browser SDK callbacks fire: `onMessage` for each completed turn, `onInterruption` for overlap events. Frontend accumulates these in component state.
-5. PM clicks End Session → confirmation → frontend ends CAI session and calls `POST /api/sessions/:id/end` with `{ turns, events }` body
-6. Backend persists turns + events, calls Claude (direct API, Sonnet 4.6) for coaching analysis
-7. Coaching saved, debrief shown to PM
+1. PM picks scenario → reads brief on DISC select page (answer-key sections hidden) → picks DISC profile
+2. SimulationPage loads → frontend calls `POST /api/sessions` and `GET /api/scenarios/by-slug/:slug` in parallel. Backend selects a voice (DISC-aligned random), derives the client's first name from the voice's `display_name`, builds the persona prompt with the name injected, and generates a per-session `firstMessage` ("Hello, this is [Name].")
+3. Pre-call case-file card shows on screen: large client name, DISC code, scenario title, and the brief in a side panel (persistent on desktop, drawer on mobile)
+4. PM hits "Start Session" — frontend opens an ElevenLabs CAI session via `@elevenlabs/react` SDK, passing persona prompt + voice + first_message as `conversation_initiation_client_data` overrides
+5. AI client picks up: *"Hello, this is [Name]."* PM responds. ElevenLabs streams audio, transcribes, calls the configured LLM (Qwen3.5-397B by default), streams TTS response back
+6. Browser SDK callbacks fire: `onMessage` for each completed turn, `onInterruption` for overlap events. Frontend accumulates these in component state.
+7. PM clicks End Session → confirmation → frontend ends CAI session and calls `POST /api/sessions/:id/end` with `{ turns, events }` body
+8. Backend persists turns + events, calls Claude (Sonnet 4.6) with the rubric, transcript, and the Sandler primer for analysis
+9. Coaching saved as bullet-formatted strengths / misses / alternatives / DISC adaptation; debrief renders via `MarkdownLite` with Sandler techniques cited inline
 
 ---
 
@@ -85,19 +93,25 @@ Admin Dashboard (Phase 5 — not yet built)
 ```
 /
 ├── content/                    # ★ Source-of-truth training content (markdown, owner-editable)
-│   ├── scenarios/              # 5 scenario files (01-schedule-delay.md, etc.)
+│   ├── scenarios/              # 5 scenarios with bespoke per-scenario structure;
+│   │                           # split into PM brief (above) vs. answer key (below) by
+│   │                           # an HTML comment marker: <!-- BRIEF END -->
 │   ├── disc-profiles/          # 8 DISC client persona files (01-D-dominance.md, etc.)
-│   ├── voices/                 # 10 voice profiles (ID + DISC compatibility metadata)
-│   └── coaching-rubric/        # Categories, weights, scoring levels
+│   ├── voices/                 # 20 voice profiles (ID + display_name + DISC compatibility);
+│   │                           # display_name's first word becomes the client's first name
+│   └── coaching-rubric/
+│       ├── 01-categories-and-weights.md   # 7 categories summing to 100%
+│       ├── 02-scoring-levels.md           # 1-5 scale per category
+│       └── 03-sandler-techniques.md       # Primary coaching lens (Sandler) + supplements
 │
 ├── client/                     # React + Vite frontend
 │   ├── src/
 │   │   ├── pages/
 │   │   │   ├── LoginPage.tsx
 │   │   │   ├── ScenarioSelectPage.tsx
-│   │   │   ├── DiscSelectPage.tsx
-│   │   │   ├── SimulationPage.tsx       # ElevenLabs SDK voice conversation
-│   │   │   ├── DebriefPage.tsx          # SVG score ring + 7-category breakdown
+│   │   │   ├── DiscSelectPage.tsx       # Shows scenario brief above the DISC grid
+│   │   │   ├── SimulationPage.tsx       # ElevenLabs SDK + pre-call case file + side notes panel
+│   │   │   ├── DebriefPage.tsx          # SVG score ring + bullet-formatted Sandler-aware feedback
 │   │   │   └── HistoryPage.tsx
 │   │   ├── components/
 │   │   │   ├── DiscBadge.tsx
@@ -106,10 +120,12 @@ Admin Dashboard (Phase 5 — not yet built)
 │   │   │   └── AuthContext.tsx          # React Context — single source of truth for auth
 │   │   ├── hooks/
 │   │   │   └── useAuth.ts               # (legacy — superseded by AuthContext)
+│   │   ├── utils/
+│   │   │   └── MarkdownLite.tsx         # Tiny renderer: h2/p/ul/ol/**bold**/*italic*
 │   │   ├── api/                         # typed fetch wrappers
 │   │   │   ├── client.ts                # base fetch with JWT + 401 auto-logout
 │   │   │   ├── auth.ts
-│   │   │   ├── scenarios.ts
+│   │   │   ├── scenarios.ts             # list() + getBriefing(slug)
 │   │   │   ├── disc.ts
 │   │   │   └── sessions.ts
 │   │   └── App.tsx
@@ -120,24 +136,24 @@ Admin Dashboard (Phase 5 — not yet built)
 │   │   ├── routes/
 │   │   │   ├── auth.ts                  # POST /auth/login, GET /auth/me
 │   │   │   ├── users.ts
-│   │   │   ├── scenarios.ts
+│   │   │   ├── scenarios.ts             # list, by-slug brief (trimmed), CRUD
 │   │   │   ├── disc-profiles.ts
 │   │   │   ├── rubric.ts
 │   │   │   ├── sessions.ts              # session lifecycle + ElevenLabs signed URL
 │   │   │   └── elevenlabs-webhook.ts    # built but unused (client-side capture instead)
 │   │   ├── services/
 │   │   │   ├── claude.ts                # generateCoaching() — direct Claude API
-│   │   │   ├── elevenlabs-cai.ts        # signed URL minting + HMAC verification
-│   │   │   └── voice-selector.ts        # DISC-aligned random voice selection
+│   │   │   ├── elevenlabs-cai.ts        # signed URL + persona + first_message + HMAC
+│   │   │   └── voice-selector.ts        # DISC-aligned random; returns clientFirstName
 │   │   ├── prompts/
-│   │   │   ├── loader.ts                # reads /content/ at startup, in-memory cache
-│   │   │   ├── persona-prompt.ts        # buildPersonaPrompt(scenario, clientDisc)
-│   │   │   └── coaching-prompt.ts       # buildCoachingPrompt(turns, events, ...)
+│   │   │   ├── loader.ts                # reads /content/ at startup; serves Sandler primer too
+│   │   │   ├── persona-prompt.ts        # buildPersonaPrompt(scenario, clientDisc, clientFirstName)
+│   │   │   └── coaching-prompt.ts       # buildCoachingPrompt(turns, events, ..., sandlerPrimer)
 │   │   ├── db/
 │   │   │   ├── schema.sql               # SQL DDL (copied to dist/db/ at build)
 │   │   │   ├── connection.ts            # better-sqlite3 singleton (creates parent dir if missing)
 │   │   │   ├── migrate.ts
-│   │   │   └── seed.ts                  # seeds from /content/ + admin user
+│   │   │   └── seed.ts                  # UPSERTs from /content/; rubric is delete+reinsert
 │   │   ├── middleware/
 │   │   │   ├── auth.ts
 │   │   │   └── roleGuard.ts
@@ -265,6 +281,12 @@ cd server && npm run build
 
 **Voice variety is a first-class feature.** A voice pool lives in `/content/voices/` (one markdown file per voice with ElevenLabs ID + DISC compatibility metadata). Every session, the backend selects a voice using a three-tier priority: (1) scenario-pinned override, (2) DISC-aligned random from the active pool *(default)*, (3) admin-toggled forced random. The PM never picks the voice. Same scenario+DISC combination will sound different on different days, which both adds realism and prevents PMs from "memorizing" how a particular client sounds. The `sessions` table records `voice_id` and `voice_name` so admin reporting can show who trained against which voices over time.
 
+**The AI client has a name.** Each voice's `display_name` (the voice talent's name from ElevenLabs) is also used as the client's first name — `Bella`, `Sarah`, `Adam`, etc. The first word of `display_name` is taken (so `Adam M` → `Adam`, `Joey Patel` → `Joey`). Because the name and voice come from the same record, gender is paired automatically. The persona prompt injects the name as `## Your Identity`, and the AI picks up the call with `"Hello, this is [Name]."` The PM sees the same name on the simulation page header, in a pre-call case-file card, and on every client transcript bubble — matching the realistic posture of calling a known client.
+
+**Coaching is Sandler-first.** The post-call coaching engine reads `/content/coaching-rubric/03-sandler-techniques.md` as a primer and analyzes the transcript through that lens. Strengths, misses, alternatives, and DISC adaptation notes are returned as 3-5 bulleted lines each, with specific Sandler techniques cited by name (Up-Front Contract, Pain Funnel, Reversing, No Mind Reading, Negative Reverse, Closing the File, Pendulum, Tonality, 3rd Person Story). Voss labels and calibrated questions are pulled in where they fit better than the Sandler equivalent. The goal of every debrief: send the PM home with one or two specific techniques to practice next session, not a generic "be more empathetic" directive.
+
+**The PM's view vs. the AI's view of a scenario are different by design.** Each scenario markdown file has an `<!-- BRIEF END -->` marker. Above the marker = what the PM realistically walks into the call knowing (Setup, What's Happened, What the Client Knows, plus per-scenario context like "What You Already Have In Hand"). Below the marker = answer-key material (Inside the Client's Head, How They Will Likely React, What Success Looks Like, Common Pitfalls, Coaching Focus) that the AI uses to roleplay realistically and the coaching engine uses to score against. The PM never sees the answer key. The AI sees the full file. The brief is shown both on the DISC select page and as a persistent side panel during the call.
+
 **PMs cannot change their own DISC profile.** Only admin can set/update. Enforced at the API layer.
 
 **Excel is the source of truth for business reporting.** The SQLite DB is the operational store; Excel is regenerated/appended on session completion so the business owner always has a fresh readable file.
@@ -319,7 +341,8 @@ Placeholder content for the first three has been drafted in `/content/` so devel
 | 3 — Voice Pipeline | ElevenLabs CAI + voice selector + signed URLs | ✅ Done |
 | 4 — PM Frontend | Login → scenario → DISC → simulation → debrief → history | ✅ Done |
 | 5 — Admin Dashboard | All-PM view, score trends, scenario/rubric/voice config, Excel export | ⏳ Not started — deferred until after deploy |
-| 6 — Deploy | Production hosting on Railway + Vercel | 🔶 Backend done, frontend pending |
+| 6 — Deploy | Production hosting on Railway + Vercel | ✅ Backend (Railway) + Frontend (Vercel) both live |
+| Post-deploy polish | Brief panel, named client, Sandler coaching, bullet feedback, content sync | ✅ Done — see Production Build Notes |
 
 Each phase has its own detailed plan in `docs/superpowers/plans/`.
 
@@ -327,12 +350,15 @@ Each phase has its own detailed plan in `docs/superpowers/plans/`.
 
 ## Production Status
 
+- **Frontend:** Live at `https://pm-training-simulator.vercel.app`
+  - Vercel Hobby plan, deployed from `client/` root
+  - Auto-deploys on push to `main` (commits must be authored as the project-owner email — see Build Notes)
 - **Backend:** Live at `https://communication-training-simulator-project-manager-production.up.railway.app`
   - `/health` returns 200 ✅
   - Hobby plan ($5/mo)
   - Volume mounted at `/data` for SQLite + Excel persistence
-- **Frontend:** Not yet deployed to Vercel (next step)
-- **Repo:** `https://github.com/PlanForwardTraining/Communication-Training-Simulator-Project-Manager`
+  - `CLIENT_ORIGIN` locked to the Vercel URL (no longer `*`)
+- **Repo:** `https://github.com/PlanForwardTraining/Communication-Training-Simulator-Project-Manager` (public, on Vercel Hobby)
 
 ## Production Build Notes
 
@@ -340,10 +366,18 @@ The production build has a few non-obvious behaviors worth knowing:
 
 1. **`/content/` is bundled into `server/dist/content/` during build** — Railway only deploys the build context, so the server is self-contained at runtime. Path resolution helper at `server/src/utils/content-dir.ts` finds content in either `dist/content/` (prod) or repo root (dev).
 
-2. **`server/package.json` `start` runs migrate → seed → server** — first-deploy seeds an admin user from `ADMIN_PASSWORD` env var. Idempotent on subsequent deploys (uses INSERT OR IGNORE).
+2. **`server/package.json` `start` runs migrate → seed → server** — admin user uses `INSERT OR IGNORE` (passwords don't reset). Scenarios + DISC profiles use `INSERT ... ON CONFLICT(slug/code) DO UPDATE`. Rubric items are deleted and re-inserted. Net effect: editing `/content/*.md` and pushing is a complete content sync — no manual migration.
 
 3. **`railway.toml` at repo root drives the build** — DO NOT set Railway's "Root Directory" UI setting; that restricts build context and breaks the `cp -r ../content` step. The TOML's `cd server && ...` works because the build runs from repo root.
 
 4. **`engines.node` pinned to `>=20`** — `better-sqlite3@12+` requires Node 20+. Nixpacks defaults to Node 18 without this pin.
 
 5. **`npm install --include=dev` in build command** — `NODE_ENV=production` makes `npm install` skip devDependencies, but `tsc` is a devDependency.
+
+6. **ElevenLabs agent override flags must stay enabled** — at the agent level (configured once, persists), three flags must be `true` in `platform_settings.overrides.conversation_config_override`: `agent.prompt.prompt`, `agent.first_message`, `tts.voice_id`. Without these, the agent ignores the per-session prompt/voice/first-message and falls back to its hardcoded defaults — meaning every session would play the same scenario regardless of what the PM picked. The agent's own default `first_message` should be `""` and its default `prompt` should be a neutral fallback (it shouldn't reference any specific scenario). All four are configured via `PATCH /v1/convai/agents/agent_<id>`.
+
+7. **Vercel Hobby + private repo + multi-author = blocked deploy.** Hobby plan refuses deploys when the commit author email doesn't match the project owner. Two viable workarounds: (a) make the GitHub repo public (current choice — nothing sensitive in git), or (b) author every commit as the Vercel-account email (`planforwardtraining@gmail.com`). We do (a) so any author can push, but the standing convention is still to author commits as the project owner email for consistency.
+
+8. **`<!-- BRIEF END -->` marker splits scenarios** — `server/src/routes/scenarios.ts` `GET /by-slug/:slug` slices the scenario body at this marker. The PM gets only the brief; the AI's persona prompt still gets the full body. Authors can move the marker to control how much the PM sees per scenario without code changes.
+
+9. **Coaching prompt expects bullet output** — Claude is directed to return `strengths`/`misses`/`alternatives`/`discAdaptation` as 3-5 markdown bullets each (`-` prefix, `**bold**` technique names, `*italic*` quoted phrases). The frontend's `MarkdownLite` component renders these. If you change the format on the backend, render must change in lockstep.
