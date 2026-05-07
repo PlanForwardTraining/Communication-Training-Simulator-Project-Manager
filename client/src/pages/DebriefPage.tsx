@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { sessionsApi, type CoachingResult } from '../api/sessions';
+import { sessionsApi, type CoachingResult, type SessionDetail } from '../api/sessions';
 import { MarkdownLite } from '../utils/MarkdownLite';
 
 function ScoreRing({ score }: { score: number }) {
@@ -65,12 +65,17 @@ export function DebriefPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [coaching, setCoaching] = useState<CoachingResult | null>(null);
+  const [session, setSession] = useState<SessionDetail | null>(null);
+  const [showTranscript, setShowTranscript] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!sessionId) return;
     sessionsApi.get(Number(sessionId))
-      .then(s => { if (s.coaching) setCoaching(s.coaching); })
+      .then(s => {
+        setSession(s);
+        if (s.coaching) setCoaching(s.coaching);
+      })
       .finally(() => setLoading(false));
   }, [sessionId]);
 
@@ -129,6 +134,56 @@ export function DebriefPage() {
           <FeedbackSection title="Opportunities to Improve" content={coaching.misses} borderColor="border-amber-500" />
           <FeedbackSection title="Try These Instead" content={coaching.alternatives} borderColor="border-blue-500" />
           <FeedbackSection title="DISC Adaptation Note" content={coaching.discAdaptation} borderColor="border-gold-500" />
+
+          {/* Transcript — collapsible so it doesn't dominate the page */}
+          {session && session.turns.length > 0 && (
+            <section className="card p-5">
+              <button
+                onClick={() => setShowTranscript(s => !s)}
+                className="w-full flex items-center justify-between text-left"
+              >
+                <div>
+                  <h3 className="font-display font-semibold text-slate-text">Conversation Transcript</h3>
+                  <p className="font-body text-xs text-slate-muted mt-1">
+                    {session.turns.length} turn{session.turns.length === 1 ? '' : 's'}
+                    {session.events.length > 0 && (
+                      <> · {session.events.length} interruption{session.events.length === 1 ? '' : 's'} logged</>
+                    )}
+                  </p>
+                </div>
+                <svg
+                  className={`w-5 h-5 text-slate-muted transition-transform duration-200 ${showTranscript ? 'rotate-180' : ''}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showTranscript && (
+                <div className="mt-5 pt-5 border-t border-navy-700 space-y-3">
+                  {session.turns.map(t => (
+                    <div
+                      key={t.id}
+                      className={`flex ${t.speaker === 'pm' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[80%] px-4 py-3 rounded-2xl font-body text-sm leading-relaxed ${
+                          t.speaker === 'pm'
+                            ? 'bg-gold-500/15 border border-gold-500/25 text-gold-400 rounded-br-sm'
+                            : 'bg-navy-700 border border-navy-600 text-slate-text rounded-bl-sm'
+                        }`}
+                      >
+                        <p className="mb-0.5 font-semibold text-[10px] opacity-60 uppercase tracking-widest">
+                          {t.speaker === 'pm' ? 'You' : 'Client'}
+                        </p>
+                        {t.content}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
         </div>
       </main>
 
