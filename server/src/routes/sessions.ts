@@ -118,8 +118,11 @@ router.post('/:id/end', requireAuth, async (req: Request, res: Response): Promis
   };
   const { turns: clientTurns, events: clientEvents } = body;
 
-  // Save turns from client to DB
+  // Save turns + events from client to DB. Idempotent: if the user retries
+  // after a coaching failure, clear any prior turns/events for this session
+  // first so we don't end up with a duplicated transcript.
   if (clientTurns && clientTurns.length > 0) {
+    db.prepare('DELETE FROM turns WHERE session_id = ?').run(sessionId);
     const insertTurn = db.prepare(
       'INSERT INTO turns (session_id, speaker, content) VALUES (?, ?, ?)'
     );
@@ -128,8 +131,8 @@ router.post('/:id/end', requireAuth, async (req: Request, res: Response): Promis
     }
   }
 
-  // Save events from client to DB
   if (clientEvents && clientEvents.length > 0) {
+    db.prepare('DELETE FROM events WHERE session_id = ?').run(sessionId);
     const insertEvent = db.prepare(
       'INSERT INTO events (session_id, type, speaker) VALUES (?, ?, ?)'
     );

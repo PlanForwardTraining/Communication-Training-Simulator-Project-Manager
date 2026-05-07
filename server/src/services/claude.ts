@@ -32,14 +32,20 @@ export async function generateCoaching(
     .map(block => (block as { type: 'text'; text: string }).text)
     .join('');
 
-  // Strip markdown code fences if Claude wrapped the JSON
-  const jsonText = rawText.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim();
+  // Extract the JSON object from the response, regardless of any markdown
+  // wrapping or preamble Claude might include. The greedy match grabs from
+  // the first '{' to the last '}', which is exactly the top-level object.
+  const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+  const jsonText = jsonMatch ? jsonMatch[0] : rawText.trim();
 
   let result: CoachingResult;
   try {
     result = JSON.parse(jsonText);
-  } catch {
-    throw new Error(`Claude returned non-JSON response: ${rawText.slice(0, 200)}`);
+  } catch (err) {
+    console.error('Coaching JSON parse failed. Raw response:', rawText.slice(0, 1000));
+    throw new Error(
+      `Claude returned non-JSON response: ${rawText.slice(0, 300)}`,
+    );
   }
 
   // Validate required fields
