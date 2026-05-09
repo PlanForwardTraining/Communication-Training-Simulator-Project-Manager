@@ -143,7 +143,7 @@ export function ScenarioFormModal({ mode, scenario, onClose, onSaved }: Props) {
     editorProps: {
       attributes: {
         class:
-          'prose prose-invert max-w-none px-4 py-3 min-h-[280px] focus:outline-none ' +
+          'scenario-editor px-4 py-3 min-h-[280px] focus:outline-none ' +
           'font-body text-sm text-slate-text leading-relaxed',
       },
     },

@@ -68,3 +68,89 @@
   }
 }
 
+/* ----- TipTap scenario editor ------------------------------------------------
+ * Explicit element styles so non-technical authors can SEE the difference
+ * between H2, H3, bold, italic, lists, and quotes without relying on Tailwind
+ * Typography. Scoped to .scenario-editor so it doesn't leak elsewhere.
+ */
+.scenario-editor h2 {
+  font-family: 'Inter', sans-serif;
+  font-size: 1.25rem;       /* text-xl */
+  font-weight: 700;
+  color: #C9A84C;            /* gold-500 */
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+.scenario-editor h2:first-child { margin-top: 0; }
+
+.scenario-editor h3 {
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;           /* text-base */
+  font-weight: 600;
+  color: #F0EDE8;            /* slate-text */
+  margin-top: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.scenario-editor p {
+  margin-bottom: 0.75rem;
+  line-height: 1.65;
+}
+
+.scenario-editor strong {
+  font-weight: 700;
+  color: #F0EDE8;            /* slate-text — bolder than the body */
+}
+
+.scenario-editor em {
+  font-style: italic;
+  color: #F0EDE8;
+}
+
+.scenario-editor ul,
+.scenario-editor ol {
+  margin-left: 1.25rem;
+  margin-bottom: 0.75rem;
+  padding-left: 0.5rem;
+}
+.scenario-editor ul { list-style-type: disc; }
+.scenario-editor ol { list-style-type: decimal; }
+.scenario-editor li { margin-bottom: 0.25rem; padding-left: 0.25rem; }
+.scenario-editor li > p { margin-bottom: 0; }
+
+.scenario-editor blockquote {
+  border-left: 3px solid #C9A84C;   /* gold-500 */
+  padding-left: 1rem;
+  margin: 1rem 0;
+  color: #8A9BB5;                   /* slate-muted */
+  font-style: italic;
+}
+
+.scenario-editor hr {
+  border: none;
+  border-top: 2px dashed #C9A84C;
+  margin: 1.5rem 0;
+  position: relative;
+}
+.scenario-editor hr::after {
+  content: '— BRIEF END — answer key below is hidden from the PM —';
+  display: block;
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #C9A84C;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: #111D35;             /* navy-800 — matches editor bg */
+  padding: 0 0.75rem;
+  margin-top: -0.7rem;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.scenario-editor:focus { outline: none; }
+
