@@ -1,4 +1,4 @@
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { adminApi } from '../../api/admin';
@@ -8,9 +8,35 @@ interface Props {
   back?: { label: string; to: string };
 }
 
+interface NavLinkProps {
+  to: string;
+  label: string;
+  active: boolean;
+}
+
+function NavLink({ to, label, active }: NavLinkProps) {
+  return (
+    <Link
+      to={to}
+      className={
+        'relative px-3 py-2 font-body text-sm font-semibold transition-colors ' +
+        (active
+          ? 'text-gold-400'
+          : 'text-slate-muted hover:text-slate-text')
+      }
+    >
+      {label}
+      {active && (
+        <span className="absolute left-3 right-3 -bottom-[17px] h-0.5 bg-gold-500 rounded-full" />
+      )}
+    </Link>
+  );
+}
+
 export function AdminLayout({ children, back }: Props) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [downloading, setDownloading] = useState(false);
 
   const handleExport = async () => {
@@ -39,44 +65,66 @@ export function AdminLayout({ children, back }: Props) {
     }
   };
 
+  // Determine which top-level admin section is active. Detail pages
+  // (/admin/users/:id, /admin/sessions/:id) belong under "Dashboard" since
+  // they're entered from there.
+  const path = location.pathname;
+  const onScenarios = path.startsWith('/admin/scenarios');
+  const onDashboard = path === '/admin' || path.startsWith('/admin/users') || path.startsWith('/admin/sessions');
+
   return (
     <div className="page">
-      <header className="border-b border-navy-600 px-4 sm:px-6 py-4 sticky top-0 z-30 bg-navy-900/95 backdrop-blur">
-        <div className="container-lg flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            {back ? (
+      <header className="border-b border-navy-600 px-4 sm:px-6 sticky top-0 z-30 bg-navy-900/95 backdrop-blur">
+        <div className="container-lg flex items-center justify-between gap-4 h-16">
+          {/* LEFT: wordmark + (optional inline back link) + nav links */}
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <Link to="/admin" className="flex flex-col leading-tight min-w-0 mr-1 sm:mr-2">
+              <span className="font-wordmark text-sm font-bold tracking-widest text-gold-500 uppercase">
+                Plan Forward
+              </span>
+              <span className="font-body text-[10px] uppercase tracking-widest text-slate-muted mt-0.5">
+                Admin
+              </span>
+            </Link>
+
+            {back && (
               <button
                 onClick={() => navigate(back.to)}
-                className="btn-ghost text-sm flex items-center gap-1.5 shrink-0"
+                className="hidden sm:flex items-center gap-1 text-xs font-body text-slate-muted hover:text-slate-text px-2 py-1 rounded-md hover:bg-navy-700 transition-colors"
+                title={`Back to ${back.label}`}
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                 </svg>
                 {back.label}
               </button>
-            ) : (
-              <Link to="/admin" className="flex flex-col leading-tight min-w-0">
-                <span className="font-wordmark text-sm font-bold tracking-widest text-gold-500 uppercase">
-                  Plan Forward
-                </span>
-                <span className="font-body text-[10px] uppercase tracking-widest text-slate-muted mt-0.5">
-                  Admin Console
-                </span>
-              </Link>
             )}
+
+            <nav className="hidden md:flex items-center ml-2">
+              <NavLink to="/admin" label="Dashboard" active={onDashboard} />
+              <NavLink to="/admin/scenarios" label="Scenarios" active={onScenarios} />
+            </nav>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              to="/admin/scenarios"
-              className="btn-ghost text-sm hidden md:inline-block"
+          {/* RIGHT: actions, then identity + sign out */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            <button
+              onClick={() => navigate('/')}
+              className="btn-ghost text-sm hidden sm:inline-flex items-center gap-1.5"
+              title="Run a practice session as a PM"
             >
-              Scenarios
-            </Link>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Run Practice
+            </button>
+
             <button
               onClick={handleExport}
               disabled={downloading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-navy-700 hover:bg-navy-600 border border-navy-600 text-slate-text font-body text-xs font-semibold transition-colors disabled:opacity-50"
+              className="btn-ghost text-sm flex items-center gap-1.5 disabled:opacity-50"
+              title="Download all session data as Excel"
             >
               {downloading ? (
                 <span className="w-3.5 h-3.5 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" />
@@ -88,15 +136,16 @@ export function AdminLayout({ children, back }: Props) {
               <span className="hidden sm:inline">Export Excel</span>
               <span className="sm:hidden">Export</span>
             </button>
-            <button
-              onClick={() => navigate('/')}
-              className="btn-ghost text-sm hidden sm:inline-block"
-            >
-              Run Practice
-            </button>
-            <span className="text-xs text-slate-muted hidden md:inline">
+
+            <span className="hidden lg:inline-flex items-center w-px h-6 bg-navy-600 mx-1" />
+
+            <span className="hidden lg:inline-flex items-center gap-1.5 text-xs font-body text-slate-muted px-2">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
               {user?.name}
             </span>
+
             <button onClick={logout} className="btn-ghost text-sm text-slate-muted">
               Sign out
             </button>
