@@ -127,8 +127,10 @@ function Toolbar({ editor }: { editor: Editor | null }) {
 
 export function ScenarioFormModal({ mode, scenario, onClose, onSaved }: Props) {
   const isCreate = mode === 'create';
+  // Slug is hidden from the UI — non-technical owners shouldn't need to think
+  // about URL-safe identifiers. In create mode it's silently derived from the
+  // title; in edit mode it's read-only (DB enforces uniqueness on the original).
   const [slug, setSlug] = useState(scenario?.slug ?? '');
-  const [slugTouched, setSlugTouched] = useState(false);
   const [title, setTitle] = useState(scenario?.title ?? '');
   const [description, setDescription] = useState(scenario?.description ?? '');
   const [active, setActive] = useState(scenario ? scenario.active === 1 : true);
@@ -159,12 +161,13 @@ export function ScenarioFormModal({ mode, scenario, onClose, onSaved }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 
-  // Auto-suggest slug from title in create mode
+  // Auto-derive slug from title in create mode. The field is hidden so this
+  // is the only path that ever sets the slug for a new scenario.
   useEffect(() => {
-    if (isCreate && !slugTouched && title) {
+    if (isCreate && title) {
       setSlug(slugify(title));
     }
-  }, [title, slugTouched, isCreate]);
+  }, [title, isCreate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,39 +229,16 @@ export function ScenarioFormModal({ mode, scenario, onClose, onSaved }: Props) {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label className="block">
-            <span className="font-body text-xs text-slate-muted block mb-1">Title</span>
-            <input
-              type="text"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              required
-              className="w-full bg-navy-800 border border-navy-600 rounded-lg px-3 py-2 text-sm text-slate-text font-body focus:outline-none focus:border-gold-500"
-            />
-          </label>
-          <label className="block">
-            <span className="font-body text-xs text-slate-muted block mb-1">
-              Slug{' '}
-              <span className="opacity-60">
-                {isCreate ? '(auto-generated, editable)' : '(cannot change)'}
-              </span>
-            </span>
-            <input
-              type="text"
-              value={slug}
-              onChange={e => {
-                setSlugTouched(true);
-                setSlug(e.target.value);
-              }}
-              required={isCreate}
-              disabled={!isCreate}
-              pattern="^[a-z0-9]+(-[a-z0-9]+)*$"
-              title="Lowercase letters, numbers, and dashes only"
-              className="w-full bg-navy-800 border border-navy-600 rounded-lg px-3 py-2 text-sm text-slate-text font-mono focus:outline-none focus:border-gold-500 disabled:opacity-60"
-            />
-          </label>
-        </div>
+        <label className="block">
+          <span className="font-body text-xs text-slate-muted block mb-1">Title</span>
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            required
+            className="w-full bg-navy-800 border border-navy-600 rounded-lg px-3 py-2 text-sm text-slate-text font-body focus:outline-none focus:border-gold-500"
+          />
+        </label>
 
         <label className="block">
           <span className="font-body text-xs text-slate-muted block mb-1">
