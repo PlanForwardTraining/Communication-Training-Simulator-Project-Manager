@@ -623,6 +623,29 @@ A round of refinements done immediately after first production deploy. Each sub-
 - [x] At zero, fires the existing end-session flow (skips the manual confirmation modal)
 - [x] Countdown clears if either side breaks the closing pattern
 
+### 13.13 — DISC Coaching Cards (PM-facing)
+- [x] `/content/coaching-cards/*.md` — 8 DISC profile cards + 1 general/universal cues file
+- [x] `loader.loadCoachingCards()` reads from filesystem at startup (cached)
+- [x] `getCoachingCard(code)` and `getGeneralCoachingCues()` exported from loader
+- [x] `GET /api/coaching-cards/:discCode` and `/general` endpoints
+- [x] `client/src/api/coachingCards.ts` typed wrappers
+- [x] SimulationPage pre-call card surfaces the matched DISC card prominently with universal cues collapsed below
+- [x] Side notes panel during call gains a Brief / Coaching tabs strip
+- [x] Falls back gracefully if a card is missing (404 ignored client-side)
+
+### 13.14 — Admin-Managed Scenarios (Phase 5 v2)
+- [x] `seedScenarios()` reverted to `INSERT OR IGNORE` so deploys never clobber UI edits
+- [x] `loader.getScenario()` and `getAllScenarios()` query the DB at request time (was: filesystem cache loaded at startup)
+- [x] `voice-selector.checkScenarioPinnedVoice()` reads scenario body from DB (was: filesystem)
+- [x] `POST /api/scenarios` and `PATCH /:id` validate that body contains `<!-- BRIEF END -->` marker; slug must match `^[a-z0-9]+(-[a-z0-9]+)*$`
+- [x] `GET /api/scenarios/admin` returns all scenarios (active+inactive) with session counts
+- [x] `DELETE /api/scenarios/:id` — admin only; refuses if any sessions reference the scenario, with the session count surfaced in the 409 error so the UI can show it
+- [x] `client/src/pages/admin/AdminScenariosPage.tsx` — table of all scenarios with edit / deactivate / delete actions
+- [x] `client/src/pages/admin/ScenarioFormModal.tsx` — TipTap WYSIWYG editor for creating + editing. Toolbar: H2/H3/Bold/Italic/Bullet/Numbered/Quote/Insert BRIEF END. Auto-suggests slug from title in create mode.
+- [x] `client/src/pages/admin/HardDeleteScenarioModal.tsx` — "type DELETE to confirm" gate; if any sessions reference the scenario, hard delete is blocked and "Deactivate instead" is offered
+- [x] AdminLayout adds "Scenarios" nav link
+- [x] All 33 server tests pass (added 2 new tests covering BRIEF END marker validation and slug format validation)
+
 ---
 
 ## Notes Section

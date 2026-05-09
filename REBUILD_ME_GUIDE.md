@@ -1403,6 +1403,95 @@ Manually clicking End Session at the end of a natural-flowing conversation felt 
 
 Conservative regex on purpose: better to miss a goodbye and require the manual button than to cut off an active conversation.
 
+### 13.13 — DISC Coaching Cards (PM-facing)
+
+Per-DISC quick-reference cards shown to the PM **right before** they hit Start Session, plus a set of universal coaching cues. The PM is primed for the specific client they're about to face, and can reference the cues mid-call from the side notes panel.
+
+Content lives in `/content/coaching-cards/*.md`:
+
+```
+content/coaching-cards/
+├── D.md, I.md, S.md, C.md           # primary DISC profiles
+├── D-I.md, D-C.md, I-S.md, S-C.md   # combo profiles (filenames use - instead of /)
+└── general.md                        # universal cues block
+```
+
+Each per-DISC file follows a tight template: an H1 title, a single blockquote describing the client, 5–6 bullets of practical instruction, and a final `**Their fear:**` line. Owner-editable; future Phase 3 candidate for full UI management.
+
+Loader (`server/src/prompts/loader.ts`) reads the folder at startup and exposes:
+
+- `getCoachingCard(code: string): string | undefined`
+- `getGeneralCoachingCues(): string`
+
+Endpoints (`server/src/routes/coaching-cards.ts`):
+
+- `GET /api/coaching-cards/:discCode` — URL-encode `/` as `%2F` for combo profiles
+- `GET /api/coaching-cards/general`
+
+Both routes are `requireAuth` (any logged-in user, not admin-only). The PM-facing client API wrapper lives at `client/src/api/coachingCards.ts`.
+
+Two UX surfaces in `SimulationPage`:
+
+1. **Pre-call card.** The existing "Today's Call" card now stacks: header (name / DISC / scenario) → DISC coaching card → collapsed `<details>` for "Universal coaching cues" → greeting cue → Back / Start Session buttons.
+2. **Side notes panel during the call.** A tab strip ("Brief" / "Coaching cues") appears above the existing brief content. Brief stays default; one tap swaps in the DISC coaching card so the PM has it within glance during the conversation.
+
+Both surfaces fall back gracefully if a card is missing (404 ignored, brief renders alone).
+
+### 13.14 — Admin-Managed Scenarios (Phase 5 v2)
+
+Business-owner-friendly UI for adding, editing, and removing scenarios — without involving a developer. Construction-industry audience, so the editor is a TipTap WYSIWYG, not a markdown textarea.
+
+#### Architectural shift
+
+Scenarios used to be filesystem-as-source-of-truth: `/content/scenarios/*.md` was upserted into the DB on every deploy, and `loader.getScenario()` read from a filesystem-loaded in-memory cache. With UI editing, that pattern breaks twice — UI edits get clobbered by the next deploy, and they don't take effect until the server restarts. Three changes flip scenarios to **DB-as-source-of-truth at runtime**:
+
+1. **`server/src/db/seed.ts`** — `seedScenarios()` reverted to `INSERT OR IGNORE`. Once a scenario row exists in the DB (from first deploy or admin-UI creation), it's authoritative. Subsequent deploys never touch it.
+2. **`server/src/prompts/loader.ts`** — `getScenario(slug)` and `getAllScenarios()` now query the DB on every call. The filesystem-loaded scenario cache is gone (DISC profiles, rubric, Sandler primer, and coaching cards are still filesystem-cached — they're not UI-managed).
+3. **`server/src/services/voice-selector.ts`** — `checkScenarioPinnedVoice()` reads `body_markdown` from the DB instead of `fs.readFileSync` of the markdown file.
+
+#### Backend routes
+
+`server/src/routes/scenarios.ts`:
+
+- `GET /api/scenarios` — PM view, active scenarios only
+- `GET /api/scenarios/admin` — admin only, all scenarios with `session_count` joined in
+- `GET /api/scenarios/by-slug/:slug` — PM-facing brief (trims at BRIEF END marker)
+- `GET /api/scenarios/:id` — admin: full record incl. `body_markdown`
+- `POST /api/scenarios` — admin only; validates slug format (`^[a-z0-9]+(-[a-z0-9]+)*$`) and that body contains `<!-- BRIEF END -->`
+- `PATCH /api/scenarios/:id` — admin only; supports `active` toggle for soft-delete; same body validation
+- `DELETE /api/scenarios/:id` — admin only, **hard delete with FK guard**. Returns 409 with `sessionCount` if any sessions reference the scenario; admin must soft-delete instead.
+
+#### Frontend pages
+
+`client/src/pages/admin/`:
+
+- **AdminScenariosPage.tsx** — table of all scenarios (active + inactive) with edit / deactivate / delete actions per row, "+ New Scenario" button, session count column.
+- **ScenarioFormModal.tsx** — TipTap WYSIWYG editor used for both create and edit. Toolbar: H2 (section), H3 (subsection), Bold, Italic, Bullet list, Numbered list, Blockquote, **Insert BRIEF END** divider. Title field auto-suggests slug from input. Body is stored as markdown in the DB; TipTap serializes via `tiptap-markdown`. The BRIEF END marker is represented in the editor as a TipTap horizontal rule and swapped with the literal `<!-- BRIEF END -->` HTML comment on save (and back on load) — no custom TipTap node required.
+- **HardDeleteScenarioModal.tsx** — "Type `DELETE` to confirm" gate. If the scenario has any sessions, the hard-delete button is disabled and the modal redirects the admin to "Deactivate instead." If session count is zero and the admin types `DELETE` exactly, the red Hard Delete button enables.
+
+Routing: `/admin/scenarios` registered in `client/src/App.tsx` with `requireAdmin`. `AdminLayout.tsx` adds a "Scenarios" link to the header on lg+ viewports.
+
+#### Editor dependency
+
+```bash
+cd client && npm install @tiptap/react @tiptap/starter-kit @tiptap/pm tiptap-markdown
+```
+
+Bundle impact: ~80KB gzipped extra for admin-only TipTap. Justified for the business-owner audience (construction-industry, not IT) per the design call.
+
+#### Validation summary
+
+| Layer | Check |
+|---|---|
+| Server POST/PATCH | Body must contain `<!-- BRIEF END -->`; slug must match the regex; slug uniqueness enforced via UNIQUE constraint (409 on duplicate) |
+| Server DELETE | Refuse with 409 if any sessions reference the scenario |
+| Client form | Refuses to submit without a BRIEF END divider (TipTap's HR converted to the marker on save); slug input has `pattern=` attribute matching server regex |
+| Client hard-delete | Button stays disabled until typed input matches `DELETE` exactly; greys out entirely if `session_count > 0` |
+
+#### Testing notes
+
+The new server-side scenario validation broke one existing test (`creates scenario for admin`) because the test body lacked the BRIEF END marker. Updated the test to include the marker; added two new tests covering the marker check and the slug format check. All 33 server tests pass.
+
 ---
 
 ## Part 12 — Billing & Payment Transfer

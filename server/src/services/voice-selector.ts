@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getContentDir } from '../utils/content-dir';
+import db from '../db/connection';
 
 export interface VoiceSelection {
   voiceId: string;
@@ -71,12 +72,14 @@ function loadVoices(): VoiceProfile[] {
 
 function checkScenarioPinnedVoice(scenarioSlug: string): VoiceSelection | null {
   try {
-    const scenarioFile = fs.readdirSync(SCENARIOS_DIR)
-      .find(f => f.startsWith(scenarioSlug) || f.replace('.md', '') === scenarioSlug);
-    if (!scenarioFile) return null;
+    // Read scenario body from DB (was: filesystem) so admin UI edits to a
+    // scenario's Voice Override section take effect without a restart.
+    const row = db
+      .prepare('SELECT body_markdown FROM scenarios WHERE slug = ? AND active = 1')
+      .get(scenarioSlug) as { body_markdown: string } | undefined;
+    if (!row) return null;
 
-    const content = fs.readFileSync(path.join(SCENARIOS_DIR, scenarioFile), 'utf-8');
-    const overrideMatch = content.match(/##\s+Voice Override\s*\n+([^\n]+)/);
+    const overrideMatch = row.body_markdown.match(/##\s+Voice Override\s*\n+([^\n]+)/);
     if (!overrideMatch) return null;
 
     const pinnedFile = overrideMatch[1].trim();

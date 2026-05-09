@@ -125,15 +125,13 @@ function seedAdmin(): number {
 function seedScenarios(): number {
   const files = fs.readdirSync(SCENARIOS_DIR).filter(f => f.endsWith('.md')).sort();
 
-  // Upsert by slug so /content/ edits land on the next deploy without manual migration.
-  const upsert = db.prepare(`
-    INSERT INTO scenarios (slug, title, description, body_markdown)
+  // INSERT OR IGNORE so /content/*.md is a one-time bootstrap, not a perpetual
+  // overwrite. Once a scenario row exists in the DB (from first deploy or from
+  // admin UI creation), it's the source of truth — admin edits via the UI are
+  // never clobbered by a subsequent deploy.
+  const insert = db.prepare(`
+    INSERT OR IGNORE INTO scenarios (slug, title, description, body_markdown)
     VALUES (?, ?, ?, ?)
-    ON CONFLICT(slug) DO UPDATE SET
-      title = excluded.title,
-      description = excluded.description,
-      body_markdown = excluded.body_markdown,
-      updated_at = CURRENT_TIMESTAMP
   `);
 
   let count = 0;
@@ -145,7 +143,7 @@ function seedScenarios(): number {
       const title = extractTitle(content, file);
       if (!title) continue;
       const description = extractDescription(content, file);
-      const result = upsert.run(slug, title, description, content);
+      const result = insert.run(slug, title, description, content);
       count += result.changes;
     }
   });

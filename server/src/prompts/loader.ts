@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getContentDir } from '../utils/content-dir';
+import db from '../db/connection';
 
 export interface ScenarioContent {
   slug: string;
@@ -22,20 +23,9 @@ export interface RubricItemContent {
 
 const CONTENT_DIR = getContentDir();
 
-function loadScenarios(): Map<string, ScenarioContent> {
-  const dir = path.join(CONTENT_DIR, 'scenarios');
-  const map = new Map<string, ScenarioContent>();
-
-  for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.md'))) {
-    const slug = file.replace('.md', '');
-    const body = fs.readFileSync(path.join(dir, file), 'utf-8');
-    const titleMatch = body.match(/^#\s+(.+)$/m);
-    const title = titleMatch ? titleMatch[1].trim() : slug;
-    map.set(slug, { slug, title, body });
-  }
-
-  return map;
-}
+// Scenarios are now read from the DB at request time so admin UI edits are
+// reflected immediately without a server restart. The DB is hydrated from
+// /content/scenarios/*.md on first deploy via seed.ts (INSERT OR IGNORE).
 
 function loadDiscProfiles(): Map<string, DiscProfileContent> {
   const dir = path.join(CONTENT_DIR, 'disc-profiles');
@@ -97,14 +87,35 @@ function loadSandlerPrimer(): string {
   }
 }
 
-// Load once at startup and cache
-const scenarios = loadScenarios();
+function loadCoachingCards(): Map<string, string> {
+  const dir = path.join(CONTENT_DIR, 'coaching-cards');
+  const map = new Map<string, string>();
+  if (!fs.existsSync(dir)) return map;
+
+  // File naming: D.md, I.md, S.md, C.md, D-I.md, D-C.md, I-S.md, S-C.md, general.md
+  // The DISC code uses '/', the filename uses '-' to avoid path separators.
+  for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.md'))) {
+    const base = file.replace(/\.md$/, '');
+    const key = base === 'general' ? 'general' : base.replace(/-/g, '/');
+    const body = fs.readFileSync(path.join(dir, file), 'utf-8');
+    map.set(key, body);
+  }
+  return map;
+}
+
+// Load once at startup and cache (everything except scenarios, which now
+// query the DB so UI edits land immediately).
 const discProfiles = loadDiscProfiles();
 const rubricItems = loadRubric();
 const sandlerPrimer = loadSandlerPrimer();
+const coachingCards = loadCoachingCards();
 
 export function getScenario(slug: string): ScenarioContent | undefined {
-  return scenarios.get(slug);
+  const row = db
+    .prepare('SELECT slug, title, body_markdown FROM scenarios WHERE slug = ? AND active = 1')
+    .get(slug) as { slug: string; title: string; body_markdown: string } | undefined;
+  if (!row) return undefined;
+  return { slug: row.slug, title: row.title, body: row.body_markdown };
 }
 
 export function getDiscProfile(code: string): DiscProfileContent | undefined {
@@ -119,8 +130,19 @@ export function getSandlerPrimer(): string {
   return sandlerPrimer;
 }
 
+export function getCoachingCard(discCode: string): string | undefined {
+  return coachingCards.get(discCode);
+}
+
+export function getGeneralCoachingCues(): string {
+  return coachingCards.get('general') ?? '';
+}
+
 export function getAllScenarios(): ScenarioContent[] {
-  return Array.from(scenarios.values());
+  const rows = db
+    .prepare('SELECT slug, title, body_markdown FROM scenarios WHERE active = 1 ORDER BY slug')
+    .all() as Array<{ slug: string; title: string; body_markdown: string }>;
+  return rows.map(r => ({ slug: r.slug, title: r.title, body: r.body_markdown }));
 }
 
 export function getAllDiscProfiles(): DiscProfileContent[] {

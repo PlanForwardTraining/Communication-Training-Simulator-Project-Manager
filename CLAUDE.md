@@ -73,17 +73,26 @@ Backend coaching pipeline at end:
 
 Admin Dashboard (Phase 5 v1 — live)
   Same React app at /admin, role-gated to admin role:
-  ├─ /admin             ← cohort dashboard: KPIs, team category averages,
-  │                       flagged PMs needing attention, full PM table
-  ├─ /admin/users/:id   ← per-PM detail: trend chart, focus areas, sessions
+  ├─ /admin              ← cohort dashboard: KPIs, team category averages,
+  │                        flagged PMs needing attention, full PM table
+  ├─ /admin/users/:id    ← per-PM detail: trend chart, focus areas, sessions
   ├─ /admin/sessions/:id ← full session review with transcript + coaching
+  ├─ /admin/scenarios    ← scenario CRUD: TipTap WYSIWYG editor with
+  │                        BRIEF END divider, soft-delete, hard-delete
+  │                        with "type DELETE" gate
   └─ Backend admin routes (/api/admin/*) with requireAdmin guard:
      • GET /summary, /users, /users/:id, /sessions/:id
      • POST /users, PATCH /users/:id (create/edit/deactivate)
      • GET /export.xlsx (multi-sheet Excel — Sessions + PMs)
 
+  Scenario CRUD (admin-guarded, on the existing /api/scenarios route):
+  • GET /admin (list with session counts), GET /:id (full body)
+  • POST / (create), PATCH /:id (edit + activate/deactivate)
+  • DELETE /:id (hard delete, blocked if any sessions reference it)
+
 Excel auto-regenerates after every session end (non-blocking).
-Content-editing UIs deferred — /content/*.md is upserted on each deploy.
+Other content (DISC profiles, rubric, voices, coaching cards) still
+edited via /content/*.md and deploys.
 ```
 
 **Conversation flow:**
@@ -104,12 +113,16 @@ Content-editing UIs deferred — /content/*.md is upserted on each deploy.
 ```
 /
 ├── content/                    # ★ Source-of-truth training content (markdown, owner-editable)
-│   ├── scenarios/              # 5 scenarios with bespoke per-scenario structure;
-│   │                           # split into PM brief (above) vs. answer key (below) by
-│   │                           # an HTML comment marker: <!-- BRIEF END -->
+│   ├── scenarios/              # Initial seed only — DB is source of truth at runtime
+│   │                           # for scenarios. Admin edits via /admin/scenarios UI;
+│   │                           # /content/scenarios/*.md only seeds an empty DB.
 │   ├── disc-profiles/          # 8 DISC client persona files (01-D-dominance.md, etc.)
 │   ├── voices/                 # 20 voice profiles (ID + display_name + DISC compatibility);
 │   │                           # display_name's first word becomes the client's first name
+│   ├── coaching-cards/         # PM-facing DISC quick-reference cards shown pre-call
+│   │   ├── D.md, I.md, S.md, C.md           # primary profiles
+│   │   ├── D-I.md, D-C.md, I-S.md, S-C.md   # combo profiles
+│   │   └── general.md                        # universal coaching cues
 │   └── coaching-rubric/
 │       ├── 01-categories-and-weights.md   # 7 categories summing to 100%
 │       ├── 02-scoring-levels.md           # 1-5 scale per category
@@ -129,6 +142,9 @@ Content-editing UIs deferred — /content/*.md is upserted on each deploy.
 │   │   │       ├── AdminDashboardPage.tsx    # Cohort KPIs, flagged PMs, full PM table
 │   │   │       ├── AdminUserDetailPage.tsx   # Per-PM trend chart + focus areas + sessions
 │   │   │       ├── AdminSessionDetailPage.tsx # Score ring + transcript + coaching
+│   │   │       ├── AdminScenariosPage.tsx    # Scenario CRUD list (active+inactive)
+│   │   │       ├── ScenarioFormModal.tsx     # TipTap WYSIWYG editor with BRIEF END divider
+│   │   │       ├── HardDeleteScenarioModal.tsx # "Type DELETE" hard-delete gate
 │   │   │       ├── UserModalForm.tsx         # Create / edit / deactivate PMs
 │   │   │       └── TrendChart.tsx            # Hand-rolled SVG line chart (no recharts dep)
 │   │   ├── components/
@@ -154,11 +170,14 @@ Content-editing UIs deferred — /content/*.md is upserted on each deploy.
 │   │   ├── routes/
 │   │   │   ├── auth.ts                  # POST /auth/login, GET /auth/me (rejects active=0)
 │   │   │   ├── users.ts
-│   │   │   ├── scenarios.ts             # list, by-slug brief (trimmed), CRUD
+│   │   │   ├── scenarios.ts             # list, by-slug brief (trimmed), full CRUD
+│   │   │   │                            # incl. POST /admin (admin list w/ session counts),
+│   │   │   │                            # PATCH /:id, DELETE /:id (FK-guarded)
 │   │   │   ├── disc-profiles.ts
 │   │   │   ├── rubric.ts
 │   │   │   ├── sessions.ts              # session lifecycle + ElevenLabs signed URL
 │   │   │   ├── admin.ts                 # /api/admin/* — summary, users, sessions, export
+│   │   │   ├── coaching-cards.ts        # /api/coaching-cards/:disc + /general
 │   │   │   └── elevenlabs-webhook.ts    # built but unused (client-side capture instead)
 │   │   ├── services/
 │   │   │   ├── claude.ts                # generateCoaching() — direct Claude API
@@ -312,6 +331,12 @@ cd server && npm run build
 **Auto-end on mutual goodbye.** The simulation page detects closing phrases (word-bounded matches on `bye`, `goodbye`, `take care`, `have a good day/evening/...`, `talk to you soon/later`, `thanks for your time`, etc.) in the most recent turn from each side. After at least 4 turns of conversation, when both the latest PM turn AND the latest client turn contain a closing, a 5-second sticky countdown banner appears with a "Keep going" cancel button. At zero, the existing end-session flow fires (skipping the modal). Conservative on purpose — the regex prefers missed goodbyes over cut-off conversations.
 
 **Mobile mic permission is pre-warmed.** On iOS Safari, the browser's mic permission prompt blocks audio I/O — so the AI's `firstMessage` ("Hello, this is X") was firing while the user was still tapping Allow. The Start button now calls `getUserMedia({ audio: true })` first to confirm permission, stops the resulting stream (the SDK requests its own), then opens the WebSocket. The greeting plays after permission is granted.
+
+**Scenarios are DB-source-of-truth at runtime.** Originally `/content/scenarios/*.md` was the source — the seed upserted on every deploy and the persona-prompt loader read from filesystem at startup. With the admin scenario UI (`/admin/scenarios`), scenarios become DB-authoritative: the seed switched to `INSERT OR IGNORE` (so deploys never overwrite UI edits), `loader.getScenario()` queries the DB on every session creation (so admin edits land immediately, no restart), and `voice-selector.checkScenarioPinnedVoice()` reads body_markdown from the DB too. `/content/scenarios/*.md` now serves as initial bootstrap only — once a scenario row exists in the DB, the markdown file is ignored.
+
+**Scenario hard delete is FK-guarded.** `DELETE /api/scenarios/:id` refuses if any sessions reference the scenario (returns 409 with the session count). Admin must soft-delete via PATCH `{active: false}` instead, which preserves session history. A scenario with zero sessions can be hard-deleted via the "type DELETE to confirm" modal in the admin UI.
+
+**PM coaching cards before each call.** `/content/coaching-cards/*.md` (8 DISC + 1 general) provide quick-reference cards shown to the PM right before they hit Start Session — the matching DISC card prominently on the pre-call screen plus universal coaching cues collapsed below. During the call, the side notes panel gains a "Coaching cues" tab alongside the scenario brief. Content is filesystem-cached at startup; edits require a deploy. Owner-editable markdown.
 
 **PMs cannot change their own DISC profile.** Only admin can set/update. Enforced at the API layer.
 

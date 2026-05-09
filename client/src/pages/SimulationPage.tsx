@@ -6,6 +6,7 @@ import {
 } from '@elevenlabs/react';
 import { sessionsApi, type Turn, type SessionEvent, type SessionStart } from '../api/sessions';
 import { scenariosApi, type ScenarioBriefing } from '../api/scenarios';
+import { coachingCardsApi, type CoachingCard } from '../api/coachingCards';
 import { DiscBadge } from '../components/DiscBadge';
 import { MarkdownLite } from '../utils/MarkdownLite';
 
@@ -154,16 +155,36 @@ function containsClosing(text: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Notes panel — the PM's case-file reference during the call
+// Notes panel — the PM's case-file + DISC coaching reference during the call.
+// Tabs let the PM swap between the scenario brief (default) and the DISC
+// coaching cues for the client they're speaking with.
 // ---------------------------------------------------------------------------
+
+type NotesTab = 'brief' | 'coaching';
 
 function NotesContent({
   briefing,
   clientFirstName,
+  coachingCard,
 }: {
   briefing: ScenarioBriefing;
   clientFirstName: string;
+  coachingCard: CoachingCard | null;
 }) {
+  const [tab, setTab] = useState<NotesTab>('brief');
+  const tabBtn = (id: NotesTab, label: string) => (
+    <button
+      onClick={() => setTab(id)}
+      className={`px-2.5 py-1.5 rounded-md text-xs font-display font-semibold uppercase tracking-widest transition-colors ${
+        tab === id
+          ? 'bg-gold-500/15 text-gold-400 border border-gold-500/30'
+          : 'text-slate-muted hover:text-slate-text border border-transparent'
+      }`}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <div className="text-[13px] leading-relaxed">
       <div className="mb-4 pb-4 border-b border-navy-600">
@@ -175,7 +196,17 @@ function NotesContent({
         </h2>
         <p className="font-body text-xs text-slate-muted mt-1">Speaking with {clientFirstName}</p>
       </div>
-      <MarkdownLite source={briefing.body_briefing} />
+      {coachingCard && (
+        <div className="flex gap-1 mb-4">
+          {tabBtn('brief', 'Brief')}
+          {tabBtn('coaching', 'Coaching cues')}
+        </div>
+      )}
+      {tab === 'brief' || !coachingCard ? (
+        <MarkdownLite source={briefing.body_briefing} />
+      ) : (
+        <MarkdownLite source={coachingCard.body} />
+      )}
     </div>
   );
 }
@@ -259,11 +290,13 @@ function StatusIndicator({
 interface InnerPageProps {
   sessionData: SessionStart;
   briefing: ScenarioBriefing | null;
+  coachingCard: CoachingCard | null;
+  generalCues: CoachingCard | null;
   scenarioSlug: string;
   discCode: string;
 }
 
-function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: InnerPageProps) {
+function SimulationInner({ sessionData, briefing, coachingCard, generalCues, scenarioSlug, discCode }: InnerPageProps) {
   const navigate = useNavigate();
 
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -547,7 +580,7 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
           <>
             {/* Desktop: persistent left panel */}
             <aside className="hidden lg:block w-80 xl:w-96 shrink-0 border-r border-navy-600 overflow-y-auto px-5 py-5 bg-navy-800/40">
-              <NotesContent briefing={briefing} clientFirstName={sessionData.clientFirstName} />
+              <NotesContent briefing={briefing} clientFirstName={sessionData.clientFirstName} coachingCard={coachingCard} />
             </aside>
 
             {/* Mobile: slide-in drawer overlaying the transcript */}
@@ -572,7 +605,7 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
                       </svg>
                     </button>
                   </div>
-                  <NotesContent briefing={briefing} clientFirstName={sessionData.clientFirstName} />
+                  <NotesContent briefing={briefing} clientFirstName={sessionData.clientFirstName} coachingCard={coachingCard} />
                 </aside>
               </>
             )}
@@ -605,24 +638,57 @@ function SimulationInner({ sessionData, briefing, scenarioSlug, discCode }: Inne
           </div>
         )}
         {turns.length === 0 && !sessionStarted && (
-          <div className="max-w-md mx-auto mt-8 sm:mt-12 card p-7 text-center border-l-4 border-l-gold-500">
-            <p className="font-body text-[10px] uppercase tracking-widest text-gold-500 mb-2">
-              Today's Call
-            </p>
-            <h2 className="font-display font-bold text-2xl sm:text-3xl text-slate-text mb-1">
-              {sessionData.clientFirstName}
-            </h2>
-            <p className="font-body text-sm text-slate-muted mb-4">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="font-semibold text-slate-text">{discCode}</span>
-                <span>·</span>
-                <span>{scenarioLabel}</span>
-              </span>
-            </p>
-            <p className="font-body text-xs text-slate-muted leading-relaxed mb-5">
+          <div className="max-w-2xl mx-auto mt-6 sm:mt-10 space-y-4">
+            {/* Header card — who you're talking to + scenario */}
+            <div className="card p-7 text-center border-l-4 border-l-gold-500">
+              <p className="font-body text-[10px] uppercase tracking-widest text-gold-500 mb-2">
+                Today's Call
+              </p>
+              <h2 className="font-display font-bold text-2xl sm:text-3xl text-slate-text mb-1">
+                {sessionData.clientFirstName}
+              </h2>
+              <p className="font-body text-sm text-slate-muted mb-1">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="font-semibold text-slate-text">{discCode}</span>
+                  <span>·</span>
+                  <span>{scenarioLabel}</span>
+                </span>
+              </p>
+            </div>
+
+            {/* DISC coaching card — primary coaching surface before the call */}
+            {coachingCard && (
+              <div className="card p-6 sm:p-7 border-l-4 border-l-gold-500/60 text-left">
+                <p className="font-body text-[10px] uppercase tracking-widest text-gold-500 mb-3">
+                  How to handle a {discCode} client
+                </p>
+                <MarkdownLite source={coachingCard.body} />
+              </div>
+            )}
+
+            {/* Universal coaching cues — collapsed by default */}
+            {generalCues && (
+              <details className="card p-5 sm:p-6 text-left group">
+                <summary className="cursor-pointer flex items-center justify-between font-display font-semibold text-sm text-slate-text list-none">
+                  <span>Universal coaching cues</span>
+                  <svg
+                    className="w-4 h-4 text-slate-muted transition-transform group-open:rotate-180"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <div className="mt-4 pt-4 border-t border-navy-700">
+                  <MarkdownLite source={generalCues.body} />
+                </div>
+              </details>
+            )}
+
+            {/* Greeting cue */}
+            <p className="font-body text-xs text-slate-muted text-center leading-relaxed px-4">
               When you press <span className="text-slate-text font-medium">Start Session</span>,
-              the line will open. Greet {sessionData.clientFirstName} the way you'd open a real
-              call.
+              the line will open. Take a breath and greet {sessionData.clientFirstName} the way
+              you'd open a real call.
             </p>
           </div>
         )}
@@ -761,6 +827,8 @@ export function SimulationPage() {
 
   const [sessionData, setSessionData] = useState<SessionStart | null>(null);
   const [briefing, setBriefing] = useState<ScenarioBriefing | null>(null);
+  const [coachingCard, setCoachingCard] = useState<CoachingCard | null>(null);
+  const [generalCues, setGeneralCues] = useState<CoachingCard | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const createdRef = useRef(false);
 
@@ -788,6 +856,16 @@ export function SimulationPage() {
     });
   }, [scenarioSlug]);
 
+  useEffect(() => {
+    if (!decodedDisc) return;
+    coachingCardsApi.byDisc(decodedDisc).then(setCoachingCard).catch(() => {
+      // Non-fatal — pre-call screen falls back to scenario brief only
+    });
+    coachingCardsApi.general().then(setGeneralCues).catch(() => {
+      // Non-fatal
+    });
+  }, [decodedDisc]);
+
   if (loadError) {
     return (
       <div className="page items-center justify-center gap-4">
@@ -814,6 +892,8 @@ export function SimulationPage() {
       <SimulationInner
         sessionData={sessionData}
         briefing={briefing}
+        coachingCard={coachingCard}
+        generalCues={generalCues}
         scenarioSlug={scenarioSlug!}
         discCode={decodedDisc}
       />

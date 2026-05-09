@@ -67,6 +67,12 @@ export function AdminLayout({ children, back }: Props) {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              to="/admin/scenarios"
+              className="btn-ghost text-sm hidden md:inline-block"
+            >
+              Scenarios
+            </Link>
             <button
               onClick={handleExport}
               disabled={downloading}

@@ -47,11 +47,32 @@ describe('POST /api/scenarios (admin only)', () => {
 
   it('creates scenario for admin', async () => {
     const token = await getToken('admin@test.com', 'admin123');
+    const validBody = '# Admin Created\n\n## Setup\n\nA brief setup paragraph.\n\n<!-- BRIEF END -->\n\n## Coaching Focus\n\nDetails for the AI.';
     const res = await request(app)
       .post('/api/scenarios')
       .set('Authorization', `Bearer ${token}`)
-      .send({ slug: 'admin-created', title: 'Admin Created', description: 'desc', body_markdown: '# AC' });
+      .send({ slug: 'admin-created', title: 'Admin Created', description: 'desc', body_markdown: validBody });
     expect(res.status).toBe(201);
     expect(res.body.id).toBeDefined();
+  });
+
+  it('rejects body without BRIEF END marker', async () => {
+    const token = await getToken('admin@test.com', 'admin123');
+    const res = await request(app)
+      .post('/api/scenarios')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ slug: 'no-marker', title: 'No Marker', description: 'desc', body_markdown: '# Body without the marker. Just enough text to pass length check.' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/BRIEF END/);
+  });
+
+  it('rejects invalid slug', async () => {
+    const token = await getToken('admin@test.com', 'admin123');
+    const validBody = '# T\n\n<!-- BRIEF END -->\n\nbody body body body';
+    const res = await request(app)
+      .post('/api/scenarios')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ slug: 'BadSlug WithSpaces', title: 'T', description: 'd', body_markdown: validBody });
+    expect(res.status).toBe(400);
   });
 });

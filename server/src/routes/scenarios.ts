@@ -5,7 +5,35 @@ import { requireAdmin } from '../middleware/roleGuard';
 
 const router = Router();
 
-// GET /api/scenarios
+// Brief vs. answer-key marker. PM-facing brief view stops here; persona prompt
+// builder uses the full body. Scenario edits via the admin UI must include
+// this marker — validation below enforces it.
+const MARKER_RE = /<!--\s*BRIEF END\s*-->/i;
+
+// Slug must be URL-safe lowercase-dashes, e.g. "06-budget-pushback".
+const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+interface ScenarioRow {
+  id: number;
+  slug: string;
+  title: string;
+  description: string;
+  body_markdown: string;
+  active: number;
+  updated_at: string;
+}
+
+function validateScenarioBody(body: string): string | null {
+  if (typeof body !== 'string' || body.trim().length < 20) {
+    return 'Scenario body is too short.';
+  }
+  if (!MARKER_RE.test(body)) {
+    return 'Scenario body must include a "<!-- BRIEF END -->" marker so the PM brief can be separated from the answer-key sections.';
+  }
+  return null;
+}
+
+// GET /api/scenarios — PM view: only active scenarios
 router.get('/', requireAuth, (_req: Request, res: Response): void => {
   const scenarios = db.prepare(
     'SELECT id, slug, title, description, active, updated_at FROM scenarios WHERE active = 1'
@@ -13,10 +41,19 @@ router.get('/', requireAuth, (_req: Request, res: Response): void => {
   res.json(scenarios);
 });
 
-// GET /api/scenarios/by-slug/:slug — briefing view: shows only Setup, What's
-// Happened, and What the Client Knows. Hides "What the PM Must Communicate"
-// onwards because those sections (must-communicate checklist, desired
-// outcomes, pitfalls, realistic pushback) are coaching/scoring material.
+// GET /api/scenarios/admin — admin view: all scenarios with session counts
+router.get('/admin', requireAuth, requireAdmin, (_req: Request, res: Response): void => {
+  const rows = db.prepare(`
+    SELECT
+      s.id, s.slug, s.title, s.description, s.active, s.updated_at,
+      (SELECT COUNT(*) FROM sessions WHERE scenario_id = s.id) AS session_count
+    FROM scenarios s
+    ORDER BY s.active DESC, s.slug ASC
+  `).all();
+  res.json(rows);
+});
+
+// GET /api/scenarios/by-slug/:slug — briefing view: trims at BRIEF END marker
 router.get('/by-slug/:slug', requireAuth, (req: Request, res: Response): void => {
   const scenario = db.prepare(
     'SELECT id, slug, title, body_markdown FROM scenarios WHERE slug = ? AND active = 1'
@@ -31,10 +68,6 @@ router.get('/by-slug/:slug', requireAuth, (req: Request, res: Response): void =>
 
   let briefing = scenario.body_markdown;
   briefing = briefing.replace(/^>\s*\*\*Status:\*\*[^\n]*\n?/m, '');
-
-  // The brief section ends at the explicit marker. Everything below the marker
-  // is for the AI client (persona behavior) and the coaching engine (scoring).
-  const MARKER_RE = /<!--\s*BRIEF END\s*-->/i;
   const cutoff = briefing.search(MARKER_RE);
   if (cutoff >= 0) briefing = briefing.slice(0, cutoff);
 
@@ -46,7 +79,7 @@ router.get('/by-slug/:slug', requireAuth, (req: Request, res: Response): void =>
   });
 });
 
-// GET /api/scenarios/:id
+// GET /api/scenarios/:id — admin: full record incl. body_markdown
 router.get('/:id', requireAuth, (req: Request, res: Response): void => {
   const scenario = db.prepare('SELECT * FROM scenarios WHERE id = ?').get(Number(req.params.id));
   if (!scenario) {
@@ -63,6 +96,15 @@ router.post('/', requireAuth, requireAdmin, (req: Request, res: Response): void 
     res.status(400).json({ error: 'Missing required fields' });
     return;
   }
+  if (!SLUG_RE.test(slug)) {
+    res.status(400).json({ error: 'Slug must be lowercase letters, numbers, and dashes only.' });
+    return;
+  }
+  const bodyError = validateScenarioBody(body_markdown);
+  if (bodyError) {
+    res.status(400).json({ error: bodyError });
+    return;
+  }
   try {
     const result = db.prepare(
       'INSERT INTO scenarios (slug, title, description, body_markdown) VALUES (?, ?, ?, ?)'
@@ -70,7 +112,7 @@ router.post('/', requireAuth, requireAdmin, (req: Request, res: Response): void 
     res.status(201).json({ id: result.lastInsertRowid });
   } catch (e: unknown) {
     if (e instanceof Error && e.message.includes('UNIQUE')) {
-      res.status(409).json({ error: 'Slug already exists' });
+      res.status(409).json({ error: 'A scenario with that slug already exists.' });
     } else {
       throw e;
     }
@@ -81,6 +123,15 @@ router.post('/', requireAuth, requireAdmin, (req: Request, res: Response): void 
 router.patch('/:id', requireAuth, requireAdmin, (req: Request, res: Response): void => {
   const id = Number(req.params.id);
   const { title, description, body_markdown, active } = req.body;
+
+  if (body_markdown !== undefined) {
+    const err = validateScenarioBody(body_markdown);
+    if (err) {
+      res.status(400).json({ error: err });
+      return;
+    }
+  }
+
   const updates: string[] = [];
   const values: unknown[] = [];
 
@@ -98,6 +149,35 @@ router.patch('/:id', requireAuth, requireAdmin, (req: Request, res: Response): v
   values.push(id);
   db.prepare(`UPDATE scenarios SET ${updates.join(', ')} WHERE id = ?`).run(...values);
   res.json({ updated: true });
+});
+
+// DELETE /api/scenarios/:id — admin only, hard delete with FK guard.
+// Refuses if any sessions reference this scenario; admin must soft-delete
+// (set active=false via PATCH) instead.
+router.delete('/:id', requireAuth, requireAdmin, (req: Request, res: Response): void => {
+  const id = Number(req.params.id);
+  const scenario = db.prepare('SELECT id FROM scenarios WHERE id = ?').get(id) as
+    | { id: number }
+    | undefined;
+  if (!scenario) {
+    res.status(404).json({ error: 'Scenario not found' });
+    return;
+  }
+
+  const sessionCount = (db
+    .prepare('SELECT COUNT(*) AS n FROM sessions WHERE scenario_id = ?')
+    .get(id) as { n: number }).n;
+
+  if (sessionCount > 0) {
+    res.status(409).json({
+      error: `Cannot hard-delete — ${sessionCount} past session(s) reference this scenario. Deactivate it instead.`,
+      sessionCount,
+    });
+    return;
+  }
+
+  db.prepare('DELETE FROM scenarios WHERE id = ?').run(id);
+  res.json({ deleted: true });
 });
 
 export default router;
