@@ -85,8 +85,15 @@ export function DiscSelectPage() {
             </section>
           )}
 
-          <h1 className="font-display text-2xl font-bold text-slate-text mb-1">Select Client Profile</h1>
-          <p className="font-body text-slate-muted mb-8">Who are you speaking with today?</p>
+          <h1 className="font-display text-2xl font-bold text-slate-text mb-1">
+            Pick a client profile to start
+          </h1>
+          <p className="font-body text-slate-muted mb-2">
+            Click any profile below — your session starts as soon as you choose.
+          </p>
+          <p className="font-body text-xs text-gold-500 uppercase tracking-widest font-semibold mb-6">
+            ↓ Choose your client
+          </p>
 
           {loading ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -102,10 +109,15 @@ export function DiscSelectPage() {
                   <button
                     key={profile.id}
                     onClick={() => handleSelect(profile.code)}
-                    className={`card p-4 text-left hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 group border ${colors.border}`}
+                    className={`card p-4 text-left hover:scale-[1.02] hover:border-gold-500/50 active:scale-[0.98] transition-all duration-200 group border ${colors.border} relative`}
                   >
-                    <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${colors.bg} mb-3`}>
-                      <span className={`font-display font-bold text-sm ${colors.text}`}>{profile.code}</span>
+                    <div className="flex items-start justify-between mb-3">
+                      <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg ${colors.bg}`}>
+                        <span className={`font-display font-bold text-sm ${colors.text}`}>{profile.code}</span>
+                      </div>
+                      <span className="opacity-0 group-hover:opacity-100 transition-opacity text-gold-500 font-body text-[10px] font-semibold uppercase tracking-widest">
+                        Start →
+                      </span>
                     </div>
                     <h3 className="font-display font-semibold text-slate-text text-sm leading-tight mb-1">
                       {profile.name.split(' — ')[0].split(' (')[0]}
