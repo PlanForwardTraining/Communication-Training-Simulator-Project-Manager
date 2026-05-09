@@ -646,6 +646,13 @@ A round of refinements done immediately after first production deploy. Each sub-
 - [x] AdminLayout adds "Scenarios" nav link
 - [x] All 33 server tests pass (added 2 new tests covering BRIEF END marker validation and slug format validation)
 
+### 13.15 — Post-Phase-1 UX Polish
+- [x] Slug field hidden from the scenario form (auto-derived from title under the hood — non-technical owners don't see it)
+- [x] TipTap editor formatting visually distinct via scoped `.scenario-editor` CSS (H2/H3/Bold/Italic/Lists/Quote/HR each have unique styling instead of relying on the absent Tailwind Typography plugin)
+- [x] BRIEF END divider in the editor renders as a gold dashed line with a centered "— BRIEF END — answer key below is hidden from the PM —" overlay label so authors can see exactly where the cut is
+- [x] Admin nav reworked: gold-underline active-page indicator, Export Excel demoted from filled button to ghost styling, user identity prefixed with person icon and separated by a vertical divider so it doesn't look like a nav item
+- [x] DiscSelectPage CTA framing clarified — heading reworded to "Pick a client profile to start", action subhead added, hover-revealed "Start →" pill on each card so the click action is unambiguous
+
 ---
 
 ## Notes Section

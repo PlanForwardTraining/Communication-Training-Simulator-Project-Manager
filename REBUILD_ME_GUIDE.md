@@ -1492,6 +1492,15 @@ Bundle impact: ~80KB gzipped extra for admin-only TipTap. Justified for the busi
 
 The new server-side scenario validation broke one existing test (`creates scenario for admin`) because the test body lacked the BRIEF END marker. Updated the test to include the marker; added two new tests covering the marker check and the slug format check. All 33 server tests pass.
 
+### 13.15 — Post-Phase-1 UX Polish
+
+A few small refinements after Phase 1 shipped:
+
+- **Slug field hidden** from the scenario form. The slug is still required + unique in the DB, but the create form derives it silently from the title via `slugify()` so business-owner authors never see it.
+- **Distinct editor formatting**. The TipTap editor was using Tailwind's `prose` class which depends on `@tailwindcss/typography` — a plugin not installed. The result was H2/H3/Bold all looking nearly identical. Replaced with a scoped `.scenario-editor` CSS block in `client/src/index.css` that gives each element type unique, distinctive styling (gold uppercase H2, white H3, brighter Bold, italic Italic, visible bullets/numbers, gold-bordered Quote, gold dashed HR with a "— BRIEF END — answer key below is hidden from the PM —" overlay label).
+- **Admin nav rework**. The previous version had Export Excel styled as a filled button (visually competing with nav links and looking "selected"), an unstyled user-name span sitting next to nav items, and no active-page indicator. New layout: persistent wordmark on the left, nav links (Dashboard, Scenarios) with a gold underline marking the current section, action buttons (Run Practice, Export Excel) styled as ghost buttons, vertical divider, then person-icon + user name + Sign out. Detail pages also keep a small inline back link next to the wordmark.
+- **DiscSelectPage CTA clarity**. The DISC profile cards have always been the "start" — clicking one navigates straight to the simulation page — but the heading "Select Client Profile" didn't communicate that. Reworded to "Pick a client profile to start"; added an action-explicit subhead and a gold "↓ Choose your client" eyebrow above the grid; each card now grows a hover-revealed "Start →" pill in the top-right corner.
+
 ---
 
 ## Part 12 — Billing & Payment Transfer
