@@ -17,17 +17,29 @@ beforeEach(() => {
   db.prepare('DELETE FROM provider_keys').run();
   process.env.OPENAI_API_KEY = 'env-openai-LIVE';
   delete process.env.GEMINI_API_KEY;
+  delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.XAI_API_KEY;
+  delete process.env.MOONSHOT_API_KEY;
 });
 
 const auth = (r: request.Test) => r.set('Authorization', `Bearer ${token}`);
+const findProvider = (body: any, id: string) =>
+  body.providers.find((p: any) => p.id === id);
 
-it('GET coaching-settings returns masked status, never full keys', async () => {
+it('GET coaching-settings returns masked status as an ordered list, never full keys', async () => {
   const res = await auth(request(app).get('/api/admin/coaching-settings'));
   expect(res.status).toBe(200);
-  expect(res.body.providers.openai).toEqual({ connected: true, last4: 'LIVE' });
-  expect(res.body.providers.gemini).toEqual({ connected: false, last4: null });
+  // Ordered array with all five providers
+  expect(res.body.providers.map((p: any) => p.id)).toEqual([
+    'gemini', 'openai', 'anthropic', 'grok', 'kimi',
+  ]);
+  const openai = findProvider(res.body, 'openai');
+  expect(openai).toMatchObject({ connected: true, last4: 'LIVE', label: 'OpenAI' });
+  expect(openai.models).toContain('gpt-4o');
+  const gemini = findProvider(res.body, 'gemini');
+  expect(gemini).toMatchObject({ connected: false, last4: null });
+  expect(gemini.models).toContain('gemini-2.5-pro');
   expect(JSON.stringify(res.body)).not.toContain('env-openai-LIVE');
-  expect(res.body.models.gemini).toContain('gemini-2.5-pro');
 });
 
 it('POST keys stores a key (write-only) and returns last4', async () => {
@@ -37,8 +49,21 @@ it('POST keys stores a key (write-only) and returns last4', async () => {
   expect(res.body).toEqual({ connected: true, last4: '9ZQ7' });
   // confirm GET now reports gemini connected, still masked
   const get = await auth(request(app).get('/api/admin/coaching-settings'));
-  expect(get.body.providers.gemini.connected).toBe(true);
+  expect(findProvider(get.body, 'gemini').connected).toBe(true);
   expect(JSON.stringify(get.body)).not.toContain('AIza-secret-9ZQ7');
+});
+
+it('accepts a key for a newly added provider (grok)', async () => {
+  const res = await auth(request(app).post('/api/admin/coaching-settings/keys'))
+    .send({ provider: 'grok', apiKey: 'xai-secret-GR0K' });
+  expect(res.status).toBe(200);
+  expect(res.body).toEqual({ connected: true, last4: 'GR0K' });
+  const patch = await auth(request(app).patch('/api/admin/coaching-settings'))
+    .send({ provider: 'grok', model: 'grok-4' });
+  expect(patch.status).toBe(200);
+  const get = await auth(request(app).get('/api/admin/coaching-settings'));
+  expect(get.body.activeProvider).toBe('grok');
+  expect(get.body.activeModel).toBe('grok-4');
 });
 
 it('PATCH rejects a provider with no key', async () => {

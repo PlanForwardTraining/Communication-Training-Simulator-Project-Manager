@@ -1,12 +1,11 @@
 import db from '../../db/connection';
 import { encryptSecret, decryptSecret } from '../../utils/crypto';
-import { DEFAULT_PROVIDER, DEFAULT_MODEL } from './models';
+import { DEFAULT_PROVIDER, DEFAULT_MODEL, PROVIDERS_META, isPickerProvider } from './models';
 import { PickerProvider } from './types';
 
-const ENV_KEY: Record<PickerProvider, string> = {
-  openai: 'OPENAI_API_KEY',
-  gemini: 'GEMINI_API_KEY',
-};
+const ENV_KEY: Record<PickerProvider, string> = Object.fromEntries(
+  Object.values(PROVIDERS_META).map((m) => [m.id, m.envKey]),
+) as Record<PickerProvider, string>;
 
 function getSetting(key: string): string | null {
   const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as
@@ -24,7 +23,7 @@ function setSetting(key: string, value: string): void {
 
 export function getActiveProvider(): PickerProvider {
   const v = getSetting('coaching_provider') || process.env.COACHING_PROVIDER || DEFAULT_PROVIDER;
-  return v === 'openai' ? 'openai' : 'gemini';
+  return isPickerProvider(v) ? v : DEFAULT_PROVIDER;
 }
 
 export function getActiveModel(provider: PickerProvider): string {

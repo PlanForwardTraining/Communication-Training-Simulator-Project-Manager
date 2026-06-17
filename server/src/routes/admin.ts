@@ -521,18 +521,24 @@ import {
   getActiveProvider, getActiveModel, setActiveSelection,
   getProviderStatus, setProviderKey, deleteProviderKey,
 } from '../services/coaching/settings';
-import { CURATED_MODELS, isCuratedModel, isPickerProvider } from '../services/coaching/models';
+import { PROVIDERS_META, PROVIDER_ORDER, isCuratedModel, isPickerProvider } from '../services/coaching/models';
 
 router.get('/coaching-settings', (_req: Request, res: Response): void => {
   const activeProvider = getActiveProvider();
   res.json({
     activeProvider,
     activeModel: getActiveModel(activeProvider),
-    models: CURATED_MODELS,
-    providers: {
-      openai: getProviderStatus('openai'),
-      gemini: getProviderStatus('gemini'),
-    },
+    // Ordered for the picker table; status is masked (last4 only, never the key).
+    providers: PROVIDER_ORDER.map((id) => {
+      const status = getProviderStatus(id);
+      return {
+        id,
+        label: PROVIDERS_META[id].label,
+        models: PROVIDERS_META[id].models,
+        connected: status.connected,
+        last4: status.last4,
+      };
+    }),
   });
 });
 
