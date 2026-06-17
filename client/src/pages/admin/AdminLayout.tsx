@@ -2,6 +2,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { adminApi } from '../../api/admin';
+import { BrandLogo } from '../../components/BrandLogo';
 
 interface Props {
   children: React.ReactNode;
@@ -80,9 +81,11 @@ export function AdminLayout({ children, back }: Props) {
           {/* LEFT: wordmark + (optional inline back link) + nav links */}
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             <Link to="/admin" className="flex flex-col leading-tight min-w-0 mr-1 sm:mr-2">
-              <span className="font-wordmark text-sm font-bold tracking-widest text-gold-500 uppercase">
-                Plan Forward
-              </span>
+              <BrandLogo>
+                <span className="font-wordmark text-sm font-bold tracking-widest text-gold-500 uppercase">
+                  Plan Forward
+                </span>
+              </BrandLogo>
               <span className="font-body text-[10px] uppercase tracking-widest text-slate-muted mt-0.5">
                 Admin
               </span>
