@@ -177,9 +177,11 @@ For each voice, listen to the preview URL in its profile file (e.g., the URL in 
 Go to **Conversational AI → Agents → Create Agent**:
    - **Name:** `Training Simulator — Client Persona`
    - **Voice:** Pick any voice from the pool as the default. The backend will override per session.
-   - **LLM:** **Claude** (native integration; supply your `ANTHROPIC_API_KEY` when prompted)
+   - **LLM:** **Qwen3.5-397B** (`qwen35-397b-a17b`) is the current default — chosen for sub-400ms first-token latency, which keeps the call feeling like a real phone conversation. It still handles the full ~7,700-char persona prompt. You can switch to **Claude** (Haiku/Sonnet, native integration via your `ANTHROPIC_API_KEY`) from the agent's LLM dropdown if you'd rather trade latency for response quality. The persona override is sent per-session regardless of which LLM is configured.
+   - **Temperature:** 0.7 (natural, not robotic)
    - **System prompt:** placeholder text (we override per-session via the SDK)
    - **Enable interruption detection**
+   - **Disable the `end_call` built-in tool** — otherwise the LLM hangs up when the PM says "thanks, bye." Only the PM clicking End Session (or the auto-end on mutual goodbye) should end the call.
    - Save and copy the **Agent ID**
 
 > **Note on voice override:** Voice and persona overrides are sent by the browser SDK in the WebSocket `conversation_initiation_client_data` message — not in the signed URL request. The backend provides `signedUrl`, `personaPrompt`, and `voiceId` to the frontend; the frontend SDK sends them when opening the connection.
@@ -318,15 +320,17 @@ JWT_EXPIRES_IN=7d
 # AI Services
 ANTHROPIC_API_KEY=sk-ant-...
 ELEVENLABS_API_KEY=...
-ELEVENLABS_VOICE_ID=...
 ELEVENLABS_AGENT_ID=...
 
-# Email (optional)
+# Admin seed
+ADMIN_PASSWORD=change-me
+
+# Email (optional — not yet wired up)
 RESEND_API_KEY=re_...
 RESEND_FROM_EMAIL=noreply@your-company.com
 
 # Server
-PORT=3001
+PORT=3002                 # 3001 in production; 3002 in local dev (3001 collides with gmail-mcp)
 CLIENT_ORIGIN=http://localhost:5173
 NODE_ENV=development
 ```
@@ -508,7 +512,7 @@ git push
 
 The voice pipeline uses **ElevenLabs Conversational AI** as the real-time engine, with **Claude as the configured LLM**. ElevenLabs handles continuous mic, voice activity detection, streaming STT/TTS, echo cancellation, and interruption events. Claude (separately, via direct API) generates the post-session coaching.
 
-> **Architecture note:** Turns and interruptions are captured **client-side** by the `@11labs/react` SDK. When the PM clicks End Session, the browser sends the full transcript + events to `POST /api/sessions/:id/end`. No server-side webhooks or ngrok are needed.
+> **Architecture note:** Turns and interruptions are captured **client-side** by the `@elevenlabs/react` SDK. When the PM clicks End Session, the browser sends the full transcript + events to `POST /api/sessions/:id/end`. No server-side webhooks or ngrok are needed.
 
 ### 5.1 — Add the AI SDKs
 
@@ -532,7 +536,8 @@ npm install @anthropic-ai/sdk
 Verify before continuing:
 
 - [ ] `ELEVENLABS_AGENT_ID` is set in `server/.env`
-- [ ] Agent LLM is set to Claude (or Haiku for testing)
+- [ ] Agent LLM is set (Qwen3.5-397B by default; Claude is switchable in the dropdown)
+- [ ] Temperature 0.7 and the `end_call` built-in tool is disabled
 - [ ] No webhook URL needed — transcript is captured by the frontend SDK
 
 ### 5.5 — Build the ElevenLabs Service Layer
@@ -593,7 +598,7 @@ curl -X POST http://localhost:3002/api/sessions/$SESSION_ID/end \
 cd ../client
 npm create vite@latest . -- --template react-ts
 npm install
-npm install react-router-dom axios @11labs/react
+npm install react-router-dom axios @elevenlabs/react
 npm install -D tailwindcss postcss autoprefixer
 npx tailwindcss init -p
 ```
@@ -625,13 +630,10 @@ Replace `src/index.css` with:
 
 ### 6.3 — Build the Hooks
 
-- [ ] `client/src/hooks/useAuth.ts` — auth state + login/logout
-- [ ] `client/src/hooks/useElevenLabsConversation.ts` — wraps `@11labs/react`'s `useConversation()`, exposes:
-  - `start(signedUrl)` / `end()`
-  - `status: 'idle' | 'connecting' | 'listening' | 'speaking' | 'interrupted' | 'ended'`
-  - `transcript` (live, populated from SDK callbacks)
-  - `interruptionCount` (incremented when SDK fires interruption event for the user direction)
-- [ ] `client/src/hooks/useSessionLifecycle.ts` — orchestrates: call `/api/sessions` → start CAI conversation → on end, navigate to debrief
+- [ ] `client/src/context/AuthContext.tsx` — React Context that is the single source of truth for auth state (login/logout, current user, JWT). `client/src/hooks/useAuth.ts` is a thin consumer kept for backward compatibility.
+- [ ] ElevenLabs conversation — `@elevenlabs/react`'s `useConversation()` is used **directly inside `SimulationPage.tsx`** (not extracted into a separate hook). It exposes start/end, status, the live transcript from SDK callbacks, and interruption events. The page accumulates turns + events in component state and posts them to `/api/sessions/:id/end` on End Session.
+
+> **Note:** The original plan called for separate `useElevenLabsConversation.ts` and `useSessionLifecycle.ts` hooks. In the build, the SDK integration and session lifecycle live directly in `SimulationPage.tsx` — simpler for a single consumer. If a second page ever needs the conversation, extract it then.
 
 ### 6.4 — Build the Pages
 
@@ -646,17 +648,16 @@ Replace `src/index.css` with:
   - Subtle interruption counter visible during the call (informational, not shaming)
   - Microphone permission prompt handled gracefully
   - "End Session" button with confirm dialog → ends CAI conversation → triggers debrief
-- [ ] `client/src/pages/DebriefPage.tsx` — score, strengths, misses, alternative phrasings, DISC adaptation, interruption summary
-- [ ] `client/src/pages/SessionHistoryPage.tsx` — list of own past sessions
+- [ ] `client/src/pages/DebriefPage.tsx` — score, strengths, misses, alternative phrasings, DISC adaptation, interruption summary, plus a collapsible raw transcript
+- [ ] `client/src/pages/HistoryPage.tsx` — list of own past sessions
 
 ### 6.5 — Build Shared Components
 
-- [ ] `client/src/components/StartSessionButton.tsx` — handles mic permission + session creation + CAI launch
-- [ ] `client/src/components/CallStatusIndicator.tsx` — shows current phase of the call (idle/listening/speaking/interrupted)
-- [ ] `client/src/components/ConversationLog.tsx` — live speaker bubbles populated from SDK transcript callbacks
-- [ ] `client/src/components/InterruptionBadge.tsx` — small counter displayed during call
-- [ ] `client/src/components/ScoreCard.tsx` — score with band color
+> **As built:** rather than many small components, the simulation UI was kept inline in `SimulationPage.tsx` (status indicator, interruption counter, transcript bubbles, Start/End buttons all live there), and the score ring + category bars live inline in `DebriefPage.tsx`. The only standalone shared components that were extracted are:
+
 - [ ] `client/src/components/DiscBadge.tsx` — DISC code in a colored pill
+- [ ] `client/src/components/ProtectedRoute.tsx` — auth/role gate wrapper (redirects to `/login`, supports `requireAdmin`)
+- [ ] `client/src/utils/MarkdownLite.tsx` — tiny markdown renderer (h2/p/ul/ol/**bold**/*italic*) for coaching output
 
 ### 6.6 — Wire Up Routing
 
@@ -849,10 +850,11 @@ Run through this entire list. Every box must be checked.
 **Edge cases:**
 - [ ] PM stays silent for 30+ seconds → AI prompts them gently or holds the silence (verify configured behavior)
 - [ ] Network interruption mid-call → SDK reports disconnect, UI shows reconnect option
-- [ ] Closing the browser mid-session → ElevenLabs `conversation_ended` webhook fires; session marked ended automatically
-- [ ] PM tries to access admin URL → blocked
-- [ ] Invalid JWT → redirected to login
-- [ ] Webhook signature invalid → backend rejects with 401, logs warning
+- [ ] Closing the browser mid-session → the session stays open in the DB (no transcript was posted). It can be re-ended idempotently; transcript capture is client-side, so an abandoned tab simply yields no coaching. (Webhooks are **not** used for session end.)
+- [ ] Mutual goodbye detected → 5-second auto-end countdown banner appears with a "Keep going" cancel
+- [ ] PM tries to access admin URL → blocked by `ProtectedRoute requireAdmin`
+- [ ] Invalid JWT → redirected to login (401 auto-logout in the API client)
+- [ ] `POST /api/sessions/:id/end` retried after a network blip → idempotent, does not double-write coaching
 
 ### 8.2 — If Something Fails
 
@@ -933,6 +935,16 @@ The migrations + seed run automatically as part of `npm start` (see `server/pack
    - `VITE_API_BASE_URL=https://communication-training-simulator-project-manager-production.up.railway.app`
 6. Deploy
 7. Vercel gives you a URL like `https://pm-training-simulator.vercel.app` (production alias) and a hash URL for the specific deployment. Use the clean alias.
+
+**SPA deep-link rewrite — required.** Without it, refreshing or directly opening any route other than `/` (e.g. `/history`, `/admin`) returns a Vercel 404, because the static host looks for a file at that path. `client/vercel.json` fixes it by routing everything to `index.html` so React Router can handle it:
+
+```json
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+```
+
+This file is committed in `client/` and applies automatically on deploy.
 
 **Vercel Hobby plan caveat — important.** Hobby refuses deploys when the GitHub commit author is a different account than the Vercel project owner. Two ways through:
 
@@ -1092,9 +1104,9 @@ The tool only works if PMs actually use it. Set up:
 3. Railway auto-redeploys when GitHub updates → next session reads the new content
 
 **Re-weight the rubric:**
-1. Log in as admin → **Rubric**
-2. Adjust weights → must total 100%
-3. Save → applies to all future coaching
+1. There is **no rubric admin UI** (it was intentionally deferred — see Part 7.5). Rubric content lives in `/content/coaching-rubric/*.md` (`01-categories-and-weights.md` for weights, `02-scoring-levels.md` for the 1-5 scale).
+2. Edit on GitHub (or in VS Code locally → push). Keep the weights summing to 100% and the two files in agreement.
+3. Railway auto-redeploys on push; the seed re-inserts rubric items, so the new weights apply to all future coaching.
 
 **Reset a PM's password:**
 1. Admin → Users → click the PM → **Reset Password**
@@ -1110,7 +1122,7 @@ Every Monday, the owner should:
 
 - [ ] Check the admin dashboard — who's using it? who isn't?
 - [ ] Spot-check 1-2 sessions — does the coaching make sense?
-- [ ] Glance at API spend on each console (Anthropic, OpenAI, ElevenLabs) — any anomalies?
+- [ ] Glance at API spend on each console (Anthropic, ElevenLabs) — any anomalies? (OpenAI is not used — ElevenLabs CAI does STT natively.)
 - [ ] Note any feature requests from PMs
 
 ### 11.3 — Backups
@@ -1161,15 +1173,18 @@ Most issues fall into "small change to content" which the admin can do via the U
 | `EXCEL_PATH` | Yes | Path to Excel export | `/data/sessions.xlsx` |
 | `JWT_SECRET` | Yes | Random string for signing tokens | 96-char hex |
 | `JWT_EXPIRES_IN` | No | Token expiry | `7d` |
-| `ANTHROPIC_API_KEY` | Yes | Claude API key (used for post-call coaching AND inside ElevenLabs CAI as the agent LLM) | `sk-ant-...` |
-| `ELEVENLABS_API_KEY` | Yes | ElevenLabs key (account-level) | `...` |
-| `ELEVENLABS_VOICE_ID` | Yes | Selected voice ID | `21m00Tcm4TlvDq8ikWAM` |
-| `ELEVENLABS_AGENT_ID` | Yes | Configured Conversational AI agent | `agent_abc123` |
-| `RESEND_API_KEY` | No | Email sending (password resets) | `re_...` |
+| `ANTHROPIC_API_KEY` | Yes | Claude API key — used for **post-call coaching** (Sonnet 4.6). Only also used as the in-call LLM if you switch the ElevenLabs agent's LLM dropdown to Claude (default is Qwen, which is billed through ElevenLabs). | `sk-ant-...` |
+| `ELEVENLABS_API_KEY` | Yes | ElevenLabs key (account-level) | `sk_...` |
+| `ELEVENLABS_AGENT_ID` | Yes | Configured Conversational AI agent ID (no `agent_` prefix in the env value) | `abc123...` |
+| `ADMIN_PASSWORD` | Yes | Password for the seeded admin user on first deploy (seed uses `INSERT OR IGNORE`, so it does not reset on later deploys) | a strong password |
+| `RESEND_API_KEY` | No | Email sending (password resets) — not yet wired up | `re_...` |
 | `RESEND_FROM_EMAIL` | No | Email sender address | `noreply@your-company.com` |
-| `PORT` | No | Backend port | `3001` |
-| `CLIENT_ORIGIN` | Yes | Frontend URL for CORS | `https://training.your-company.com` |
+| `PORT` | No | Backend port — `3001` in production, `3002` in local dev (port 3001 collides with gmail-mcp on the dev Mac) | `3001` |
+| `CLIENT_ORIGIN` | Yes | Frontend URL for CORS | `https://pm-training-simulator.vercel.app` |
 | `NODE_ENV` | Yes | `development` or `production` | `production` |
+| `RESET_ADMIN_PASSWORD` | No | One-shot ops flag: set to `true` for a single deploy to force the seeded admin password back to `ADMIN_PASSWORD`, then remove it. Leave unset normally. | `true` |
+
+> **Removed / no longer used:** `ELEVENLABS_VOICE_ID` (superseded by the voice pool in `/content/voices/` — the backend picks a voice per session), `OPENAI_API_KEY` (ElevenLabs CAI does STT natively), `ELEVENLABS_WEBHOOK_SECRET` (transcript is captured client-side, not via webhooks).
 
 ### Frontend (`client/.env`)
 
@@ -1501,6 +1516,29 @@ A few small refinements after Phase 1 shipped:
 - **Admin nav rework**. The previous version had Export Excel styled as a filled button (visually competing with nav links and looking "selected"), an unstyled user-name span sitting next to nav items, and no active-page indicator. New layout: persistent wordmark on the left, nav links (Dashboard, Scenarios) with a gold underline marking the current section, action buttons (Run Practice, Export Excel) styled as ghost buttons, vertical divider, then person-icon + user name + Sign out. Detail pages also keep a small inline back link next to the wordmark.
 - **DiscSelectPage CTA clarity**. The DISC profile cards have always been the "start" — clicking one navigates straight to the simulation page — but the heading "Select Client Profile" didn't communicate that. Reworded to "Pick a client profile to start"; added an action-explicit subhead and a gold "↓ Choose your client" eyebrow above the grid; each card now grows a hover-revealed "Start →" pill in the top-right corner.
 
+### 13.16 — Streaming Coaching with a Real Progress Bar
+
+The coaching debrief takes several seconds to generate (Claude Sonnet 4.6 over a full transcript). A static spinner felt broken. `POST /api/sessions/:id/end` now streams progress over **Server-Sent Events** instead of returning one JSON blob.
+
+- `server/src/routes/sessions.ts` sets `Content-Type: text/event-stream` (plus `X-Accel-Buffering: no` so upstream proxies don't buffer it) and emits `progress` events as Claude's response streams in.
+- `server/src/services/claude.ts` exposes `generateCoachingStream()` alongside `generateCoaching()`; the streaming variant reports characters received so the client can drive a progress bar with a calculated ETA and rotating stage messages.
+- The coaching row is still parsed and written to SQLite exactly once at the end; Excel still regenerates non-blocking afterward.
+- The PM-facing loader on `DebriefPage` shows a moving bar + ETA + rotating status copy instead of an indeterminate spinner.
+
+### 13.17 — Raw Transcript on the Debrief
+
+PMs (and admins reviewing a session) wanted to see exactly what was said, not just the coaching summary.
+
+- `DebriefPage.tsx` gained a collapsible **"Conversation Transcript"** section (`showTranscript` toggle, collapsed by default so it doesn't dominate the coaching).
+- Renders the same named, speaker-labeled bubbles used elsewhere. The admin session-detail page already showed the full transcript; this brings parity to the PM's own debrief.
+
+### 13.18 — End-Session Resilience
+
+Two hardening fixes around the most failure-prone moment (the end-of-call coaching write):
+
+- **Idempotent end.** `POST /api/sessions/:id/end` can be safely retried after a network blip or a double-tap — it won't double-write coaching or error on the second call. Important because the End Session flow can fire from the manual button, the confirm modal, or the auto-end countdown.
+- **Coaching JSON parse fix.** Claude's structured output is now parsed defensively (tolerates code-fence wrappers / stray prose around the JSON) so a slightly-formatted response still yields a saved debrief instead of a silent failure.
+
 ---
 
 ## Part 12 — Billing & Payment Transfer
@@ -1521,35 +1559,42 @@ This is the contractor-to-client handoff for billing. Keep accounts the same (pr
 
 **Estimated total at launch:** ~$50-130/month depending on ElevenLabs tier and usage volume.
 
-### How payment transfer works
+### Account email for the handoff
 
-Each service is owned by an account email (e.g., `TrainingPlanForward@gmail.com`). Within that account, you control which payment method is on file. So the transfer is:
+All accounts are being standardized onto a Plan Forward mailbox: **`jeffrey@planforward.net`** (a named mailbox Jef controls, chosen over a shared `info@` alias because account recovery and 2FA want a single owner). Earlier setup used `TrainingPlanForward@gmail.com`; where a service is already on the Gmail address, change the account email to `jeffrey@planforward.net` once that mailbox is live. The mailbox must exist and be able to receive mail first — every verification/invite step below sends an email to it.
 
-1. **Keep the same account** — no migration of data/config/keys needed
-2. **Add the client's payment method** to each account's billing page
-3. **Remove the contractor's payment method** so charges only go to client
-4. **Verify next invoice** charges the client, not the contractor
+### Ownership vs. dev access
+
+Tyler is still doing development (new scenarios, future multi-tenant work), so the end state is **ownership + billing → Plan Forward, with Tyler kept on as a developer/collaborator** — not a full removal. For GitHub/Vercel/Railway that means "add Jef as owner, move billing, downgrade Tyler to member," not "delete and rebuild."
+
+### Two transfer mechanisms (pick per service)
+
+- **Swap the email + payment method** on the existing account (keeps all data/config/IDs) — best for Railway, Vercel, GitHub.
+- **Stand up a fresh account** — best for ElevenLabs (see below; there's no agent-transfer feature, but the voice pool is portable, so a clean account is low-risk).
+
+### Sharing API keys securely
+
+Never email a live key in plain text. Use a **one-time secret link** (onetimesecret.com / Bitwarden Send — self-destructs on first view), a **shared password manager** item (1Password/LastPass), or — most secure — **add Tyler as a member** on Plan Forward's Anthropic/ElevenLabs account so he generates the key himself, then revoke his access once it's live. If using a password-protected document, send the password through a *different channel* (text) than the document.
 
 ### Step-by-step
 
 **Anthropic** (currently personal account)
-- Owner: log into [console.anthropic.com](https://console.anthropic.com)
-- The cleanest option here is to create a fresh Anthropic account at `TrainingPlanForward@gmail.com` (Anthropic doesn't make org-level payment changes easy)
-- Generate a new API key on the new account
+- Create a fresh Anthropic account on `jeffrey@planforward.net` (Anthropic doesn't make org-level payment changes easy). Gemini or OpenAI keys also work if Plan Forward prefers — the system was built on Anthropic but the provider is easy to swap.
+- Generate a new API key on the new account and get it to Tyler via a secure channel (see "Sharing API keys securely" above)
 - Update `ANTHROPIC_API_KEY` in Railway environment variables (Settings → Variables)
 - Set a monthly spending limit on the new account (~$50)
 - Trigger a test session, verify Anthropic usage logs show up under the new account
 - Rotate / delete the old personal API key
 
-**ElevenLabs** (currently personal account)
-- Same situation — easiest to create a fresh account at `TrainingPlanForward@gmail.com`
-- Subscribe to Creator or Pro tier
-- Recreate the Conversational AI agent (use the same name, voice, LLM, override settings)
-- Save the new agent ID and webhook signing secret (when added)
-- Confirm all 20 premade voices are present in the new account's voice library
-- Update `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` in Railway environment variables
-- Re-enable per-conversation `voice_id` and `prompt` overrides on the new agent (this guide's Part 5.4 has the details)
-- Test a full session end-to-end with new keys
+**ElevenLabs** (currently personal account — going fresh)
+- Create a fresh account on `jeffrey@planforward.net` and subscribe to a tier that includes Conversational AI (Creator or Pro). ElevenLabs has **no account/agent transfer feature**, so "transfer" here means "recreate the agent in the new account." This is low-risk because the voice pool is portable:
+  - **Voices 1–10 are premade ElevenLabs voices** — global IDs, present in every account automatically, zero setup.
+  - **Voices 11–20 are public Voice Library voices** that were added (their preview URLs trace to other creators' workspaces, not a personal clone). Re-add each from the Voice Library in the new account; the `voice_id` stays identical.
+  - Net result: **all 20 voice IDs survive, so `/content/voices/*.md` needs no changes.** (Edge case: if a library voice now requires a higher tier or was pulled from the library, swap a replacement into that one voice file.)
+- Recreate the Conversational AI agent with the same config as Part 2.4b and Part 13.1: Qwen3.5-397B (or Claude), temperature 0.7, interruption detection on, `end_call` tool **off**, empty default `first_message`, neutral default prompt.
+- Re-enable the three per-session override flags on the new agent (`agent.prompt.prompt`, `agent.first_message`, `tts.voice_id` — see the PATCH in Part 13.1). This is the step people miss; without it every session sounds identical.
+- Update `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` in Railway environment variables, redeploy.
+- Test a full session end-to-end with the new keys (confirm the chosen voice + per-session persona actually land).
 
 **Railway** (already on `TrainingPlanForward@gmail.com`)
 - Account → Billing → Add Plan Forward's credit card / payment method

@@ -52,7 +52,8 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [x] Adjust voice metadata in `/content/voices/*.md` if any voice's character differs from its description
 - [x] Create Conversational AI Agent named "Training Simulator — Client Persona"
 - [x] Pick any voice as default (overridden per-session)
-- [x] Configure agent LLM *(using Haiku 4.5 or Gemini Flash for testing — swap to Claude Sonnet 4.6 before launch)*
+- [x] Configure agent LLM *(Qwen3.5-397B for sub-400ms latency — switchable to Claude in the agent's LLM dropdown if quality > speed is preferred)*
+- [x] Set temperature 0.7 and disable the `end_call` built-in tool
 - [x] Set placeholder system prompt *(ElevenLabs auto-generated — overridden per session)*
 - [x] Enable interruption detection
 - [x] Copy Agent ID
@@ -196,7 +197,7 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 
 ### 6.1 — Initialize Frontend
 - [ ] Create Vite + React + TypeScript project in `client/`
-- [ ] Install React Router, axios, `@11labs/react`
+- [ ] Install React Router, axios, `@elevenlabs/react`
 - [ ] Install + configure Tailwind CSS
 - [ ] Configure `tailwind.config.js`
 - [ ] Update `src/index.css` with Tailwind directives
@@ -373,6 +374,7 @@ A linear checklist of every action in [REBUILD_ME_GUIDE.md](REBUILD_ME_GUIDE.md)
 - [x] **Root Directory**: `client`
 - [x] Framework Preset: Vite (auto-detected)
 - [x] **Environment Variables**: `VITE_API_BASE_URL=https://communication-training-simulator-project-manager-production.up.railway.app`
+- [x] `client/vercel.json` SPA rewrite (`/(.*) → /index.html`) so deep-link refresh on `/history`, `/admin`, etc. doesn't 404
 - [x] Deploy succeeds, app loads at `pm-training-simulator.vercel.app` (Status 200, title "PlanForward Training")
 - [x] **Vercel Hobby caveat** — repo made **public** (Hobby blocks multi-author deploys on private repos); commits authored as `planforwardtraining@gmail.com` to match project owner
 
@@ -652,6 +654,20 @@ A round of refinements done immediately after first production deploy. Each sub-
 - [x] BRIEF END divider in the editor renders as a gold dashed line with a centered "— BRIEF END — answer key below is hidden from the PM —" overlay label so authors can see exactly where the cut is
 - [x] Admin nav reworked: gold-underline active-page indicator, Export Excel demoted from filled button to ghost styling, user identity prefixed with person icon and separated by a vertical divider so it doesn't look like a nav item
 - [x] DiscSelectPage CTA framing clarified — heading reworded to "Pick a client profile to start", action subhead added, hover-revealed "Start →" pill on each card so the click action is unambiguous
+
+### 13.16 — Streaming Coaching with a Real Progress Bar
+- [x] `POST /api/sessions/:id/end` switched to Server-Sent Events (`Content-Type: text/event-stream`, `X-Accel-Buffering: no`) emitting `progress` events as Claude streams
+- [x] `server/src/services/claude.ts` exposes `generateCoachingStream()` reporting characters received
+- [x] Coaching row still written to SQLite once at the end; Excel still regenerates non-blocking
+- [x] `DebriefPage` loader shows a moving progress bar + calculated ETA + rotating stage messages instead of an indeterminate spinner
+
+### 13.17 — Raw Transcript on the Debrief
+- [x] `DebriefPage.tsx` gained a collapsible "Conversation Transcript" section (collapsed by default)
+- [x] Renders named, speaker-labeled bubbles — parity with the admin session-detail view
+
+### 13.18 — End-Session Resilience
+- [x] `POST /api/sessions/:id/end` is idempotent — safe to retry (manual button / confirm modal / auto-end) without double-writing coaching
+- [x] Coaching JSON parsed defensively (tolerates code-fence wrappers / stray prose) so a slightly-formatted response still saves a debrief
 
 ---
 
