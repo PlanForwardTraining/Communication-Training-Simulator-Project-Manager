@@ -14,9 +14,7 @@ export interface ProviderMeta {
  * Single source of truth for coaching providers. Add a provider here and it flows
  * automatically to key resolution (settings.ts), the admin routes, and the picker UI.
  *
- * NOTE on model IDs: OpenAI/Gemini/Anthropic IDs are verified. Grok (xAI) and Kimi
- * (Moonshot) reach us through their OpenAI-compatible APIs — confirm the exact model
- * IDs against the provider docs / the account's available models when their keys are added.
+ * NOTE on model IDs: OpenAI/Gemini/Anthropic IDs are verified against their docs.
  */
 export const PROVIDERS_META: Record<PickerProvider, ProviderMeta> = {
   gemini: {
@@ -37,22 +35,10 @@ export const PROVIDERS_META: Record<PickerProvider, ProviderMeta> = {
     envKey: 'ANTHROPIC_API_KEY',
     models: ['claude-opus-4-8', 'claude-sonnet-4-6'],
   },
-  grok: {
-    id: 'grok',
-    label: 'xAI Grok',
-    envKey: 'XAI_API_KEY',
-    models: ['grok-4', 'grok-3'],
-  },
-  kimi: {
-    id: 'kimi',
-    label: 'Moonshot Kimi',
-    envKey: 'MOONSHOT_API_KEY',
-    models: ['kimi-k2-0905-preview', 'moonshot-v1-128k'],
-  },
 };
 
 /** Display order for the picker (default provider first). */
-export const PROVIDER_ORDER: PickerProvider[] = ['gemini', 'openai', 'anthropic', 'grok', 'kimi'];
+export const PROVIDER_ORDER: PickerProvider[] = ['gemini', 'openai', 'anthropic'];
 
 export const DEFAULT_PROVIDER: PickerProvider = 'gemini';
 

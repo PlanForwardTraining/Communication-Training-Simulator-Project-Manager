@@ -29,9 +29,9 @@ const findProvider = (body: any, id: string) =>
 it('GET coaching-settings returns masked status as an ordered list, never full keys', async () => {
   const res = await auth(request(app).get('/api/admin/coaching-settings'));
   expect(res.status).toBe(200);
-  // Ordered array with all five providers
+  // Ordered array with the three shipped providers
   expect(res.body.providers.map((p: any) => p.id)).toEqual([
-    'gemini', 'openai', 'anthropic', 'grok', 'kimi',
+    'gemini', 'openai', 'anthropic',
   ]);
   const openai = findProvider(res.body, 'openai');
   expect(openai).toMatchObject({ connected: true, last4: 'LIVE', label: 'OpenAI', source: 'env' });
@@ -53,17 +53,23 @@ it('POST keys stores a key (write-only) and returns last4', async () => {
   expect(JSON.stringify(get.body)).not.toContain('AIza-secret-9ZQ7');
 });
 
-it('accepts a key for a newly added provider (grok)', async () => {
+it('accepts a key for a newly added provider (anthropic)', async () => {
   const res = await auth(request(app).post('/api/admin/coaching-settings/keys'))
-    .send({ provider: 'grok', apiKey: 'xai-secret-GR0K' });
+    .send({ provider: 'anthropic', apiKey: 'sk-ant-secret-CL4U' });
   expect(res.status).toBe(200);
-  expect(res.body).toEqual({ connected: true, last4: 'GR0K' });
+  expect(res.body).toEqual({ connected: true, last4: 'CL4U' });
   const patch = await auth(request(app).patch('/api/admin/coaching-settings'))
-    .send({ provider: 'grok', model: 'grok-4' });
+    .send({ provider: 'anthropic', model: 'claude-opus-4-8' });
   expect(patch.status).toBe(200);
   const get = await auth(request(app).get('/api/admin/coaching-settings'));
-  expect(get.body.activeProvider).toBe('grok');
-  expect(get.body.activeModel).toBe('grok-4');
+  expect(get.body.activeProvider).toBe('anthropic');
+  expect(get.body.activeModel).toBe('claude-opus-4-8');
+});
+
+it('rejects grok/kimi as removed providers', async () => {
+  const res = await auth(request(app).post('/api/admin/coaching-settings/keys'))
+    .send({ provider: 'grok', apiKey: 'xai-secret-GR0K' });
+  expect(res.status).toBe(400);
 });
 
 it('PATCH rejects a provider with no key', async () => {

@@ -26,18 +26,17 @@ describe('curated models', () => {
     expect(isCuratedModel('gemini', 'gemini-2.5-pro')).toBe(true);
     expect(isCuratedModel('openai', 'gpt-4o')).toBe(true);
     expect(isCuratedModel('anthropic', 'claude-sonnet-4-6')).toBe(true);
-    expect(isCuratedModel('grok', 'grok-4')).toBe(true);
-    expect(isCuratedModel('kimi', 'kimi-k2-0905-preview')).toBe(true);
     expect(isCuratedModel('gemini', 'whisper-1')).toBe(false);
     expect(isCuratedModel('anthropic', 'claude-sonnet-4-8')).toBe(false); // no such model
+    expect(isCuratedModel('grok', 'grok-4')).toBe(false); // removed from picker
     expect(isCuratedModel('nope', 'gpt-4o')).toBe(false);
   });
-  it('identifies picker providers (all five)', () => {
+  it('identifies picker providers (the three shipped)', () => {
     expect(isPickerProvider('openai')).toBe(true);
     expect(isPickerProvider('gemini')).toBe(true);
     expect(isPickerProvider('anthropic')).toBe(true);
-    expect(isPickerProvider('grok')).toBe(true);
-    expect(isPickerProvider('kimi')).toBe(true);
+    expect(isPickerProvider('grok')).toBe(false);
+    expect(isPickerProvider('kimi')).toBe(false);
     expect(isPickerProvider('whisper')).toBe(false);
   });
 });

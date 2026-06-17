@@ -5,16 +5,12 @@ import { getActiveProvider, getActiveModel, getProviderKey } from './settings';
 import { openaiProvider } from './openai';
 import { geminiProvider } from './gemini';
 import { anthropicProvider } from './anthropic';
-import { grokProvider } from './grok';
-import { kimiProvider } from './kimi';
 import { CoachingProvider, PickerProvider } from './types';
 
 const PROVIDERS: Record<PickerProvider, CoachingProvider> = {
   openai: openaiProvider,
   gemini: geminiProvider,
   anthropic: anthropicProvider,
-  grok: grokProvider,
-  kimi: kimiProvider,
 };
 
 function parseCoachingFromText(rawText: string): CoachingResult {

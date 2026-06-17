@@ -1,4 +1,4 @@
-export type ProviderName = 'openai' | 'gemini' | 'anthropic' | 'grok' | 'kimi';
+export type ProviderName = 'openai' | 'gemini' | 'anthropic';
 export type PickerProvider = ProviderName;
 
 export interface StreamCoachingOpts {
