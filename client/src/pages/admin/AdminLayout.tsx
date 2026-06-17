@@ -70,6 +70,7 @@ export function AdminLayout({ children, back }: Props) {
   // they're entered from there.
   const path = location.pathname;
   const onScenarios = path.startsWith('/admin/scenarios');
+  const onCoaching = path.startsWith('/admin/coaching');
   const onDashboard = path === '/admin' || path.startsWith('/admin/users') || path.startsWith('/admin/sessions');
 
   return (
@@ -103,6 +104,7 @@ export function AdminLayout({ children, back }: Props) {
             <nav className="hidden md:flex items-center ml-2">
               <NavLink to="/admin" label="Dashboard" active={onDashboard} />
               <NavLink to="/admin/scenarios" label="Scenarios" active={onScenarios} />
+              <NavLink to="/admin/coaching" label="Coaching" active={onCoaching} />
             </nav>
           </div>
 

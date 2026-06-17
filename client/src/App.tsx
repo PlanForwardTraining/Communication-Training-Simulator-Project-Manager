@@ -11,6 +11,7 @@ import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminUserDetailPage } from './pages/admin/AdminUserDetailPage';
 import { AdminSessionDetailPage } from './pages/admin/AdminSessionDetailPage';
 import { AdminScenariosPage } from './pages/admin/AdminScenariosPage';
+import { AdminCoachingSettingsPage } from './pages/admin/AdminCoachingSettingsPage';
 
 function App() {
   const auth = useAuth();
@@ -88,6 +89,14 @@ function App() {
           element={
             <ProtectedRoute user={auth.user} loading={auth.loading} requireAdmin>
               <AdminScenariosPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/coaching"
+          element={
+            <ProtectedRoute user={auth.user} loading={auth.loading} requireAdmin>
+              <AdminCoachingSettingsPage />
             </ProtectedRoute>
           }
         />
