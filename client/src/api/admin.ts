@@ -116,6 +116,27 @@ export interface UpdateUserPayload {
   active?: boolean;
 }
 
+export interface CoachingProviderRow {
+  id: string;
+  label: string;
+  models: string[];
+  connected: boolean;
+  last4: string | null;
+  source: 'db' | 'env' | null;
+}
+
+export interface CoachingSettings {
+  activeProvider: string;
+  activeModel: string;
+  providers: CoachingProviderRow[];
+}
+
+export interface Branding {
+  primary: string;
+  secondary: string;
+  logoUrl: string;
+}
+
 export const adminApi = {
   summary: () => api.get<AdminSummary>('/api/admin/summary'),
   users: () => api.get<AdminUserStats[]>('/api/admin/users'),
@@ -125,4 +146,14 @@ export const adminApi = {
   updateUser: (id: number, body: UpdateUserPayload) =>
     api.patch<{ updated: boolean }>(`/api/admin/users/${id}`, body),
   exportUrl: () => `/api/admin/export.xlsx`,
+  coachingSettings: () => api.get<CoachingSettings>('/api/admin/coaching-settings'),
+  setCoachingSelection: (provider: string, model: string) =>
+    api.patch<{ updated: boolean }>('/api/admin/coaching-settings', { provider, model }),
+  setCoachingKey: (provider: string, apiKey: string) =>
+    api.post<{ connected: boolean; last4: string }>('/api/admin/coaching-settings/keys', { provider, apiKey }),
+  removeCoachingKey: (provider: string) =>
+    api.delete<{ removed: boolean }>(`/api/admin/coaching-settings/keys/${provider}`),
+  branding: () => api.get<Branding>('/api/branding'),
+  setBranding: (b: Branding) => api.patch<Branding>('/api/branding', b),
+  resetBranding: () => api.delete<Branding>('/api/branding'),
 };

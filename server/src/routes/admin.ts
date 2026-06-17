@@ -513,4 +513,63 @@ router.get('/export.xlsx', async (_req: Request, res: Response): Promise<void> =
   res.sendFile(EXCEL_PATH);
 });
 
+// ---------------------------------------------------------------------------
+// Coaching settings routes
+// ---------------------------------------------------------------------------
+
+import {
+  getActiveProvider, getActiveModel, setActiveSelection,
+  getProviderStatus, setProviderKey, deleteProviderKey,
+} from '../services/coaching/settings';
+import { PROVIDERS_META, PROVIDER_ORDER, isCuratedModel, isPickerProvider } from '../services/coaching/models';
+
+router.get('/coaching-settings', (_req: Request, res: Response): void => {
+  const activeProvider = getActiveProvider();
+  res.json({
+    activeProvider,
+    activeModel: getActiveModel(activeProvider),
+    // Ordered for the picker table; status is masked (last4 only, never the key).
+    providers: PROVIDER_ORDER.map((id) => {
+      const status = getProviderStatus(id);
+      return {
+        id,
+        label: PROVIDERS_META[id].label,
+        models: PROVIDERS_META[id].models,
+        connected: status.connected,
+        last4: status.last4,
+        source: status.source,
+      };
+    }),
+  });
+});
+
+router.patch('/coaching-settings', (req: Request, res: Response): void => {
+  const { provider, model } = req.body ?? {};
+  if (!isPickerProvider(provider)) { res.status(400).json({ error: 'Invalid provider' }); return; }
+  if (!isCuratedModel(provider, model)) { res.status(400).json({ error: 'Invalid model for provider' }); return; }
+  if (!getProviderStatus(provider).connected) {
+    res.status(400).json({ error: `No API key configured for ${provider}` }); return;
+  }
+  setActiveSelection(provider, model);
+  res.json({ updated: true });
+});
+
+router.post('/coaching-settings/keys', (req: Request, res: Response): void => {
+  const { provider, apiKey } = req.body ?? {};
+  if (!isPickerProvider(provider)) { res.status(400).json({ error: 'Invalid provider' }); return; }
+  if (typeof apiKey !== 'string' || apiKey.trim().length < 10) {
+    res.status(400).json({ error: 'Invalid API key' }); return;
+  }
+  const trimmed = apiKey.trim();
+  setProviderKey(provider, trimmed);
+  res.json({ connected: true, last4: trimmed.slice(-4) });
+});
+
+router.delete('/coaching-settings/keys/:provider', (req: Request, res: Response): void => {
+  const provider = req.params.provider as string;
+  if (!isPickerProvider(provider)) { res.status(400).json({ error: 'Invalid provider' }); return; }
+  deleteProviderKey(provider);
+  res.json({ removed: true });
+});
+
 export default router;

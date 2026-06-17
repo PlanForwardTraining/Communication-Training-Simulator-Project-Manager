@@ -19,8 +19,8 @@ jest.mock('../src/services/elevenlabs-cai', () => ({
   verifyWebhookSignature: jest.requireActual('../src/services/elevenlabs-cai').verifyWebhookSignature,
 }));
 
-// Mock the Claude service to avoid real API calls in tests
-jest.mock('../src/services/claude', () => {
+// Mock the coaching service to avoid real API calls in tests
+jest.mock('../src/services/coaching/service', () => {
   // Defined inside the factory because jest.mock is hoisted above any
   // top-level let/const, and this object can't be a closure over an outer var.
   const mock = {

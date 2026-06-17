@@ -5,20 +5,20 @@ export default {
     extend: {
       colors: {
         navy: {
-          900: '#0B1426',
-          800: '#111D35',
-          700: '#1A2B4A',
-          600: '#1E3A5F',
-          500: '#2A4A75',
+          900: 'rgb(var(--navy-900) / <alpha-value>)',
+          800: 'rgb(var(--navy-800) / <alpha-value>)',
+          700: 'rgb(var(--navy-700) / <alpha-value>)',
+          600: 'rgb(var(--navy-600) / <alpha-value>)',
+          500: 'rgb(var(--navy-500) / <alpha-value>)',
         },
         gold: {
-          400: '#E8C96A',
-          500: '#C9A84C',
-          600: '#A8882E',
+          400: 'rgb(var(--gold-400) / <alpha-value>)',
+          500: 'rgb(var(--gold-500) / <alpha-value>)',
+          600: 'rgb(var(--gold-600) / <alpha-value>)',
         },
         slate: {
-          text: '#F0EDE8',
-          muted: '#8A9BB5',
+          text: 'rgb(var(--slate-text) / <alpha-value>)',
+          muted: 'rgb(var(--slate-muted) / <alpha-value>)',
         },
         disc: {
           D: '#EF4444',

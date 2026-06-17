@@ -1,0 +1,84 @@
+import db from '../../db/connection';
+import { encryptSecret, decryptSecret } from '../../utils/crypto';
+import { DEFAULT_PROVIDER, DEFAULT_MODEL, PROVIDERS_META, isPickerProvider } from './models';
+import { PickerProvider } from './types';
+
+const ENV_KEY: Record<PickerProvider, string> = Object.fromEntries(
+  Object.values(PROVIDERS_META).map((m) => [m.id, m.envKey]),
+) as Record<PickerProvider, string>;
+
+function getSetting(key: string): string | null {
+  const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as
+    | { value: string }
+    | undefined;
+  return row?.value ?? null;
+}
+
+function setSetting(key: string, value: string): void {
+  db.prepare(
+    `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`,
+  ).run(key, value);
+}
+
+export function getActiveProvider(): PickerProvider {
+  const v = getSetting('coaching_provider') || process.env.COACHING_PROVIDER || DEFAULT_PROVIDER;
+  return isPickerProvider(v) ? v : DEFAULT_PROVIDER;
+}
+
+export function getActiveModel(provider: PickerProvider): string {
+  return getSetting('coaching_model') || process.env.COACHING_MODEL || DEFAULT_MODEL[provider];
+}
+
+export function setActiveSelection(provider: PickerProvider, model: string): void {
+  setSetting('coaching_provider', provider);
+  setSetting('coaching_model', model);
+}
+
+export function getProviderKey(provider: PickerProvider): string | null {
+  const row = db.prepare('SELECT encrypted_key FROM provider_keys WHERE provider = ?').get(provider) as
+    | { encrypted_key: string }
+    | undefined;
+  if (row) {
+    try {
+      return decryptSecret(row.encrypted_key);
+    } catch {
+      console.warn(
+        `[coaching/settings] Failed to decrypt stored key for provider "${provider}". ` +
+        'Falling back to environment variable. This may indicate a key rotation — update the stored key via Admin → Coaching.',
+      );
+      // fall through to env fallback
+    }
+  }
+  return process.env[ENV_KEY[provider]] || null;
+}
+
+export function setProviderKey(provider: PickerProvider, apiKey: string): void {
+  db.prepare(
+    `INSERT INTO provider_keys (provider, encrypted_key, last4, updated_at)
+     VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(provider) DO UPDATE SET encrypted_key = excluded.encrypted_key,
+       last4 = excluded.last4, updated_at = CURRENT_TIMESTAMP`,
+  ).run(provider, encryptSecret(apiKey), apiKey.slice(-4));
+}
+
+export function deleteProviderKey(provider: PickerProvider): void {
+  db.prepare('DELETE FROM provider_keys WHERE provider = ?').run(provider);
+}
+
+export interface ProviderStatus {
+  connected: boolean;
+  last4: string | null;
+  /** Where the active key comes from: an in-app DB key, a server env var, or none. */
+  source: 'db' | 'env' | null;
+}
+
+export function getProviderStatus(provider: PickerProvider): ProviderStatus {
+  const row = db.prepare('SELECT last4 FROM provider_keys WHERE provider = ?').get(provider) as
+    | { last4: string }
+    | undefined;
+  if (row) return { connected: true, last4: row.last4, source: 'db' };
+  const envKey = process.env[ENV_KEY[provider]];
+  if (envKey) return { connected: true, last4: envKey.slice(-4), source: 'env' };
+  return { connected: false, last4: null, source: null };
+}

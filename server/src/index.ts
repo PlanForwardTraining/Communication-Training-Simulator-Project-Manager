@@ -9,6 +9,7 @@ import rubricRouter from './routes/rubric';
 import sessionsRouter from './routes/sessions';
 import adminRouter from './routes/admin';
 import coachingCardsRouter from './routes/coaching-cards';
+import brandingRouter from './routes/branding';
 import elevenLabsWebhookRouter from './routes/elevenlabs-webhook';
 
 dotenv.config();
@@ -16,8 +17,15 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// CLIENT_ORIGIN may be a single URL or a comma-separated list (used during the
+// Vercel migration so both the old and new frontend URLs are allowed at once).
+const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  origin: allowedOrigins,
   credentials: true,
 }));
 
@@ -40,6 +48,7 @@ app.use('/api/rubric-items', rubricRouter);
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/coaching-cards', coachingCardsRouter);
+app.use('/api/branding', brandingRouter);
 
 // 404 handler
 app.use((_req, res) => {

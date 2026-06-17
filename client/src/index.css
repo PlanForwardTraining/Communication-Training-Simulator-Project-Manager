@@ -5,6 +5,19 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --navy-900: 11 20 38;
+    --navy-800: 17 29 53;
+    --navy-700: 26 43 74;
+    --navy-600: 30 58 95;
+    --navy-500: 42 74 117;
+    --gold-400: 232 201 106;
+    --gold-500: 201 168 76;
+    --gold-600: 168 136 46;
+    --slate-text: 240 237 232;
+    --slate-muted: 138 155 181;
+  }
+
   * {
     box-sizing: border-box;
   }
@@ -12,7 +25,7 @@
   html {
     font-family: 'DM Sans', sans-serif;
     background-color: #0B1426;
-    color: #F0EDE8;
+    color: rgb(var(--slate-text));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -77,7 +90,7 @@
   font-family: 'Inter', sans-serif;
   font-size: 1.25rem;       /* text-xl */
   font-weight: 700;
-  color: #C9A84C;            /* gold-500 */
+  color: rgb(var(--gold-500));            /* gold-500 */
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin-top: 1.25rem;
@@ -89,7 +102,7 @@
   font-family: 'Inter', sans-serif;
   font-size: 1rem;           /* text-base */
   font-weight: 600;
-  color: #F0EDE8;            /* slate-text */
+  color: rgb(var(--slate-text));            /* slate-text */
   margin-top: 1rem;
   margin-bottom: 0.4rem;
 }
@@ -101,12 +114,12 @@
 
 .scenario-editor strong {
   font-weight: 700;
-  color: #F0EDE8;            /* slate-text — bolder than the body */
+  color: rgb(var(--slate-text));            /* slate-text — bolder than the body */
 }
 
 .scenario-editor em {
   font-style: italic;
-  color: #F0EDE8;
+  color: rgb(var(--slate-text));
 }
 
 .scenario-editor ul,
@@ -121,16 +134,16 @@
 .scenario-editor li > p { margin-bottom: 0; }
 
 .scenario-editor blockquote {
-  border-left: 3px solid #C9A84C;   /* gold-500 */
+  border-left: 3px solid rgb(var(--gold-500));   /* gold-500 */
   padding-left: 1rem;
   margin: 1rem 0;
-  color: #8A9BB5;                   /* slate-muted */
+  color: rgb(var(--slate-muted));                   /* slate-muted */
   font-style: italic;
 }
 
 .scenario-editor hr {
   border: none;
-  border-top: 2px dashed #C9A84C;
+  border-top: 2px dashed rgb(var(--gold-500));
   margin: 1.5rem 0;
   position: relative;
 }
@@ -141,10 +154,10 @@
   font-family: 'Inter', sans-serif;
   font-size: 0.7rem;
   font-weight: 600;
-  color: #C9A84C;
+  color: rgb(var(--gold-500));
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  background: #111D35;             /* navy-800 — matches editor bg */
+  background: rgb(var(--navy-800));             /* navy-800 — matches editor bg */
   padding: 0 0.75rem;
   margin-top: -0.7rem;
   width: fit-content;

@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import db from '../db/connection';
 import { requireAuth } from '../middleware/auth';
 import { requireAdmin } from '../middleware/roleGuard';
-import { generateCoachingStream } from '../services/claude';
+import { generateCoachingStream } from '../services/coaching/service';
 import { getDiscProfile, getRubric } from '../prompts/loader';
 import { TurnRecord, EventRecord, User } from '../types';
 import { getSignedUrlForSession } from '../services/elevenlabs-cai';

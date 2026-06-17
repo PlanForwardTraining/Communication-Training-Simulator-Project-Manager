@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { scenariosApi, type Scenario } from '../api/scenarios';
 import { useAuth } from '../context/AuthContext';
+import { BrandLogo } from '../components/BrandLogo';
 
 function stripMarkdown(text: string): string {
   return text
@@ -33,9 +34,11 @@ export function ScenarioSelectPage() {
       <header className="border-b border-navy-600 px-4 sm:px-6 py-4">
         <div className="container-lg flex items-center justify-between">
           <div>
-            <span className="font-wordmark text-sm font-bold tracking-widest text-gold-500 uppercase">
-              Plan Forward
-            </span>
+            <BrandLogo>
+              <span className="font-wordmark text-sm font-bold tracking-widest text-gold-500 uppercase">
+                Plan Forward
+              </span>
+            </BrandLogo>
             <p className="font-body text-xs text-slate-muted mt-0.5">Welcome, {user?.name}</p>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">

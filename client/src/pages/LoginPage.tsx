@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { BrandLogo } from '../components/BrandLogo';
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -35,9 +36,11 @@ export function LoginPage() {
       <div className="container-sm relative z-10">
         {/* Wordmark */}
         <div className="text-center mb-10">
-          <h1 className="font-wordmark text-3xl font-bold tracking-[0.2em] text-gold-500 uppercase">
-            Plan Forward
-          </h1>
+          <BrandLogo>
+            <h1 className="font-wordmark text-3xl font-bold tracking-[0.2em] text-gold-500 uppercase">
+              Plan Forward
+            </h1>
+          </BrandLogo>
           <div className="mt-2 mx-auto w-16 h-px bg-gold-500 opacity-40" />
           <p className="mt-3 font-body text-sm text-slate-muted tracking-wider uppercase">
             Training Simulator
