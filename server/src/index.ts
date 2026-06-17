@@ -9,6 +9,7 @@ import rubricRouter from './routes/rubric';
 import sessionsRouter from './routes/sessions';
 import adminRouter from './routes/admin';
 import coachingCardsRouter from './routes/coaching-cards';
+import brandingRouter from './routes/branding';
 import elevenLabsWebhookRouter from './routes/elevenlabs-webhook';
 
 dotenv.config();
@@ -47,6 +48,7 @@ app.use('/api/rubric-items', rubricRouter);
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/coaching-cards', coachingCardsRouter);
+app.use('/api/branding', brandingRouter);
 
 // 404 handler
 app.use((_req, res) => {
