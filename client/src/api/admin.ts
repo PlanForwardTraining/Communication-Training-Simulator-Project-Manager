@@ -116,14 +116,18 @@ export interface UpdateUserPayload {
   active?: boolean;
 }
 
+export interface CoachingProviderRow {
+  id: string;
+  label: string;
+  models: string[];
+  connected: boolean;
+  last4: string | null;
+}
+
 export interface CoachingSettings {
-  activeProvider: 'openai' | 'gemini';
+  activeProvider: string;
   activeModel: string;
-  models: { openai: string[]; gemini: string[] };
-  providers: {
-    openai: { connected: boolean; last4: string | null };
-    gemini: { connected: boolean; last4: string | null };
-  };
+  providers: CoachingProviderRow[];
 }
 
 export const adminApi = {
