@@ -79,4 +79,17 @@ describe('settings resolution', () => {
     deleteProviderKey('openai');
     expect(getProviderKey('openai')).toBe('env-key-AAAA');
   });
+
+  it('corrupted encrypted_key falls back to env instead of throwing', () => {
+    // Insert a row with a deliberately corrupted/undecryptable blob
+    db.prepare(
+      `INSERT INTO provider_keys (provider, encrypted_key, last4, updated_at)
+       VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(provider) DO UPDATE SET encrypted_key = excluded.encrypted_key,
+         last4 = excluded.last4, updated_at = CURRENT_TIMESTAMP`,
+    ).run('openai', 'not:valid:base64ciphertext', '0000');
+    process.env.OPENAI_API_KEY = 'env-fallback-key';
+    // Should not throw; should return the env var
+    expect(getProviderKey('openai')).toBe('env-fallback-key');
+  });
 });

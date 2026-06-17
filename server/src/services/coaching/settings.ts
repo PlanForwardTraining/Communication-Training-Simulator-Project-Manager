@@ -40,7 +40,17 @@ export function getProviderKey(provider: PickerProvider): string | null {
   const row = db.prepare('SELECT encrypted_key FROM provider_keys WHERE provider = ?').get(provider) as
     | { encrypted_key: string }
     | undefined;
-  if (row) return decryptSecret(row.encrypted_key);
+  if (row) {
+    try {
+      return decryptSecret(row.encrypted_key);
+    } catch {
+      console.warn(
+        `[coaching/settings] Failed to decrypt stored key for provider "${provider}". ` +
+        'Falling back to environment variable. This may indicate a key rotation — update the stored key via Admin → Coaching.',
+      );
+      // fall through to env fallback
+    }
+  }
   return process.env[ENV_KEY[provider]] || null;
 }
 
