@@ -8,8 +8,8 @@ import { runMigrations, seedTestData } from './helpers';
 import db from '../src/db/connection';
 import app from '../src/index';
 
-// Mock the Claude service to avoid real API calls in tests
-jest.mock('../src/services/claude', () => {
+// Mock the coaching service to avoid real API calls in tests
+jest.mock('../src/services/coaching/service', () => {
   const mock = {
     strengths: 'Good empathy shown.',
     misses: 'Could have been clearer.',
