@@ -51,9 +51,9 @@ describe('settings resolution', () => {
     delete process.env.COACHING_PROVIDER;
   });
 
-  it('defaults to gemini/gemini-2.5-pro when nothing set', () => {
-    expect(getActiveProvider()).toBe('gemini');
-    expect(getActiveModel('gemini')).toBe('gemini-2.5-pro');
+  it('defaults to openai/gpt-4o when nothing set', () => {
+    expect(getActiveProvider()).toBe('openai');
+    expect(getActiveModel('openai')).toBe('gpt-4o');
   });
 
   it('DB selection overrides default', () => {

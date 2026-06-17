@@ -40,7 +40,7 @@ export const PROVIDERS_META: Record<PickerProvider, ProviderMeta> = {
 /** Display order for the picker (default provider first). */
 export const PROVIDER_ORDER: PickerProvider[] = ['gemini', 'openai', 'anthropic'];
 
-export const DEFAULT_PROVIDER: PickerProvider = 'gemini';
+export const DEFAULT_PROVIDER: PickerProvider = 'openai';
 
 export const DEFAULT_MODEL: Record<PickerProvider, string> = Object.fromEntries(
   PROVIDER_ORDER.map((p) => [p, PROVIDERS_META[p].models[0]]),
