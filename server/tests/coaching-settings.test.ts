@@ -67,17 +67,17 @@ describe('settings resolution', () => {
     process.env.OPENAI_API_KEY = 'env-key';
     setProviderKey('openai', 'db-key-XY99');
     expect(getProviderKey('openai')).toBe('db-key-XY99');
-    expect(getProviderStatus('openai')).toEqual({ connected: true, last4: 'XY99' });
+    expect(getProviderStatus('openai')).toEqual({ connected: true, last4: 'XY99', source: 'db' });
   });
 
   it('key resolution: falls back to env when no DB key', () => {
     process.env.GEMINI_API_KEY = 'env-gemini-1234';
     expect(getProviderKey('gemini')).toBe('env-gemini-1234');
-    expect(getProviderStatus('gemini')).toEqual({ connected: true, last4: '1234' });
+    expect(getProviderStatus('gemini')).toEqual({ connected: true, last4: '1234', source: 'env' });
   });
 
   it('not connected when neither DB nor env', () => {
-    expect(getProviderStatus('openai')).toEqual({ connected: false, last4: null });
+    expect(getProviderStatus('openai')).toEqual({ connected: false, last4: null, source: null });
     expect(getProviderKey('openai')).toBeNull();
   });
 

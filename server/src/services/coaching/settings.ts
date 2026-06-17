@@ -66,12 +66,19 @@ export function deleteProviderKey(provider: PickerProvider): void {
   db.prepare('DELETE FROM provider_keys WHERE provider = ?').run(provider);
 }
 
-export function getProviderStatus(provider: PickerProvider): { connected: boolean; last4: string | null } {
+export interface ProviderStatus {
+  connected: boolean;
+  last4: string | null;
+  /** Where the active key comes from: an in-app DB key, a server env var, or none. */
+  source: 'db' | 'env' | null;
+}
+
+export function getProviderStatus(provider: PickerProvider): ProviderStatus {
   const row = db.prepare('SELECT last4 FROM provider_keys WHERE provider = ?').get(provider) as
     | { last4: string }
     | undefined;
-  if (row) return { connected: true, last4: row.last4 };
+  if (row) return { connected: true, last4: row.last4, source: 'db' };
   const envKey = process.env[ENV_KEY[provider]];
-  if (envKey) return { connected: true, last4: envKey.slice(-4) };
-  return { connected: false, last4: null };
+  if (envKey) return { connected: true, last4: envKey.slice(-4), source: 'env' };
+  return { connected: false, last4: null, source: null };
 }

@@ -537,6 +537,7 @@ router.get('/coaching-settings', (_req: Request, res: Response): void => {
         models: PROVIDERS_META[id].models,
         connected: status.connected,
         last4: status.last4,
+        source: status.source,
       };
     }),
   });

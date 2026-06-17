@@ -122,6 +122,7 @@ export interface CoachingProviderRow {
   models: string[];
   connected: boolean;
   last4: string | null;
+  source: 'db' | 'env' | null;
 }
 
 export interface CoachingSettings {

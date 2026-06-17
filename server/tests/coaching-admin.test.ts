@@ -34,7 +34,7 @@ it('GET coaching-settings returns masked status as an ordered list, never full k
     'gemini', 'openai', 'anthropic', 'grok', 'kimi',
   ]);
   const openai = findProvider(res.body, 'openai');
-  expect(openai).toMatchObject({ connected: true, last4: 'LIVE', label: 'OpenAI' });
+  expect(openai).toMatchObject({ connected: true, last4: 'LIVE', label: 'OpenAI', source: 'env' });
   expect(openai.models).toContain('gpt-4o');
   const gemini = findProvider(res.body, 'gemini');
   expect(gemini).toMatchObject({ connected: false, last4: null });
@@ -49,7 +49,7 @@ it('POST keys stores a key (write-only) and returns last4', async () => {
   expect(res.body).toEqual({ connected: true, last4: '9ZQ7' });
   // confirm GET now reports gemini connected, still masked
   const get = await auth(request(app).get('/api/admin/coaching-settings'));
-  expect(findProvider(get.body, 'gemini').connected).toBe(true);
+  expect(findProvider(get.body, 'gemini')).toMatchObject({ connected: true, source: 'db' });
   expect(JSON.stringify(get.body)).not.toContain('AIza-secret-9ZQ7');
 });
 

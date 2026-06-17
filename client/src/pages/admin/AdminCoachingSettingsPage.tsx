@@ -145,13 +145,22 @@ export function AdminCoachingSettingsPage() {
                           <span className="text-green-400 text-xs whitespace-nowrap">
                             Connected ···· {row.last4}
                           </span>
-                          <button
-                            className="btn-ghost text-xs"
-                            disabled={busy}
-                            onClick={() => removeKey(row.id)}
-                          >
-                            Remove
-                          </button>
+                          {row.source === 'db' ? (
+                            <button
+                              className="btn-ghost text-xs"
+                              disabled={busy}
+                              onClick={() => removeKey(row.id)}
+                            >
+                              Remove
+                            </button>
+                          ) : (
+                            <span
+                              className="text-[11px] text-slate-muted whitespace-nowrap"
+                              title="This key is set as a server environment variable. Remove it from the server config (or override it by connecting an in-app key here)."
+                            >
+                              from server env
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <button
