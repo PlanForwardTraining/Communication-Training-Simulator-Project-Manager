@@ -670,16 +670,27 @@ A round of refinements done immediately after first production deploy. Each sub-
 - [x] Coaching JSON parsed defensively (tolerates code-fence wrappers / stray prose) so a slightly-formatted response still saves a debrief
 
 ### 13.19 — Configurable Coaching Provider
-- [x] `server/src/services/coaching/` provider abstraction replaces `claude.ts` — `types.ts` interface + `openai.ts` / `gemini.ts` / `anthropic.ts` implementations + `service.ts` dispatch (Anthropic kept as dev/fallback, not in picker)
-- [x] `models.ts` — curated model list (OpenAI gpt-4o/gpt-4.1, Gemini gemini-2.5-pro/gemini-2.5-flash) + validation; default Gemini gemini-2.5-pro
+- [x] `server/src/services/coaching/` provider abstraction replaces `claude.ts` — `types.ts` interface + `openai.ts` / `gemini.ts` / `anthropic.ts` implementations + `service.ts` dispatch
+- [x] `models.ts` `PROVIDERS_META` — metadata-driven registry (label + env-key + curated models); shipped: OpenAI (gpt-4o/gpt-4.1), Gemini (gemini-2.5-pro/flash), Anthropic (claude-opus-4-8/claude-sonnet-4-6); **default OpenAI gpt-4o**. Grok/Kimi prototyped then dropped (unverified IDs)
 - [x] `app_settings` + `provider_keys` SQLite tables added to `schema.sql`
 - [x] `server/src/utils/crypto.ts` — AES-256-GCM encrypt/decrypt (key from `SETTINGS_ENC_KEY`, falls back to `JWT_SECRET`)
-- [x] `settings.ts` — key resolution order DB → env → none; env keys keep working until an in-app key is saved
+- [x] `settings.ts` — key resolution DB → env → none; `getProviderStatus()` reports `source` ('db'|'env'|null); env keys keep working until an in-app key is saved
 - [x] `GET/PATCH /api/admin/coaching-settings` + `POST/DELETE /api/admin/coaching-settings/keys` (admin-guarded; keys write-only, only `last4` ever returned)
-- [x] `AdminCoachingSettingsPage.tsx` (`/admin/coaching`, "Coaching" nav link) — per-provider connected/last4 status, write-only key fields, model picker greys out providers with no key
+- [x] `AdminCoachingSettingsPage.tsx` (`/admin/coaching`, "Coaching" nav link) — **provider table**: Connect / Connected ····last4 + Remove (env keys show "from server env", not removable); model pills activate per provider; rows without a key greyed out; header clarifies it's the feedback AI + links to ElevenLabs for the in-call model
+- [x] Persona prompt forbids spoken audio tags; `client/src/utils/stripAudioTags.ts` scrubs stray `[serious]`/`[cold]` tags from the transcript
 - [x] `sessions.ts` import switched from `services/claude` to `services/coaching/service`; `claude.ts` deleted
-- [x] All 52 server tests pass; client type-checks + builds clean
-- [ ] Ship: add `SETTINGS_ENC_KEY` to Railway (or rely on `JWT_SECRET` fallback), merge `feat/coaching-provider-switch` → `main`, production-verify both providers (deploys live — do with Tyler)
+- [x] All server tests pass (54); client type-checks + builds clean
+- [ ] Ship: remove `COACHING_PROVIDER`/`COACHING_MODEL` from Railway (so OpenAI default governs), add `SETTINGS_ENC_KEY` (or rely on `JWT_SECRET`), merge `feat/coaching-provider-switch` → `main`, production-verify (deploys live — do with Tyler)
+
+### 13.20 — Branding / White-Label Colors
+- [x] `tailwind.config.js` navy/gold/slate → `rgb(var(--x) / <alpha-value>)`; `index.css` `:root` channel defaults (no visual change); TipTap CSS uses the same vars
+- [x] `client/src/utils/deriveBrandShades.ts` — two hex colors → 8-var `--gold-*`/`--navy-*` channel ramp
+- [x] `server/src/services/branding.ts` — `brand_primary`/`brand_secondary`/`brand_logo_url` in `app_settings`, defaults + hex/URL validation (tests)
+- [x] `server/src/routes/branding.ts` — public `GET /api/branding`, admin `PATCH`/`DELETE` (mounted in `index.ts`; tests)
+- [x] `client/src/utils/applyBranding.ts` — boot fetch (4s timeout) sets CSS vars on `:root`; reset removes inline overrides; called in `main.tsx`
+- [x] `client/src/components/BrandLogo.tsx` — logo image or text wordmark fallback; live-updates via `branding:logo` event; used in AdminLayout/LoginPage/ScenarioSelectPage
+- [x] `AdminBrandingPage.tsx` (`/admin/branding`, "Branding" nav link) — logo URL + primary/secondary color inputs + live preview + Save + Reset
+- [x] All server tests pass (62); client type-checks + builds clean
 
 ---
 
