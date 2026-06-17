@@ -131,6 +131,12 @@ export interface CoachingSettings {
   providers: CoachingProviderRow[];
 }
 
+export interface Branding {
+  primary: string;
+  secondary: string;
+  logoUrl: string;
+}
+
 export const adminApi = {
   summary: () => api.get<AdminSummary>('/api/admin/summary'),
   users: () => api.get<AdminUserStats[]>('/api/admin/users'),
@@ -147,4 +153,7 @@ export const adminApi = {
     api.post<{ connected: boolean; last4: string }>('/api/admin/coaching-settings/keys', { provider, apiKey }),
   removeCoachingKey: (provider: string) =>
     api.delete<{ removed: boolean }>(`/api/admin/coaching-settings/keys/${provider}`),
+  branding: () => api.get<Branding>('/api/branding'),
+  setBranding: (b: Branding) => api.patch<Branding>('/api/branding', b),
+  resetBranding: () => api.delete<Branding>('/api/branding'),
 };
