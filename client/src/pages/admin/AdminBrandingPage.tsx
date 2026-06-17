@@ -6,52 +6,60 @@ import { applyBrandingValues } from '../../utils/applyBranding';
 
 const DEFAULTS: Branding = { primary: '#C9A84C', secondary: '#111D35', logoUrl: '' };
 
+// Fix 1: hoisted to module scope so it never remounts on parent re-render
+function ColorRow({ label, hint, value, onChange }: { label: string; hint: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="mb-5">
+      <div className="font-display text-slate-text text-sm">{label}</div>
+      <div className="text-slate-muted text-xs mb-2">{hint}</div>
+      <div className="flex items-center gap-3">
+        <input type="color" value={value} onChange={e => onChange(e.target.value)} className="h-10 w-12 rounded bg-transparent border border-navy-600" />
+        <input type="text" value={value} onChange={e => onChange(e.target.value)} className="input w-32 text-sm" />
+      </div>
+    </div>
+  );
+}
+
 export function AdminBrandingPage() {
   const [b, setB] = useState<Branding>(DEFAULTS);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null); // Fix 5: replaces boolean `saved`
 
   useEffect(() => { adminApi.branding().then(setB).catch(e => setError((e as Error).message)); }, []);
 
   const field = (k: keyof Branding, v: string) => setB(s => ({ ...s, [k]: v }));
 
   const save = async () => {
-    setBusy(true); setError(null); setSaved(false);
+    setBusy(true); setError(null); setNotice(null);
     try {
       const next = await adminApi.setBranding(b);
       setB(next);
       applyBrandingValues(next.primary, next.secondary);
-      setSaved(true);
+      // Fix 4: dispatch live logo update
+      window.dispatchEvent(new CustomEvent('branding:logo', { detail: next.logoUrl }));
+      setNotice('Saved — colors applied.'); // Fix 5
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   };
 
   const reset = async () => {
-    setBusy(true); setError(null); setSaved(false);
+    setBusy(true); setError(null); setNotice(null);
     try {
       const next = await adminApi.resetBranding();
       setB(next);
       applyBrandingValues(next.primary, next.secondary);
+      // Fix 4: dispatch live logo update
+      window.dispatchEvent(new CustomEvent('branding:logo', { detail: next.logoUrl }));
+      setNotice('Reset to default colors.'); // Fix 5
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   };
-
-  const Color = ({ k, label, hint }: { k: 'primary' | 'secondary'; label: string; hint: string }) => (
-    <div className="mb-5">
-      <div className="font-display text-slate-text text-sm">{label}</div>
-      <div className="text-slate-muted text-xs mb-2">{hint}</div>
-      <div className="flex items-center gap-3">
-        <input type="color" value={b[k]} onChange={e => field(k, e.target.value)} className="h-10 w-12 rounded bg-transparent border border-navy-600" />
-        <input type="text" value={b[k]} onChange={e => field(k, e.target.value)} className="input w-32 text-sm" />
-      </div>
-    </div>
-  );
 
   return (
     <AdminLayout>
       <h1 className="font-display text-2xl text-slate-text mb-1">Branding</h1>
       <p className="text-slate-muted text-sm mb-6">Colors and logo used across the whole app, including the login screen.</p>
       {error && <div className="mb-4 text-sm text-red-400">{error}</div>}
-      {saved && <div className="mb-4 text-sm text-green-400">Saved — colors applied.</div>}
+      {notice && <div className="mb-4 text-sm text-green-400">{notice}</div>}
 
       <div className="card p-5 max-w-xl">
         <div className="mb-5">
@@ -59,8 +67,8 @@ export function AdminBrandingPage() {
           <div className="text-slate-muted text-xs mb-2">Direct link to a PNG or SVG. Leave blank to use the text wordmark.</div>
           <input type="text" placeholder="https://example.com/logo.png" value={b.logoUrl} onChange={e => field('logoUrl', e.target.value)} className="input w-full text-sm" />
         </div>
-        <Color k="primary" label="Primary color" hint="Buttons, accents, highlights." />
-        <Color k="secondary" label="Secondary color" hint="Backgrounds, sidebar, headers (use a dark color — the app is a dark theme)." />
+        <ColorRow label="Primary color" hint="Buttons, accents, highlights." value={b.primary} onChange={v => field('primary', v)} />
+        <ColorRow label="Secondary color" hint="Backgrounds, sidebar, headers (use a dark color — the app is a dark theme)." value={b.secondary} onChange={v => field('secondary', v)} />
 
         {/* Live preview */}
         <div className="mt-4">
