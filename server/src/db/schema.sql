@@ -76,3 +76,16 @@ CREATE TABLE IF NOT EXISTS rubric_items (
   description TEXT NOT NULL,
   display_order INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS provider_keys (
+  provider TEXT PRIMARY KEY,
+  encrypted_key TEXT NOT NULL,
+  last4 TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
