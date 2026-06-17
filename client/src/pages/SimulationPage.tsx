@@ -9,6 +9,7 @@ import { scenariosApi, type ScenarioBriefing } from '../api/scenarios';
 import { coachingCardsApi, type CoachingCard } from '../api/coachingCards';
 import { DiscBadge } from '../components/DiscBadge';
 import { MarkdownLite } from '../utils/MarkdownLite';
+import { stripAudioTags } from '../utils/stripAudioTags';
 
 // ---------------------------------------------------------------------------
 // CoachingProgress — shown after End Session while Claude generates the debrief.
@@ -352,7 +353,7 @@ function SimulationInner({ sessionData, briefing, coachingCard, generalCues, sce
       console.log('[ElevenLabs] message:', props);
       const role = props.role ?? (props.source === 'ai' ? 'agent' : 'user');
       const speaker: Turn['speaker'] = role === 'user' ? 'pm' : 'client';
-      setTurns((prev) => [...prev, { speaker, content: props.message }]);
+      setTurns((prev) => [...prev, { speaker, content: stripAudioTags(props.message) }]);
     },
     [],
   );
