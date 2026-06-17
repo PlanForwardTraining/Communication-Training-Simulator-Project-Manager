@@ -72,6 +72,7 @@ export function AdminLayout({ children, back }: Props) {
   const path = location.pathname;
   const onScenarios = path.startsWith('/admin/scenarios');
   const onCoaching = path.startsWith('/admin/coaching');
+  const onBranding = path.startsWith('/admin/branding');
   const onDashboard = path === '/admin' || path.startsWith('/admin/users') || path.startsWith('/admin/sessions');
 
   return (
@@ -108,6 +109,7 @@ export function AdminLayout({ children, back }: Props) {
               <NavLink to="/admin" label="Dashboard" active={onDashboard} />
               <NavLink to="/admin/scenarios" label="Scenarios" active={onScenarios} />
               <NavLink to="/admin/coaching" label="Coaching" active={onCoaching} />
+              <NavLink to="/admin/branding" label="Branding" active={onBranding} />
             </nav>
           </div>
 
