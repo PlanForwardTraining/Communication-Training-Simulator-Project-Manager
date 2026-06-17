@@ -50,8 +50,9 @@ export function AdminCoachingSettingsPage() {
     <AdminLayout>
       <h1 className="font-display text-2xl text-slate-text mb-1">Coaching Engine</h1>
       <p className="text-slate-muted text-sm mb-6">
-        Choose which AI provider and model generate the post-call coaching, and manage their API keys.
-        Pick a model from a connected provider to make it active.
+        This controls the AI that <strong className="text-slate-text">writes the post-call coaching feedback</strong> —
+        not the client's voice during the call. Choose a provider and model, manage their API keys, and pick a model
+        from a connected provider to make it active.
       </p>
 
       {error && <div className="mb-4 text-sm text-red-400">{error}</div>}
@@ -184,6 +185,24 @@ export function AdminCoachingSettingsPage() {
         Keys are stored encrypted and never shown again — only the last 4 characters. Removing an
         in-app key falls back to the matching environment variable if one is set on the server.
       </p>
+
+      <div className="card p-4 mt-6 border border-navy-700">
+        <h2 className="font-display text-slate-text text-sm mb-1">The client's voice during the call</h2>
+        <p className="text-slate-muted text-xs leading-relaxed">
+          The live voice you speak with during a session is a separate AI, managed in{' '}
+          <strong className="text-slate-text">ElevenLabs</strong> (not here). It rarely needs changing.
+          If you ever want a different conversation model or voice, open your agent in the ElevenLabs
+          dashboard and change its <em>LLM</em> setting — no change is needed on this page.
+        </p>
+        <a
+          href="https://elevenlabs.io/app/conversational-ai"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block mt-2 text-xs text-gold-300 hover:text-gold-200 underline"
+        >
+          Open ElevenLabs Conversational AI →
+        </a>
+      </div>
     </AdminLayout>
   );
 }
