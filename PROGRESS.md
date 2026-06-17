@@ -669,6 +669,18 @@ A round of refinements done immediately after first production deploy. Each sub-
 - [x] `POST /api/sessions/:id/end` is idempotent — safe to retry (manual button / confirm modal / auto-end) without double-writing coaching
 - [x] Coaching JSON parsed defensively (tolerates code-fence wrappers / stray prose) so a slightly-formatted response still saves a debrief
 
+### 13.19 — Configurable Coaching Provider
+- [x] `server/src/services/coaching/` provider abstraction replaces `claude.ts` — `types.ts` interface + `openai.ts` / `gemini.ts` / `anthropic.ts` implementations + `service.ts` dispatch (Anthropic kept as dev/fallback, not in picker)
+- [x] `models.ts` — curated model list (OpenAI gpt-4o/gpt-4.1, Gemini gemini-2.5-pro/gemini-2.5-flash) + validation; default Gemini gemini-2.5-pro
+- [x] `app_settings` + `provider_keys` SQLite tables added to `schema.sql`
+- [x] `server/src/utils/crypto.ts` — AES-256-GCM encrypt/decrypt (key from `SETTINGS_ENC_KEY`, falls back to `JWT_SECRET`)
+- [x] `settings.ts` — key resolution order DB → env → none; env keys keep working until an in-app key is saved
+- [x] `GET/PATCH /api/admin/coaching-settings` + `POST/DELETE /api/admin/coaching-settings/keys` (admin-guarded; keys write-only, only `last4` ever returned)
+- [x] `AdminCoachingSettingsPage.tsx` (`/admin/coaching`, "Coaching" nav link) — per-provider connected/last4 status, write-only key fields, model picker greys out providers with no key
+- [x] `sessions.ts` import switched from `services/claude` to `services/coaching/service`; `claude.ts` deleted
+- [x] All 52 server tests pass; client type-checks + builds clean
+- [ ] Ship: add `SETTINGS_ENC_KEY` to Railway (or rely on `JWT_SECRET` fallback), merge `feat/coaching-provider-switch` → `main`, production-verify both providers (deploys live — do with Tyler)
+
 ---
 
 ## Notes Section

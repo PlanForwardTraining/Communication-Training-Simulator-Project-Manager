@@ -1541,6 +1541,18 @@ Two hardening fixes around the most failure-prone moment (the end-of-call coachi
 
 ---
 
+### 13.19 — Configurable Coaching Provider
+
+The post-call coaching engine is no longer hardwired to Anthropic. An admin can choose the provider (OpenAI or Google Gemini) and model from inside the app, and manage the API keys there too — no redeploy, no env edit.
+
+- **Provider abstraction.** `server/src/services/coaching/` replaces the old `claude.ts`. A shared `CoachingProvider.streamCoaching` interface (`types.ts`) has one implementation per provider — `openai.ts`, `gemini.ts`, `anthropic.ts`. `service.ts` exposes `generateCoachingStream()` / `generateCoaching()` (same signatures as before, so `sessions.ts` only changed its import), looks up the active provider/model/key, dispatches to the right implementation, and parses the JSON exactly as before. Anthropic stays in the codebase as a dev/fallback path but is **not** shown in the picker.
+- **Curated model list.** `models.ts` defines the only selectable models — OpenAI `gpt-4o` / `gpt-4.1`, Gemini `gemini-2.5-pro` / `gemini-2.5-flash` — and validates any incoming selection against it. Default is Gemini `gemini-2.5-pro`.
+- **In-app keys, encrypted at rest, with env fallback.** Two new SQLite tables: `app_settings` (active provider/model) and `provider_keys` (AES-256-GCM-encrypted key + last4). Key resolution order at coaching time is **DB key → env var → none**. So the existing Railway `OPENAI_API_KEY` / `GEMINI_API_KEY` keep working untouched; the moment an admin saves a key in-app, the DB key takes over for that provider. Encryption uses `SETTINGS_ENC_KEY` (falls back to `JWT_SECRET`, already set in prod) — see `server/src/utils/crypto.ts`.
+- **Admin Coaching page.** `/admin/coaching` (`AdminCoachingSettingsPage.tsx`, "Coaching" nav link) shows a connected/last4 status per provider, write-only key fields (keys are never returned to the client — only `last4`), and a model picker that greys out any provider without a key. Backed by `GET/PATCH /api/admin/coaching-settings` and `POST/DELETE /api/admin/coaching-settings/keys` (admin-guarded).
+- **New env vars:** `OPENAI_API_KEY`, `GEMINI_API_KEY` (provider keys / fallbacks), `COACHING_PROVIDER` + `COACHING_MODEL` (optional env-level default), `SETTINGS_ENC_KEY` (optional; encryption secret, defaults to `JWT_SECRET`). Once Jef enters keys in-app, the two provider keys can be removed from Railway so the DB becomes the source of truth.
+
+---
+
 ## Part 12 — Billing & Payment Transfer
 
 This is the contractor-to-client handoff for billing. Keep accounts the same (preserves data, config, history) — just swap who's paying.

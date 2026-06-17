@@ -17,7 +17,7 @@ This is not a product for sale. It is a world-class internal training tool.
 | Database | SQLite (via better-sqlite3) | Zero-config, single file, easy backup |
 | **Voice (real-time)** | **ElevenLabs Conversational AI** | Phone-call-feel: continuous mic, VAD, streaming STT/TTS, echo cancellation, interruption detection — all managed |
 | **AI Brain (in-call)** | **ElevenLabs Qwen3.5-397B** *(configurable)* | Currently set to Qwen3.5-397B for sub-400ms first-token latency. Switchable to Claude Haiku/Sonnet via the agent's LLM dropdown if quality > speed is preferred. Whatever the choice, ElevenLabs CAI invokes it each turn using our persona prompt override. |
-| **AI Coaching (post-call)** | Anthropic Claude API (direct) | Always uses Claude Sonnet 4.6 — quality > speed for the coaching debrief. Separate call after session ends; analyzes full transcript + interruption events to produce structured coaching JSON. |
+| **AI Coaching (post-call)** | Configurable provider (OpenAI / Google Gemini) via admin toggle | Admin picks provider + model in-app at `/admin/coaching` (default Gemini `gemini-2.5-pro`); keys managed in-app (encrypted, env-fallback). Quality > speed for the coaching debrief. Anthropic/Claude path remains in the codebase for local dev/fallback only — no longer used in production. Separate call after session ends; analyzes full transcript + interruption events to produce structured coaching JSON. See REBUILD_ME_GUIDE 13.19. |
 | **Coaching Lens** | **Sandler Sales Methodology** (primary) + Voss labels / calibrated questions / classic active listening (supplementary) | Sandler is built around controlled, honest conversations under emotional pressure — exactly what residential design-build PMs face. Primer at `/content/coaching-rubric/03-sandler-techniques.md` is fed into every coaching prompt and the AI cites techniques by name in feedback. |
 | Excel Export | exceljs | Direct .xlsx generation, no Office dependency |
 | Auth | JWT + bcrypt | Stateless, secure, simple |
@@ -42,8 +42,9 @@ Browser (React SPA + @elevenlabs/react SDK)
   │                          │   so the PM sees only their realistic case file, not the answer key
   │                          │
   │                          ├─ POST /api/sessions/:id/end: receives full transcript + events
-  │                          │   from browser, persists to turns/events tables, calls Claude
-  │                          │   (Sonnet 4.6 + Sandler primer) for coaching, saves coaching
+  │                          │   from browser, persists to turns/events tables, calls the
+  │                          │   configured coaching provider (OpenAI/Gemini + Sandler primer)
+  │                          │   for coaching, saves coaching
   │                          │
   │                          └─ SQLite (mounted at /data on Railway volume)
   │
@@ -67,7 +68,7 @@ When PM clicks End Session, the full transcript is sent in the body of POST /api
 Backend coaching pipeline at end:
   Browser (transcript + events) → POST /:id/end
   Backend persists turns + events
-  Backend ──► Claude API (direct, Sonnet 4.6) with rubric + transcript
+  Backend ──► configured coaching provider (OpenAI/Gemini) with rubric + transcript
                  → structured coaching JSON + score
                  → saved to SQLite + (future) Excel export
 
@@ -103,7 +104,7 @@ edited via /content/*.md and deploys.
 5. AI client picks up: *"Hello, this is [Name]."* PM responds. ElevenLabs streams audio, transcribes, calls the configured LLM (Qwen3.5-397B by default), streams TTS response back
 6. Browser SDK callbacks fire: `onMessage` for each completed turn, `onInterruption` for overlap events. Frontend accumulates these in component state.
 7. PM clicks End Session → confirmation → frontend ends CAI session and calls `POST /api/sessions/:id/end` with `{ turns, events }` body
-8. Backend persists turns + events, calls Claude (Sonnet 4.6) with the rubric, transcript, and the Sandler primer for analysis
+8. Backend persists turns + events, calls the configured coaching provider (OpenAI/Gemini) with the rubric, transcript, and the Sandler primer for analysis
 9. Coaching saved as bullet-formatted strengths / misses / alternatives / DISC adaptation; debrief renders via `MarkdownLite` with Sandler techniques cited inline
 
 ---
