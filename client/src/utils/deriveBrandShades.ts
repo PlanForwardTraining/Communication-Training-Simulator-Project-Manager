@@ -39,6 +39,6 @@ export function deriveBrandShades(
     '--navy-600': channels(lighten(secondary, 0.22)),
     '--navy-500': channels(lighten(secondary, 0.35)),
     '--slate-text': channels(text),
-    '--slate-muted': channels(mix(text, secondary, 0.68)),
+    '--slate-muted': channels(mix(text, secondary, 0.8)),
   };
 }
