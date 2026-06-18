@@ -6,6 +6,7 @@ export interface Scenario {
   title: string;
   description: string;
   active: number;
+  visible_to_types?: string[];
 }
 
 export interface ScenarioBriefing {

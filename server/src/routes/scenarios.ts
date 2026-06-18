@@ -110,8 +110,12 @@ router.get('/', requireAuth, (req: Request, res: Response): void => {
     isVisibleTo(s.visible_to_types, me?.role ?? 'pm', me?.user_type ?? null)
   );
 
-  // Don't expose visible_to_types to PMs in the list view
-  res.json(filtered.map(({ visible_to_types: _vt, ...rest }) => rest));
+  // Include visible_to_types as a parsed string[] so the PM picker can render the Role(s) column.
+  // Empty array means "visible to all" (no restriction). Filtering already happened above.
+  res.json(filtered.map(({ visible_to_types, ...rest }) => ({
+    ...rest,
+    visible_to_types: parseVisibleToTypes(visible_to_types) ?? [],
+  })));
 });
 
 // GET /api/scenarios/admin — admin view: all scenarios with session counts

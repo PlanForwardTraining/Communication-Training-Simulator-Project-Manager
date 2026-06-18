@@ -103,15 +103,35 @@ describe('scenario visibility filtering', () => {
     expect(slugs).not.toContain('sales-only-vis');
   });
 
-  it('visible_to_types is not exposed to non-admin in GET /api/scenarios', async () => {
+  it('GET /api/scenarios returns visible_to_types as a parsed string[] for each scenario', async () => {
     const token = await getToken(pmTypedEmail, 'pass123');
     const res = await request(app)
       .get('/api/scenarios')
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
+    // Every returned scenario must include visible_to_types as an array (empty = "All")
     for (const s of res.body) {
-      expect(s).not.toHaveProperty('visible_to_types');
+      expect(s).toHaveProperty('visible_to_types');
+      expect(Array.isArray(s.visible_to_types)).toBe(true);
     }
+    // The PM-typed scenario should have ['PM'], untyped should have []
+    const pmScenario = res.body.find((s: any) => s.slug === 'pm-only-vis');
+    expect(pmScenario).toBeDefined();
+    expect(pmScenario.visible_to_types).toEqual(['PM']);
+
+    const untypedScenario = res.body.find((s: any) => s.slug === 'untyped-vis');
+    expect(untypedScenario).toBeDefined();
+    expect(untypedScenario.visible_to_types).toEqual([]);
+  });
+
+  it('filtering still works — Sales-only scenario is hidden from PM-typed member', async () => {
+    const token = await getToken(pmTypedEmail, 'pass123');
+    const res = await request(app)
+      .get('/api/scenarios')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    const slugs = res.body.map((s: any) => s.slug);
+    expect(slugs).not.toContain('sales-only-vis');
   });
 });
 
