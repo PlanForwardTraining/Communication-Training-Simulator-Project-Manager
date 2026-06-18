@@ -726,7 +726,27 @@ A round of refinements done immediately after first production deploy. Each sub-
 - [x] Frontend: single "Role" dropdown (UserModalForm), Roles panel (Admin not removable), one Role column (Users table), scenario "Visible to roles" excludes Admin
 - [x] Removed stale `/api/users` create/edit (second unvalidated write path)
 - [x] All server tests pass (136, incl. new `roles-unify.test.ts`); client builds clean; auth-focused review passed
-- [ ] Merge `feat/unify-roles` → `main` (deploys live — do with Tyler)
+- [x] Merge `feat/unify-roles` → `main` (deployed live)
+
+### 13.24 — Coaching Provider Failover + Admin Re-Grade (branch `feat/coaching-resilience`)
+- [x] `generateCoachingStream` failover: active provider first, then other connected providers in `PROVIDER_ORDER` (dedup), fall through on request/parse error
+- [x] `CoachingResult.gradedProvider` / `gradedModel` recorded (active uses `getActiveModel`, fallback uses `DEFAULT_MODEL[provider]`)
+- [x] `friendlyCoachingError(err, provider)` — concise rate-limit/auth/generic messages, never leaks JSON/HTTP bodies (exported + unit-tested)
+- [x] `POST /api/admin/sessions/:id/regrade` — re-run coaching on a finished/stuck/failed session, persist, regenerate Excel; returns `{ regraded, gradedProvider, gradedModel, totalScore }`
+- [x] Merged → `main` + deployed
+
+### 13.25 — True-Zero Coaching Calibration (branches `feat/harsher-scoring` + `feat/scoring-rebalance`)
+- [x] Per-category scale widened 1–5 → **0–5**; `coaching-prompt.ts` scale + `scoreBreakdown` `<0-5>`; `02-scoring-levels.md` adds level 0 (Harmful)
+- [x] "Scoring Discipline" automatic-fail conditions (no firm commitment when pressed, dismissal, hang-up/abandonment, no plan) → affected categories 0–1, overall near floor
+- [x] Rebalance: 3 = met standard / 4 = done well / 5 = excellent; missing an optional technique is NOT a deduction; strong calls land high-80s/90s
+- [x] Score-bar UI already renders 0 (empty bar) — no client change; build + tests pass
+- [x] Both branches merged → `main` + deployed
+
+### 13.26 — Guarded User Delete (branch `feat/user-delete`)
+- [x] `DELETE /api/admin/users/:id` — hard-delete only users with no sessions; 409 + `sessionCount` otherwise; blocks self-delete (400) and last-admin (400)
+- [x] `adminApi.deleteUser` + "Delete User" button in edit-user modal (confirm + guard hint; 409/400 inline)
+- [x] Tests: happy path, 409 session-guard, 400 self-guard (`admin-users.test.ts`); 174 server tests pass
+- [x] Merged → `main` + deployed
 
 ---
 

@@ -1605,6 +1605,37 @@ Refinements after the overhaul, all on `feat/admin-ux-overhaul`:
 
 ---
 
+### 13.24 — Coaching Provider Failover + Admin Re-Grade — branch `feat/coaching-resilience`
+
+Coaching no longer dies when the active provider is down, and an admin can re-run coaching on any finished, stuck, or failed session.
+
+- **Automatic failover.** `service.ts` `generateCoachingStream()` builds an ordered try-list — the **active** provider first, then every *other connected* provider in `PROVIDER_ORDER` (deduped) — and tries each in turn, falling through on either a request error or a JSON-parse failure. Only if all connected providers fail does it surface an error. The result records `gradedProvider` / `gradedModel` (added to `CoachingResult`) so the UI can show which model actually graded a session.
+- **Model-on-fallback nuance (gotcha).** The active provider is called with `getActiveModel()`; a *fallback* provider is called with `DEFAULT_MODEL[provider]` (first curated model). So if the active provider is failing and grades fall through to OpenAI, they're graded by `gpt-4o` (the default) even if the stored OpenAI model was `gpt-4.1`. This is why a batch can show mixed `gradedModel` values — pin the intended provider/model as **active** (Admin → Coaching) for a single-model dataset.
+- **Friendly errors.** `friendlyCoachingError(err, provider)` (exported, unit-tested) converts raw provider failures into concise user-facing messages — rate-limit/quota (HTTP 429 / `RESOURCE_EXHAUSTED`), auth/bad-key (401/403), or a generic retry message — and **never leaks** raw JSON or HTTP bodies to the client.
+- **Admin re-grade.** `POST /api/admin/sessions/:id/regrade` re-runs coaching against the stored transcript + events, persists the new coaching, and regenerates the Excel workbook (non-fatal on failure). Returns `{ regraded, gradedProvider, gradedModel, totalScore }`. Use it to finish a session left stuck in-progress (e.g. the original grade failed on a dead key) without the PM re-running the call.
+
+---
+
+### 13.25 — True-Zero Coaching Calibration (0–5 scale) — branches `feat/harsher-scoring` + `feat/scoring-rebalance`
+
+The per-category scale was widened from 1–5 to **0–5** so a genuinely bad call can score a true ~0 instead of flooring near 20, then rebalanced so strong calls aren't punished.
+
+- **0–5 scale.** `coaching-prompt.ts` scoring scale + `scoreBreakdown` placeholders are now `<0-5>`; `content/coaching-rubric/02-scoring-levels.md` adds a **level 0 — Harmful** (dismissed the client, refused a firm commitment when demanded, talked over / hung up / abandoned). The total formula (weighted-avg ÷ 5 × 100) is unchanged but now permits totals near 0. Score-bar UI already renders 0 as an empty bar — no client change.
+- **Automatic-fail conditions.** A "Scoring Discipline" block lists fail behaviors (no firm answer/date when pressed, dismissal, hang-up/abandonment, no real plan) that force the affected categories to **0–1** and the overall result near the floor — minor unrelated positives can't pull it back to a middling score.
+- **Anti-compression rebalance.** Score honestly in *both* directions: **3 = merely met the standard** (floor for competent work), **4 = done well**, **5 = done excellently**; a strong call should be mostly 4s–5s and total high-80s/90s. Critically, **missing an optional Sandler/Voss technique is not a deduction** — it's an "even better next time" note; only score below 3 for something done poorly or omitted to the client's detriment. (First pass over-corrected and dragged excellent calls into the 70s–80s; this restored the top of the range while keeping the fail floor.)
+
+---
+
+### 13.26 — Guarded User Delete — branch `feat/user-delete`
+
+Admins could add and deactivate users but not delete them. Added a guarded hard-delete.
+
+- **`DELETE /api/admin/users/:id`** — hard-deletes **only users with no sessions** (preserves training history); returns **409** with `sessionCount` if the user has any, instructing to deactivate instead. Also blocks **self-delete** (400) and **deleting the last admin** (400).
+- **UI:** `adminApi.deleteUser` + a red **"Delete User"** button in the edit-user modal (edit mode only) with a `confirm()` and an inline hint that users with sessions must be deactivated; 409/400 messages surface in the form's error line.
+- **Tests:** `admin-users.test.ts` covers the happy path, the 409 session-guard, and the 400 self-guard.
+
+---
+
 ## Part 12 — Billing & Payment Transfer
 
 This is the contractor-to-client handoff for billing. Keep accounts the same (preserves data, config, history) — just swap who's paying.
