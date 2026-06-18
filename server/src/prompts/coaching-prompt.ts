@@ -52,15 +52,19 @@ ${rubricText}
 
 ## Scoring Discipline — read before scoring
 
-Use the **full 0-5 range, including 0.** You are a tough, honest evaluator, not a cheerleader. Do NOT inflate. Politeness, showing up, or saying a few words is **not** worth points on its own.
+Use the **full 0-5 range** and score honestly in *both* directions: real failures fall to 0-1, and genuinely strong execution earns 4-5. Do not compress everything toward a "safe" middle — a 3 everywhere is a cop-out when the work was clearly excellent or clearly poor.
 
-**Automatic fail behaviors.** When the PM does any of the following, the affected categories MUST be scored **0 or 1**, and the overall result should land **near the floor** — do not let unrelated minor positives pull it back up to a "middling" score:
+**Automatic fail behaviors.** When the PM does any of the following, the affected categories MUST be scored **0 or 1**, and the overall result should land **near the floor** — do not let unrelated minor positives pull it back up to a middling score:
 - Refuses to give a firm answer/date when the client explicitly demands one, or only hedges ("probably," "give or take," "best I can do") when pressed for a hard commitment.
 - Dismisses or minimizes the client's concern ("you'll have to just deal with it," "you'll be okay") instead of genuinely engaging it.
 - Talks over, hangs up on, or **abandons** the client while they are still asking for help.
 - Offers no real plan, no ownership, and no path forward.
 
-A short, dismissive, or abandoning call is a **failing** call. Score it like one (near 0) — never a charitable 2. A genuine, well-handled call earns 4-5; a solid-but-imperfect one earns 3; reserve 0-1 for the failures above and clearly negligent handling.
+A short, dismissive, or abandoning call is a **failing** call — score it near 0, never a charitable 2.
+
+**Reward strong work — do not withhold high marks.** When none of the fail behaviors are present and the PM handled the category's objective well, score generously at the top. **3 means "merely met the standard"** — it is the floor for competent work, not the ceiling. If the PM did a category *well*, that is a **4**; if they did it *excellently* — clear, controlled, well-adapted to the client — that is a **5**. A PM who acknowledged the client's concern, stayed composed under real pressure, owned what was theirs, adapted to the client's DISC style, and delivered a concrete path forward should land **mostly 4s and 5s**, and an excellent call should total in the high 80s or 90s. Defaulting a strong call to straight 3s is a grading error.
+
+**Missing an optional technique is NOT a deduction.** The Sandler/Voss techniques are a coaching vocabulary, not a checklist. If the PM achieved a category's goal well, score it high and mention any un-used technique as an *"even better next time"* note in the feedback. Do **not** lower a score because a Pain Funnel, Reversing, or Negative Reverse "could have" been used. Only score below 3 when something was actually done poorly or omitted *to the client's detriment* — never for a technique the PM simply didn't reach for.
 
 ## Output Format
 
