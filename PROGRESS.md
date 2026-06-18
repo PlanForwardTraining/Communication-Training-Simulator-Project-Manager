@@ -692,6 +692,22 @@ A round of refinements done immediately after first production deploy. Each sub-
 - [x] `AdminBrandingPage.tsx` (`/admin/branding`, "Branding" nav link) — logo URL + primary/secondary color inputs + live preview + Save + Reset
 - [x] All server tests pass (62); client type-checks + builds clean
 
+### 13.21 — Admin UX Overhaul (branch `feat/admin-ux-overhaul`)
+- [x] Migrations: `sessions.deleted_at`, `users.user_type`, `scenarios.visible_to_types`, `user_types` table; seed `PM`
+- [x] Left sidebar nav (`AdminSidebar.tsx`) replaces top nav in `AdminLayout.tsx` (admin shell only; mobile drawer)
+- [x] Dashboard lists all users incl. admins; cohort stats still exclude admins; "All Users" / "Add User"
+- [x] `server/src/services/sessions-admin.ts` — listSessions(filter) / softDeleteSession / purgeEmptySessions / purgeExpiredSoftDeletes; startup retention sweep in `index.ts`
+- [x] Routes: `GET /api/admin/sessions`, `DELETE /api/admin/sessions/:id`, `POST /api/admin/sessions/purge-empty`; all existing session queries exclude soft-deleted
+- [x] Filtered export `GET /api/admin/export.xlsx?userId/from/to/scenarioId/status`; `EXCEL_PATH` path.resolve fix
+- [x] `client/src/components/DataTable.tsx` (reusable sortable dense table)
+- [x] `AdminSessionsPage.tsx` (`/admin/sessions`) — filters + delete + purge + filtered export
+- [x] Scenarios + Users lists refactored onto DataTable
+- [x] `server/src/services/user-types.ts` + `GET/POST/DELETE /api/admin/user-types` (in-use 409 guard); `user_type` on users
+- [x] Scenario `visible_to_types`; `GET /api/scenarios` filters by requester `user_type` (admin=all, untyped=all, NULL-type=untyped only)
+- [x] Frontend: user-type dropdown (UserModalForm), scenario "Visible to user types" selector (ScenarioFormModal), UserTypesPanel (Dashboard)
+- [x] All server tests pass (108, 14 suites); client type-checks + builds clean
+- [ ] Review, then merge `feat/admin-ux-overhaul` → `main` (deploys live — do with Tyler)
+
 ---
 
 ## Notes Section

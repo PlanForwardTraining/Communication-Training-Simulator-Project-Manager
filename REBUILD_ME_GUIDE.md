@@ -1565,6 +1565,21 @@ An admin can re-skin the whole app — primary color, secondary color, and a log
 
 ---
 
+### 13.21 — Admin UX Overhaul
+
+A batch of admin-experience improvements (branch `feat/admin-ux-overhaul`).
+
+- **Left sidebar nav.** `client/src/components/AdminSidebar.tsx` replaces the old top nav in `AdminLayout.tsx` (Dashboard / Sessions / Users / Scenarios / Coaching / Branding + Run Practice / Export / identity / Sign out), with a mobile drawer. Applies to the admin shell only; the PM call flow stays full-screen.
+- **All-users dashboard.** `/summary` + `/users` now list **all** users (admins included); cohort stats (team averages, flagged PMs) still compute over non-admins only. UI copy: "All Users" / "Add User".
+- **Sessions page.** New `/admin/sessions` (`AdminSessionsPage.tsx`) — a dense, sortable, filterable (user/date/scenario/status) table of all sessions, built on the reusable `client/src/components/DataTable.tsx`. Row → session detail. Per-row **delete** + **"Purge empty sessions"** (sessions with no transcript turns).
+- **Soft delete + 30-day retention.** Deleting/purging sets `sessions.deleted_at`; all lists/stats/exports exclude soft-deleted. `purgeExpiredSoftDeletes()` (in `server/src/services/sessions-admin.ts`) hard-deletes soft-deleted sessions older than 30 days (cascading to turns/events/coaching) and runs on **server startup**. Endpoints: `GET /api/admin/sessions`, `DELETE /api/admin/sessions/:id`, `POST /api/admin/sessions/purge-empty`.
+- **Filtered export.** `GET /api/admin/export.xlsx` accepts `userId/from/to/scenarioId/status`; the Sessions page's Export honors the active filters. (`EXCEL_PATH` is now `path.resolve`-d so relative `.env` values work.)
+- **DataTable everywhere.** Scenarios and Users lists reuse `DataTable` for a consistent dense look.
+- **User types + scenario gating.** New `user_types` table (admin-managed via `GET/POST/DELETE /api/admin/user-types`, in-use 409 guard) + `users.user_type` label. Access stays two-level (`role` admin vs member); type is a label only. Scenarios gain `visible_to_types` (JSON array; edited in the scenario form). `GET /api/scenarios` filters by the requester's `user_type` — admins see all; untyped scenarios show to everyone; a member sees a typed scenario only if their type is listed; NULL-type members see only untyped. Services: `server/src/services/user-types.ts`, filtering in `routes/scenarios.ts`.
+- **Migrations** (`migrate.ts` idempotent + `schema.sql`): `sessions.deleted_at`, `users.user_type`, `scenarios.visible_to_types`, `user_types` table; seed `PM`.
+
+---
+
 ## Part 12 — Billing & Payment Transfer
 
 This is the contractor-to-client handoff for billing. Keep accounts the same (preserves data, config, history) — just swap who's paying.
