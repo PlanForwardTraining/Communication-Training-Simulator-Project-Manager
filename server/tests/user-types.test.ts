@@ -9,7 +9,8 @@ import app from '../src/index';
 beforeAll(() => {
   runMigrations(db as any);
   seedTestData(db as any);
-  // Seed the 'PM' user_type (done by seed.ts in production; we do it here for tests)
+  // Seed 'Admin' and 'PM' roles (mirrors seedUserTypes() in production)
+  db.prepare("INSERT OR IGNORE INTO user_types (name) VALUES ('Admin')").run();
   db.prepare("INSERT OR IGNORE INTO user_types (name) VALUES ('PM')").run();
 });
 
@@ -107,7 +108,7 @@ describe('DELETE /api/admin/user-types/:name', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ name: 'InUseType' });
 
-    // Create a user with that type
+    // Create a user with that type (role name = 'InUseType' in the unified model)
     await request(app)
       .post('/api/admin/users')
       .set('Authorization', `Bearer ${token}`)
@@ -116,8 +117,7 @@ describe('DELETE /api/admin/user-types/:name', () => {
         email: 'typeuser@test.com',
         password: 'pass123',
         disc_profile: 'D',
-        role: 'pm',
-        user_type: 'InUseType',
+        role: 'InUseType',
       });
 
     const res = await request(app)
@@ -129,7 +129,7 @@ describe('DELETE /api/admin/user-types/:name', () => {
 });
 
 describe('user_type on users', () => {
-  it('creates user with user_type and returns it', async () => {
+  it('creates user with role name PM and stores user_type=PM', async () => {
     const token = await getToken('admin@test.com', 'admin123');
     const createRes = await request(app)
       .post('/api/admin/users')
@@ -139,8 +139,7 @@ describe('user_type on users', () => {
         email: 'typed-pm@test.com',
         password: 'pass123',
         disc_profile: 'I',
-        role: 'pm',
-        user_type: 'PM',
+        role: 'PM',
       });
     expect(createRes.status).toBe(201);
     const userId = createRes.body.id;
@@ -150,9 +149,10 @@ describe('user_type on users', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(detailRes.status).toBe(200);
     expect(detailRes.body.user_type).toBe('PM');
+    expect(detailRes.body.role).toBe('pm');
   });
 
-  it('PATCH updates user_type', async () => {
+  it('PATCH role name updates both user_type and derived role flag', async () => {
     const token = await getToken('admin@test.com', 'admin123');
     const createRes = await request(app)
       .post('/api/admin/users')
@@ -162,7 +162,7 @@ describe('user_type on users', () => {
         email: 'patch-type-pm@test.com',
         password: 'pass123',
         disc_profile: 'C',
-        role: 'pm',
+        role: 'PM',
       });
     expect(createRes.status).toBe(201);
     const userId = createRes.body.id;
@@ -170,12 +170,13 @@ describe('user_type on users', () => {
     await request(app)
       .patch(`/api/admin/users/${userId}`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ user_type: 'PM' });
+      .send({ role: 'PM' });
 
     const detailRes = await request(app)
       .get(`/api/admin/users/${userId}`)
       .set('Authorization', `Bearer ${token}`);
     expect(detailRes.body.user_type).toBe('PM');
+    expect(detailRes.body.role).toBe('pm');
   });
 
   it('user_type is returned in GET /api/admin/users list', async () => {

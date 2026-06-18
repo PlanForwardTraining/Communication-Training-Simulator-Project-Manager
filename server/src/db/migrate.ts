@@ -33,4 +33,17 @@ ensureColumn('scenarios', 'visible_to_types', 'TEXT');
 ensureColumn('coaching', 'coaching_provider', 'TEXT');
 ensureColumn('coaching', 'coaching_model', 'TEXT');
 
+// Backfill users.user_type from the derived role flag.
+// Idempotent: re-running is safe (existing non-null values for non-admin users are preserved).
+//   - role='admin'          → user_type='Admin'
+//   - role='pm', null/''    → user_type='PM'
+//   - role='pm', has value  → keep existing value (already typed by the admin UI)
+db.exec(`
+  UPDATE users SET user_type = CASE
+    WHEN lower(role) = 'admin' THEN 'Admin'
+    WHEN user_type IS NULL OR user_type = '' THEN 'PM'
+    ELSE user_type
+  END
+`);
+
 console.log('Migration complete.');
