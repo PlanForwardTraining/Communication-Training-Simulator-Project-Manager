@@ -5,9 +5,16 @@ import { AdminSidebar } from '../../components/AdminSidebar';
 interface Props {
   children: React.ReactNode;
   back?: { label: string; to: string };
+  /**
+   * When true, children are rendered directly inside the right-column flex
+   * container without the standard `<main py-8 px-4><div container-lg>`
+   * wrapper.  Used by PracticeLayout so PM pages can provide their own
+   * semantic <main> and container sizing without double-wrapping.
+   */
+  rawContent?: boolean;
 }
 
-export function AdminLayout({ children, back }: Props) {
+export function AdminLayout({ children, back, rawContent = false }: Props) {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -63,9 +70,16 @@ export function AdminLayout({ children, back }: Props) {
           </div>
         )}
 
-        <main className="flex-1 py-8 px-4 sm:px-6">
-          <div className="container-lg">{children}</div>
-        </main>
+        {rawContent ? (
+          // PM practice pages provide their own <main> + container sizing.
+          // Render children directly so there's no double padding or
+          // nested <main> element.
+          <>{children}</>
+        ) : (
+          <main className="flex-1 py-8 px-4 sm:px-6">
+            <div className="container-lg">{children}</div>
+          </main>
+        )}
       </div>
     </div>
   );

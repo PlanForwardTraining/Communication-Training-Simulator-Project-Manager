@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { sessionsApi, type SessionSummary } from '../api/sessions';
+import { PracticeLayout } from '../components/PracticeLayout';
 
 function ScoreBadge({ score }: { score: number | null }) {
   if (score === null) return <span className="text-slate-muted font-body text-sm">—</span>;
@@ -28,22 +29,17 @@ export function HistoryPage() {
   }, []);
 
   return (
-    <div className="page">
-      <header className="border-b border-navy-600 px-4 py-4">
-        <div className="container-md flex items-center justify-between mx-auto">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/')} className="btn-ghost text-sm flex items-center gap-1">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back
-            </button>
-            <span className="font-wordmark text-sm font-bold tracking-widest text-gold-500 uppercase">Session History</span>
-          </div>
-        </div>
-      </header>
-
+    <PracticeLayout>
       <main className="flex-1 py-8 px-4">
+        {/* Back nav */}
+        <div className="container-md mx-auto mb-4">
+          <button onClick={() => navigate('/')} className="btn-ghost text-sm flex items-center gap-1">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
+          </button>
+        </div>
         <div className="container-md mx-auto">
           {loading ? (
             <div className="space-y-3">
@@ -90,6 +86,6 @@ export function HistoryPage() {
           )}
         </div>
       </main>
-    </div>
+    </PracticeLayout>
   );
 }

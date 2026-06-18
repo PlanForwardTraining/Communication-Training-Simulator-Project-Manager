@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { discApi, type DiscProfile } from '../api/disc';
 import { scenariosApi, type ScenarioBriefing } from '../api/scenarios';
 import { MarkdownLite } from '../utils/MarkdownLite';
+import { PracticeLayout } from '../components/PracticeLayout';
 
 // Brief personality hints for each profile code
 const DISC_HINTS: Record<string, string> = {
@@ -53,10 +54,10 @@ export function DiscSelectPage() {
   };
 
   return (
-    <div className="page">
-      {/* Top bar */}
-      <header className="border-b border-navy-600 px-4 py-4">
-        <div className="container-md flex items-center gap-3 mx-auto">
+    <PracticeLayout>
+      <main className="flex-1 py-8 px-4">
+        {/* Back nav */}
+        <div className="container-md mx-auto mb-2">
           <button
             onClick={() => navigate('/')}
             className="btn-ghost text-sm flex items-center gap-1"
@@ -66,11 +67,7 @@ export function DiscSelectPage() {
             </svg>
             Back
           </button>
-          <span className="font-wordmark text-sm font-bold tracking-widest text-gold-500 uppercase">Plan Forward</span>
         </div>
-      </header>
-
-      <main className="flex-1 py-8 px-4">
         <div className="container-md mx-auto">
           {/* Scenario briefing — the PM's "case file" before the call */}
           {briefing && (
@@ -132,6 +129,6 @@ export function DiscSelectPage() {
           )}
         </div>
       </main>
-    </div>
+    </PracticeLayout>
   );
 }

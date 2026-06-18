@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { scenariosApi, type Scenario } from '../api/scenarios';
-import { useAuth } from '../context/AuthContext';
-import { BrandLogo } from '../components/BrandLogo';
 import { DataTable, type Column } from '../components/DataTable';
+import { PracticeLayout } from '../components/PracticeLayout';
 
 // Strip markdown emphasis markers so descriptions read cleanly in the table cell.
 const stripMd = (s: string) =>
@@ -55,7 +54,6 @@ const scenarioColumns: Column<Scenario>[] = [
 ];
 
 export function ScenarioSelectPage() {
-  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,37 +67,7 @@ export function ScenarioSelectPage() {
   }, []);
 
   return (
-    <div className="page">
-      {/* Top bar */}
-      <header className="border-b border-navy-600 px-4 sm:px-6 py-4">
-        <div className="container-lg flex items-center justify-between">
-          <div>
-            <BrandLogo>
-              <span className="font-wordmark text-sm font-bold tracking-widest text-gold-500 uppercase">
-                Plan Forward
-              </span>
-            </BrandLogo>
-            <p className="font-body text-xs text-slate-muted mt-0.5">Welcome, {user?.name}</p>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-4">
-            {user?.role === 'admin' && (
-              <button
-                onClick={() => navigate('/admin')}
-                className="btn-ghost text-sm text-gold-500"
-              >
-                Admin
-              </button>
-            )}
-            <button onClick={() => navigate('/history')} className="btn-ghost text-sm">
-              History
-            </button>
-            <button onClick={logout} className="btn-ghost text-sm text-slate-muted">
-              Sign out
-            </button>
-          </div>
-        </div>
-      </header>
-
+    <PracticeLayout>
       <main className="flex-1 py-8 sm:py-10">
         <div className="container-lg">
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-slate-text mb-2">
@@ -139,6 +107,6 @@ export function ScenarioSelectPage() {
           )}
         </div>
       </main>
-    </div>
+    </PracticeLayout>
   );
 }
