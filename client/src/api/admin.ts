@@ -137,6 +137,19 @@ export interface Branding {
   logoUrl: string;
 }
 
+export interface AdminSessionRow {
+  id: number;
+  started_at: string;
+  ended_at: string | null;
+  total_score: number | null;
+  voice_name: string | null;
+  user_name: string;
+  user_email: string;
+  scenario_title: string | null;
+  client_disc_code: string | null;
+  status: 'completed' | 'in_progress' | 'empty';
+}
+
 export const adminApi = {
   summary: () => api.get<AdminSummary>('/api/admin/summary'),
   users: () => api.get<AdminUserStats[]>('/api/admin/users'),
@@ -156,4 +169,8 @@ export const adminApi = {
   branding: () => api.get<Branding>('/api/branding'),
   setBranding: (b: Branding) => api.patch<Branding>('/api/branding', b),
   resetBranding: () => api.delete<Branding>('/api/branding'),
+  sessions: (q: Record<string, string> = {}) =>
+    api.get<AdminSessionRow[]>(`/api/admin/sessions?${new URLSearchParams(q)}`),
+  deleteSession: (id: number) => api.delete<{ deleted: boolean }>(`/api/admin/sessions/${id}`),
+  purgeEmpty: () => api.post<{ purged: number }>(`/api/admin/sessions/purge-empty`, {}),
 };
