@@ -1593,6 +1593,18 @@ Refinements after the overhaul, all on `feat/admin-ux-overhaul`:
 
 ---
 
+### 13.23 — Unified Role (Role + User Type merged) — branch `feat/unify-roles`
+
+"Role" and "User type" were collapsed into a **single admin-managed Role** per user.
+
+- **One Roles registry** (the `user_types` table, relabeled "Roles" in the UI) seeded with **Admin** + **PM**. **Admin is reserved** — `DELETE /api/admin/user-types/Admin` returns 400; the UI hides its remove control. Other roles add/remove as before (with the in-use 409 guard).
+- **One role per user, one dropdown.** `UserModalForm` has a single "Role" select (from the registry, incl. Admin). The Users table shows one **Role** column; the scenario editor's "Visible to roles" lists roles **excluding Admin** (admins always see all).
+- **Safe storage (no table rebuild).** The user-facing Role = the role **name**, stored in `users.user_type`. `users.role` is kept as a **derived access flag** — `'admin'` iff the role name is `Admin`, else `'pm'` — maintained server-side on every create/edit. This keeps the existing `CHECK(role IN ('pm','admin'))` valid and leaves `requireAdmin`/JWT/cohort-stat filtering (`role !== 'admin'`) untouched. `POST`/`PATCH /api/admin/users` accept `role` = the name and derive both columns (validating the name against the registry).
+- **Migration:** idempotent backfill in `migrate.ts` — admins → `user_type='Admin'`, untyped members → `PM`, typed members keep their value; `users.role` untouched.
+- The legacy create/edit handlers on `/api/users` were removed (superseded by the admin routes) to avoid a second unvalidated write path.
+
+---
+
 ## Part 12 — Billing & Payment Transfer
 
 This is the contractor-to-client handoff for billing. Keep accounts the same (preserves data, config, history) — just swap who's paying.
