@@ -3,6 +3,7 @@ import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from 'tiptap-markdown';
 import { scenariosApi, type ScenarioFull } from '../../api/scenarios';
+import { adminApi, type UserType } from '../../api/admin';
 
 const BRIEF_END_MARKER = '<!-- BRIEF END -->';
 
@@ -125,6 +126,12 @@ function Toolbar({ editor }: { editor: Editor | null }) {
   );
 }
 
+function parseVisibleToTypes(raw: string[] | string | null | undefined): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  try { return JSON.parse(raw) as string[]; } catch { return []; }
+}
+
 export function ScenarioFormModal({ mode, scenario, onClose, onSaved }: Props) {
   const isCreate = mode === 'create';
   // Slug is hidden from the UI — non-technical owners shouldn't need to think
@@ -134,8 +141,16 @@ export function ScenarioFormModal({ mode, scenario, onClose, onSaved }: Props) {
   const [title, setTitle] = useState(scenario?.title ?? '');
   const [description, setDescription] = useState(scenario?.description ?? '');
   const [active, setActive] = useState(scenario ? scenario.active === 1 : true);
+  const [visibleToTypes, setVisibleToTypes] = useState<string[]>(
+    parseVisibleToTypes(scenario?.visible_to_types)
+  );
+  const [userTypes, setUserTypes] = useState<UserType[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    adminApi.userTypes().then(setUserTypes).catch(() => {/* non-blocking */});
+  }, []);
 
   const editor = useEditor({
     extensions: [StarterKit, Markdown.configure({ html: false, breaks: true })],
@@ -190,13 +205,14 @@ export function ScenarioFormModal({ mode, scenario, onClose, onSaved }: Props) {
     setSubmitting(true);
     try {
       if (isCreate) {
-        await scenariosApi.create({ slug, title, description, body_markdown: body });
+        await scenariosApi.create({ slug, title, description, body_markdown: body, visible_to_types: visibleToTypes });
       } else if (scenario) {
         await scenariosApi.update(scenario.id, {
           title,
           description,
           body_markdown: body,
           active,
+          visible_to_types: visibleToTypes,
         });
       }
       onSaved();
@@ -280,6 +296,38 @@ export function ScenarioFormModal({ mode, scenario, onClose, onSaved }: Props) {
             </span>
           </label>
         )}
+
+        <div>
+          <span className="font-body text-xs text-slate-muted block mb-1">Visible to user types</span>
+          <p className="font-body text-xs text-slate-muted mb-2 leading-relaxed">
+            Leave all unchecked to show this scenario to every user.
+          </p>
+          {userTypes.length === 0 ? (
+            <p className="font-body text-xs text-slate-muted italic">
+              No user types defined yet. Create them on the Dashboard to restrict visibility.
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {userTypes.map(t => (
+                <label key={t.id} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={visibleToTypes.includes(t.name)}
+                    onChange={e => {
+                      setVisibleToTypes(prev =>
+                        e.target.checked
+                          ? [...prev, t.name]
+                          : prev.filter(n => n !== t.name)
+                      );
+                    }}
+                    className="rounded border-navy-600 bg-navy-800 text-gold-500 focus:ring-gold-500"
+                  />
+                  <span className="font-body text-sm text-slate-text">{t.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
 
         {error && <p className="font-body text-sm text-red-400">{error}</p>}
 

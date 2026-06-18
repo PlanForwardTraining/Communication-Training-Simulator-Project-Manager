@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { adminApi, type AdminUserStats } from '../../api/admin';
+import { useEffect, useState } from 'react';
+import { adminApi, type AdminUserStats, type UserType } from '../../api/admin';
 
 const DISC_OPTIONS = ['D', 'I', 'S', 'C', 'D/I', 'D/C', 'I/S', 'S/C'];
 
@@ -17,8 +17,14 @@ export function UserModalForm({ mode, user, onClose, onSaved }: Props) {
   const [discProfile, setDiscProfile] = useState(user?.disc_profile ?? 'D');
   const [role, setRole] = useState<'pm' | 'admin'>(user?.role === 'admin' ? 'admin' : 'pm');
   const [active, setActive] = useState(user ? user.active === 1 : true);
+  const [userType, setUserType] = useState<string>((user as AdminUserStats & { user_type?: string | null })?.user_type ?? '');
+  const [userTypes, setUserTypes] = useState<UserType[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    adminApi.userTypes().then(setUserTypes).catch(() => {/* non-blocking */});
+  }, []);
 
   const isCreate = mode === 'create';
 
@@ -33,13 +39,21 @@ export function UserModalForm({ mode, user, onClose, onSaved }: Props) {
           setSubmitting(false);
           return;
         }
-        await adminApi.createUser({ name, email, password, disc_profile: discProfile, role });
+        await adminApi.createUser({
+          name,
+          email,
+          password,
+          disc_profile: discProfile,
+          role,
+          user_type: userType || null,
+        });
       } else if (user) {
         await adminApi.updateUser(user.id, {
           name,
           disc_profile: discProfile,
           role,
           active,
+          user_type: userType || null,
           ...(password ? { password } : {}),
         });
       }
@@ -123,6 +137,22 @@ export function UserModalForm({ mode, user, onClose, onSaved }: Props) {
             >
               <option value="pm">PM</option>
               <option value="admin">Admin</option>
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="font-body text-xs text-slate-muted block mb-1">
+              User type <span className="opacity-60">(optional — controls scenario visibility)</span>
+            </span>
+            <select
+              value={userType}
+              onChange={e => setUserType(e.target.value)}
+              className="w-full bg-navy-800 border border-navy-600 rounded-lg px-3 py-2 text-sm text-slate-text font-body focus:outline-none focus:border-gold-500"
+            >
+              <option value="">— None —</option>
+              {userTypes.map(t => (
+                <option key={t.id} value={t.name}>{t.name}</option>
+              ))}
             </select>
           </label>
 

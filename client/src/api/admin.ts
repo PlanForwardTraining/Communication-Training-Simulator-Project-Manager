@@ -100,12 +100,18 @@ export interface AdminSessionDetail {
   } | null;
 }
 
+export interface UserType {
+  id: number;
+  name: string;
+}
+
 export interface CreateUserPayload {
   name: string;
   email: string;
   password: string;
   disc_profile: string;
   role: 'pm' | 'admin';
+  user_type?: string | null;
 }
 
 export interface UpdateUserPayload {
@@ -114,6 +120,7 @@ export interface UpdateUserPayload {
   role?: 'pm' | 'admin';
   password?: string;
   active?: boolean;
+  user_type?: string | null;
 }
 
 export interface CoachingProviderRow {
@@ -173,4 +180,7 @@ export const adminApi = {
     api.get<AdminSessionRow[]>(`/api/admin/sessions?${new URLSearchParams(q)}`),
   deleteSession: (id: number) => api.delete<{ deleted: boolean }>(`/api/admin/sessions/${id}`),
   purgeEmpty: () => api.post<{ purged: number }>(`/api/admin/sessions/purge-empty`, {}),
+  userTypes: () => api.get<UserType[]>('/api/admin/user-types'),
+  addUserType: (name: string) => api.post<UserType[]>('/api/admin/user-types', { name }),
+  removeUserType: (name: string) => api.delete<UserType[]>(`/api/admin/user-types/${encodeURIComponent(name)}`),
 };
