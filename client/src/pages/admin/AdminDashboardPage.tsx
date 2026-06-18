@@ -209,7 +209,7 @@ export function AdminDashboardPage() {
           <p className="font-body text-sm text-slate-muted mt-1">Cohort health and per-PM focus areas</p>
         </div>
         <button onClick={() => setShowModal(true)} className="btn-primary text-sm">
-          + Add PM
+          + Add User
         </button>
       </div>
 
@@ -296,9 +296,9 @@ export function AdminDashboardPage() {
             </section>
           </div>
 
-          {/* All PMs table */}
+          {/* All Users table */}
           <section>
-            <h2 className="font-display font-semibold text-slate-text mb-4">All PMs</h2>
+            <h2 className="font-display font-semibold text-slate-text mb-4">All Users</h2>
             <div className="card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -322,7 +322,7 @@ export function AdminDashboardPage() {
               </div>
               {allUsers.filter(u => u.role === 'pm').length === 0 && (
                 <div className="py-12 text-center font-body text-sm text-slate-muted">
-                  No PMs yet. Click "+ Add PM" to onboard your first.
+                  No users yet. Click "+ Add User" to onboard your first.
                 </div>
               )}
             </div>
