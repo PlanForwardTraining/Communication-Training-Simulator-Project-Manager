@@ -3,6 +3,7 @@ import { scenariosApi, type AdminScenarioRow, type ScenarioFull } from '../../ap
 import { AdminLayout } from './AdminLayout';
 import { ScenarioFormModal } from './ScenarioFormModal';
 import { HardDeleteScenarioModal } from './HardDeleteScenarioModal';
+import { DataTable, type Column } from '../../components/DataTable';
 
 function StatusPill({ active }: { active: number }) {
   if (active === 1) {
@@ -17,6 +18,72 @@ function StatusPill({ active }: { active: number }) {
       Inactive
     </span>
   );
+}
+
+function scenarioColumns(
+  onEdit: (row: AdminScenarioRow) => void,
+  onToggleActive: (row: AdminScenarioRow) => void,
+  onDelete: (row: AdminScenarioRow) => void,
+): Column<AdminScenarioRow>[] {
+  return [
+    {
+      key: 'title',
+      header: 'Title',
+      sortable: true,
+      sortValue: (row) => row.title.replace(/^Scenario \d+:\s*/i, ''),
+      render: (row) => (
+        <div>
+          <div className="font-display font-semibold text-sm text-slate-text">
+            {row.title.replace(/^Scenario \d+:\s*/i, '')}
+          </div>
+          <div className="font-body text-xs text-slate-muted truncate max-w-md">{row.description}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'active',
+      header: 'Status',
+      className: 'text-center',
+      render: (row) => <StatusPill active={row.active} />,
+    },
+    {
+      key: 'session_count',
+      header: 'Sessions',
+      sortable: true,
+      className: 'text-center',
+      render: (row) => (
+        <span className="font-display text-sm font-semibold text-slate-text">{row.session_count}</span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      className: 'text-right',
+      render: (row) => (
+        <div className="inline-flex items-center gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(row); }}
+            className="px-2 py-1 rounded-md text-xs font-body font-semibold text-slate-text hover:bg-navy-700"
+          >
+            Edit
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleActive(row); }}
+            className="px-2 py-1 rounded-md text-xs font-body font-semibold text-slate-muted hover:bg-navy-700 hover:text-slate-text"
+          >
+            {row.active === 1 ? 'Deactivate' : 'Reactivate'}
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(row); }}
+            className="px-2 py-1 rounded-md text-xs font-body font-semibold text-red-400 hover:bg-red-500/10"
+            title="Hard delete (requires confirmation)"
+          >
+            Delete
+          </button>
+        </div>
+      ),
+    },
+  ];
 }
 
 export function AdminScenariosPage() {
@@ -87,72 +154,11 @@ export function AdminScenariosPage() {
       )}
 
       {!loading && !error && (
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-navy-700 text-left">
-                  <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 pl-4 pr-2">Title</th>
-                  <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 px-2">Slug</th>
-                  <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 px-2 text-center">Status</th>
-                  <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 px-2 text-center">Sessions</th>
-                  <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 px-2">Updated</th>
-                  <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 pl-2 pr-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(row => (
-                  <tr key={row.id} className="border-b border-navy-700 hover:bg-navy-800/60 transition-colors">
-                    <td className="py-3 pl-4 pr-2">
-                      <div className="font-display font-semibold text-sm text-slate-text">
-                        {row.title.replace(/^Scenario \d+:\s*/i, '')}
-                      </div>
-                      <div className="font-body text-xs text-slate-muted truncate max-w-md">{row.description}</div>
-                    </td>
-                    <td className="py-3 px-2 font-mono text-xs text-slate-muted">{row.slug}</td>
-                    <td className="py-3 px-2 text-center">
-                      <StatusPill active={row.active} />
-                    </td>
-                    <td className="py-3 px-2 text-center font-display text-sm font-semibold text-slate-text">
-                      {row.session_count}
-                    </td>
-                    <td className="py-3 px-2 font-body text-xs text-slate-muted">
-                      {row.updated_at ? new Date(row.updated_at).toLocaleDateString() : '—'}
-                    </td>
-                    <td className="py-3 pl-2 pr-4 text-right">
-                      <div className="inline-flex items-center gap-1">
-                        <button
-                          onClick={() => handleEdit(row)}
-                          className="px-2 py-1 rounded-md text-xs font-body font-semibold text-slate-text hover:bg-navy-700"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleToggleActive(row)}
-                          className="px-2 py-1 rounded-md text-xs font-body font-semibold text-slate-muted hover:bg-navy-700 hover:text-slate-text"
-                        >
-                          {row.active === 1 ? 'Deactivate' : 'Reactivate'}
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(row)}
-                          className="px-2 py-1 rounded-md text-xs font-body font-semibold text-red-400 hover:bg-red-500/10"
-                          title="Hard delete (requires confirmation)"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {rows.length === 0 && (
-            <div className="py-12 text-center font-body text-sm text-slate-muted">
-              No scenarios yet. Click "+ New Scenario" to add one.
-            </div>
-          )}
-        </div>
+        <DataTable<AdminScenarioRow>
+          columns={scenarioColumns(handleEdit, handleToggleActive, setDeleteTarget)}
+          rows={rows}
+          empty='No scenarios yet. Click "+ New Scenario" to add one.'
+        />
       )}
 
       {showCreate && (

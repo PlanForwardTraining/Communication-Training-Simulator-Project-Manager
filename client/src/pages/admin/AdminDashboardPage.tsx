@@ -4,6 +4,10 @@ import { adminApi, type AdminSummary, type AdminUserStats, type FlaggedPM, type 
 import { AdminLayout } from './AdminLayout';
 import { UserModalForm } from './UserModalForm';
 import { DiscBadge } from '../../components/DiscBadge';
+import { DataTable, type Column } from '../../components/DataTable';
+
+// AdminUserStats as returned by the API includes user_type (optional field not yet in the shared type)
+type AdminUserStatsWithType = AdminUserStats & { user_type?: string | null };
 
 function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
   if (trend === 'up') {
@@ -103,77 +107,111 @@ function FlaggedCard({ pm, onClick }: { pm: FlaggedPM; onClick: () => void }) {
   );
 }
 
-function PmRow({
-  pm,
-  onClick,
-}: {
-  pm: AdminUserStats;
-  onClick: () => void;
-}) {
-  const lastSession = pm.lastSessionAt
-    ? pm.daysSinceLastSession === 0 ? 'Today'
-    : pm.daysSinceLastSession === 1 ? 'Yesterday'
-    : `${pm.daysSinceLastSession}d ago`
-    : 'Never';
+function formatLastActive(pm: AdminUserStats): string {
+  if (!pm.lastSessionAt) return 'Never';
+  if (pm.daysSinceLastSession === 0) return 'Today';
+  if (pm.daysSinceLastSession === 1) return 'Yesterday';
+  return `${pm.daysSinceLastSession}d ago`;
+}
 
-  return (
-    <tr
-      onClick={onClick}
-      className="border-b border-navy-700 hover:bg-navy-800 cursor-pointer transition-colors"
-    >
-      <td className="py-3 pl-4 pr-2">
-        <div className="flex items-center gap-2.5">
-          <DiscBadge code={pm.disc_profile} />
-          <div className="flex flex-col">
-            <span className="font-display font-semibold text-sm text-slate-text">{pm.name}</span>
-            <span className="font-body text-xs text-slate-muted">{pm.email}</span>
-          </div>
-        </div>
-      </td>
-      <td className="py-3 px-2 text-center">
-        <span className="font-display font-semibold text-sm text-slate-text">{pm.totalSessions}</span>
-      </td>
-      <td className="py-3 px-2 text-center font-body text-xs text-slate-muted">
-        {lastSession}
-      </td>
-      <td className="py-3 px-2 text-center">
-        <ScorePill score={pm.averageScore} />
-      </td>
-      <td className="py-3 px-2 text-center">
-        <TrendIcon trend={pm.trend} />
-      </td>
-      <td className="py-3 px-2">
-        {pm.focusAreas.length === 0 ? (
-          <span className="font-body text-xs text-slate-muted">—</span>
-        ) : (
-          <div className="flex flex-wrap gap-1">
-            {pm.focusAreas.slice(0, 2).map(f => (
-              <span
-                key={f.key}
-                className="inline-flex items-center px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 font-body text-[10px] font-semibold whitespace-nowrap"
-                title={`Average ${f.average} across ${f.sessionsScored} sessions`}
-              >
-                {f.label}
-              </span>
-            ))}
-            {pm.focusAreas.length > 2 && (
-              <span className="font-body text-[10px] text-slate-muted">
-                +{pm.focusAreas.length - 2}
-              </span>
-            )}
-          </div>
-        )}
-      </td>
-      <td className="py-3 pl-2 pr-4 text-right">
+const pmTableColumns: Column<AdminUserStatsWithType>[] = [
+  {
+    key: 'name',
+    header: 'Name',
+    sortable: true,
+    render: (pm) => (
+      <div className="flex items-center gap-2.5">
+        <DiscBadge code={pm.disc_profile} />
+        <span className="font-display font-semibold text-sm text-slate-text">{pm.name}</span>
         {pm.active === 0 && (
-          <span className="font-body text-[10px] uppercase tracking-widest text-slate-muted">
+          <span className="font-body text-[10px] uppercase tracking-widest text-slate-muted border border-navy-600 rounded px-1">
             Inactive
           </span>
         )}
-      </td>
-    </tr>
-  );
-}
+      </div>
+    ),
+  },
+  {
+    key: 'email',
+    header: 'Email',
+    sortable: true,
+    render: (pm) => (
+      <span className="font-body text-xs text-slate-muted">{pm.email}</span>
+    ),
+  },
+  {
+    key: 'user_type',
+    header: 'Type',
+    render: (pm) => (
+      <span className="font-body text-xs text-slate-text">{pm.user_type ?? '—'}</span>
+    ),
+  },
+  {
+    key: 'role',
+    header: 'Role',
+    render: (pm) => (
+      <span className="font-body text-xs text-slate-muted capitalize">{pm.role}</span>
+    ),
+  },
+  {
+    key: 'totalSessions',
+    header: 'Sessions',
+    sortable: true,
+    className: 'text-center',
+    render: (pm) => (
+      <span className="font-display font-semibold text-sm text-slate-text">{pm.totalSessions}</span>
+    ),
+  },
+  {
+    key: 'averageScore',
+    header: 'Avg Score',
+    sortable: true,
+    sortValue: (pm) => pm.averageScore ?? -1,
+    className: 'text-center',
+    render: (pm) => <ScorePill score={pm.averageScore} />,
+  },
+  {
+    key: 'daysSinceLastSession',
+    header: 'Last Active',
+    sortable: true,
+    sortValue: (pm) => pm.daysSinceLastSession ?? 99999,
+    className: 'text-center',
+    render: (pm) => (
+      <span className="font-body text-xs text-slate-muted">{formatLastActive(pm)}</span>
+    ),
+  },
+  {
+    key: 'focusAreas',
+    header: 'Focus Areas',
+    render: (pm) =>
+      pm.focusAreas.length === 0 ? (
+        <span className="font-body text-xs text-slate-muted">—</span>
+      ) : (
+        <div className="flex flex-wrap gap-1">
+          {pm.focusAreas.slice(0, 2).map(f => (
+            <span
+              key={f.key}
+              className="inline-flex items-center px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 font-body text-[10px] font-semibold whitespace-nowrap"
+              title={`Average ${f.average} across ${f.sessionsScored} sessions`}
+            >
+              {f.label}
+            </span>
+          ))}
+          {pm.focusAreas.length > 2 && (
+            <span className="font-body text-[10px] text-slate-muted">
+              +{pm.focusAreas.length - 2}
+            </span>
+          )}
+        </div>
+      ),
+  },
+  {
+    key: 'trend',
+    header: 'Trend',
+    className: 'text-center',
+    render: (pm) => <TrendIcon trend={pm.trend} />,
+  },
+];
 
 function UserTypesPanel() {
   const [types, setTypes] = useState<UserType[]>([]);
@@ -398,33 +436,12 @@ export function AdminDashboardPage() {
           {/* All Users table */}
           <section>
             <h2 className="font-display font-semibold text-slate-text mb-4">All Users</h2>
-            <div className="card overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-navy-700 text-left">
-                      <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 pl-4 pr-2">PM</th>
-                      <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 px-2 text-center">Sessions</th>
-                      <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 px-2 text-center">Last</th>
-                      <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 px-2 text-center">Avg</th>
-                      <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 px-2 text-center">Trend</th>
-                      <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 px-2">Focus Areas</th>
-                      <th className="py-3 pl-2 pr-4"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allUsers.filter(u => u.role === 'pm').map(pm => (
-                      <PmRow key={pm.id} pm={pm} onClick={() => navigate(`/admin/users/${pm.id}`)} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {allUsers.filter(u => u.role === 'pm').length === 0 && (
-                <div className="py-12 text-center font-body text-sm text-slate-muted">
-                  No users yet. Click "+ Add User" to onboard your first.
-                </div>
-              )}
-            </div>
+            <DataTable<AdminUserStatsWithType>
+              columns={pmTableColumns}
+              rows={allUsers as AdminUserStatsWithType[]}
+              onRowClick={(pm) => navigate(`/admin/users/${pm.id}`)}
+              empty='No users yet. Click "+ Add User" to onboard your first.'
+            />
           </section>
         </div>
       )}
