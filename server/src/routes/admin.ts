@@ -677,6 +677,44 @@ router.patch('/users/:id', (req: Request, res: Response): void => {
   res.json({ updated: true });
 });
 
+// DELETE /api/admin/users/:id — guarded hard delete.
+// Only users with NO sessions on record can be hard-deleted (preserves training
+// history). Users with sessions must be deactivated via PATCH instead. Self-delete
+// and deleting the last admin are both blocked.
+router.delete('/users/:id', (req: Request, res: Response): void => {
+  const id = Number(req.params.id);
+  const user = db.prepare('SELECT id, role FROM users WHERE id = ?').get(id) as
+    | { id: number; role: string }
+    | undefined;
+  if (!user) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+  if (req.user!.userId === id) {
+    res.status(400).json({ error: 'You cannot delete your own account.' });
+    return;
+  }
+  if (user.role === 'admin') {
+    const adminCount = (db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get() as { n: number }).n;
+    if (adminCount <= 1) {
+      res.status(400).json({ error: 'Cannot delete the last admin account.' });
+      return;
+    }
+  }
+  // Guard: refuse if the user is referenced by any session (incl. soft-deleted),
+  // both to preserve history and to avoid a foreign-key violation.
+  const sessionCount = (db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id = ?').get(id) as { n: number }).n;
+  if (sessionCount > 0) {
+    res.status(409).json({
+      error: `This user has ${sessionCount} training session${sessionCount === 1 ? '' : 's'} on record. Deactivate them instead to preserve their history.`,
+      sessionCount,
+    });
+    return;
+  }
+  db.prepare('DELETE FROM users WHERE id = ?').run(id);
+  res.json({ deleted: true });
+});
+
 // ---------------------------------------------------------------------------
 // GET /api/admin/export.xlsx — Excel download (supports same filter params as GET /sessions)
 // ---------------------------------------------------------------------------

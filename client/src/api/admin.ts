@@ -167,6 +167,7 @@ export const adminApi = {
   createUser: (body: CreateUserPayload) => api.post<{ id: number }>('/api/admin/users', body),
   updateUser: (id: number, body: UpdateUserPayload) =>
     api.patch<{ updated: boolean }>(`/api/admin/users/${id}`, body),
+  deleteUser: (id: number) => api.delete<{ deleted: boolean }>(`/api/admin/users/${id}`),
   exportUrl: () => `/api/admin/export.xlsx`,
   coachingSettings: () => api.get<CoachingSettings>('/api/admin/coaching-settings'),
   setCoachingSelection: (provider: string, model: string) =>
