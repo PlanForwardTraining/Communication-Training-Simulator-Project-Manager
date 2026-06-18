@@ -7,8 +7,8 @@ import { DiscBadge } from '../../components/DiscBadge';
 import { DataTable, type Column } from '../../components/DataTable';
 import { UserTypesPanel } from '../../components/admin/UserTypesPanel';
 
-// AdminUserStats as returned by the API includes user_type (optional field not yet in the shared type)
-type AdminUserStatsWithType = AdminUserStats & { user_type?: string | null };
+// AdminUserStats now includes user_type in the shared type; alias kept for clarity
+type AdminUserStatsWithType = AdminUserStats;
 
 function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
   if (trend === 'up') {
@@ -75,16 +75,11 @@ const pmTableColumns: Column<AdminUserStatsWithType>[] = [
   },
   {
     key: 'user_type',
-    header: 'Type',
-    render: (pm) => (
-      <span className="font-body text-xs text-slate-text">{pm.user_type ?? '—'}</span>
-    ),
-  },
-  {
-    key: 'role',
     header: 'Role',
     render: (pm) => (
-      <span className="font-body text-xs text-slate-muted capitalize">{pm.role}</span>
+      <span className="font-body text-xs text-slate-text">
+        {pm.user_type || (pm.role === 'admin' ? 'Admin' : '—')}
+      </span>
     ),
   },
   {
@@ -176,7 +171,7 @@ export function AdminUsersPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="font-display text-3xl font-bold text-slate-text">Users</h1>
-          <p className="font-body text-sm text-slate-muted mt-1">Manage PMs and user types</p>
+          <p className="font-body text-sm text-slate-muted mt-1">Manage users and roles</p>
         </div>
         <button onClick={() => setShowModal(true)} className="btn-primary text-sm">
           + Add User

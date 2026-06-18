@@ -298,17 +298,17 @@ export function ScenarioFormModal({ mode, scenario, onClose, onSaved }: Props) {
         )}
 
         <div>
-          <span className="font-body text-xs text-slate-muted block mb-1">Visible to user types</span>
+          <span className="font-body text-xs text-slate-muted block mb-1">Visible to roles</span>
           <p className="font-body text-xs text-slate-muted mb-2 leading-relaxed">
-            Leave all unchecked to show this scenario to every user.
+            Leave all unchecked to show this scenario to every user. Admins always see all scenarios.
           </p>
-          {userTypes.length === 0 ? (
+          {userTypes.filter(t => t.name !== 'Admin').length === 0 ? (
             <p className="font-body text-xs text-slate-muted italic">
-              No user types defined yet. Create them on the Dashboard to restrict visibility.
+              No member roles defined yet. Add roles on the Users page to restrict visibility.
             </p>
           ) : (
             <div className="space-y-1.5">
-              {userTypes.map(t => (
+              {userTypes.filter(t => t.name !== 'Admin').map(t => (
                 <label key={t.id} className="flex items-center gap-2">
                   <input
                     type="checkbox"

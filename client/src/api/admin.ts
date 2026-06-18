@@ -19,7 +19,8 @@ export interface AdminUserStats {
   name: string;
   email: string;
   disc_profile: string;
-  role: string;
+  role: string;       // internal access flag: 'admin' | 'pm'
+  user_type?: string | null; // the displayed role name (e.g. 'Admin', 'PM', 'Sales')
   active: number;
   created_at: string;
   totalSessions: number;
@@ -112,17 +113,15 @@ export interface CreateUserPayload {
   email: string;
   password: string;
   disc_profile: string;
-  role: 'pm' | 'admin';
-  user_type?: string | null;
+  role: string; // role name (e.g. 'Admin', 'PM', 'Sales') — server derives access flag
 }
 
 export interface UpdateUserPayload {
   name?: string;
   disc_profile?: string;
-  role?: 'pm' | 'admin';
+  role?: string; // role name — server derives access flag
   password?: string;
   active?: boolean;
-  user_type?: string | null;
 }
 
 export interface CoachingProviderRow {
