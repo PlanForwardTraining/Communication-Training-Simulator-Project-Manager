@@ -27,6 +27,7 @@ export function UserModalForm({ mode, user, onClose, onSaved }: Props) {
   const [active, setActive] = useState(user ? user.active === 1 : true);
   const [userTypes, setUserTypes] = useState<UserType[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -75,6 +76,21 @@ export function UserModalForm({ mode, user, onClose, onSaved }: Props) {
       setError(e instanceof Error ? e.message : 'Save failed');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!user) return;
+    if (!window.confirm(`Permanently delete ${user.name}? This cannot be undone.`)) return;
+    setError(null);
+    setDeleting(true);
+    try {
+      await adminApi.deleteUser(user.id);
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete failed');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -185,10 +201,26 @@ export function UserModalForm({ mode, user, onClose, onSaved }: Props) {
           <button type="button" onClick={onClose} className="btn-secondary flex-1">
             Cancel
           </button>
-          <button type="submit" disabled={submitting} className="btn-primary flex-1">
+          <button type="submit" disabled={submitting || deleting} className="btn-primary flex-1">
             {submitting ? 'Saving…' : isCreate ? 'Create User' : 'Save Changes'}
           </button>
         </div>
+
+        {!isCreate && (
+          <div className="pt-1 border-t border-navy-700/60 mt-1">
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting || submitting}
+              className="w-full mt-3 px-3 py-2 text-sm font-semibold font-body rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 hover:border-red-500/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deleting ? 'Deleting…' : 'Delete User'}
+            </button>
+            <p className="font-body text-[11px] text-slate-muted mt-1.5 text-center">
+              Users with training sessions can't be deleted — deactivate them above to keep their history.
+            </p>
+          </div>
+        )}
       </form>
     </div>
   );

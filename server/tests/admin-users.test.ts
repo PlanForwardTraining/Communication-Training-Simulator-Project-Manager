@@ -46,3 +46,46 @@ it('GET /users includes admin users', async () => {
   expect(res.body.map((u: any) => u.email)).toContain('admin@test.com');
   expect(res.body.map((u: any) => u.email)).toContain('pm@test.com');
 });
+
+describe('DELETE /api/admin/users/:id (guarded)', () => {
+  function insertUser(email: string, role = 'pm'): number {
+    const r = db.prepare(
+      'INSERT INTO users (name, email, password_hash, disc_profile, role) VALUES (?, ?, ?, ?, ?)'
+    ).run('Throwaway', email, 'x', 'D', role);
+    return Number(r.lastInsertRowid);
+  }
+
+  it('hard-deletes a user with no sessions', async () => {
+    const id = insertUser('nosessions@test.com');
+    const res = await request(app)
+      .delete(`/api/admin/users/${id}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.deleted).toBe(true);
+    const gone = db.prepare('SELECT id FROM users WHERE id = ?').get(id);
+    expect(gone).toBeUndefined();
+  });
+
+  it('refuses (409) to delete a user that has sessions', async () => {
+    const id = insertUser('hassessions@test.com');
+    db.prepare(
+      'INSERT INTO sessions (user_id, scenario_id, client_disc_id) VALUES (?, ?, ?)'
+    ).run(id, 1, 1);
+    const res = await request(app)
+      .delete(`/api/admin/users/${id}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(409);
+    expect(res.body.sessionCount).toBe(1);
+    // user still present
+    expect(db.prepare('SELECT id FROM users WHERE id = ?').get(id)).toBeTruthy();
+  });
+
+  it('refuses (400) to delete your own account', async () => {
+    const meId = (db.prepare('SELECT id FROM users WHERE email = ?').get('admin@test.com') as { id: number }).id;
+    const res = await request(app)
+      .delete(`/api/admin/users/${meId}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(400);
+    expect(db.prepare('SELECT id FROM users WHERE id = ?').get(meId)).toBeTruthy();
+  });
+});
