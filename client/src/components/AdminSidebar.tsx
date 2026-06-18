@@ -1,7 +1,5 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { adminApi } from '../api/admin';
 import { BrandLogo } from './BrandLogo';
 
 interface SideNavLinkProps {
@@ -78,12 +76,6 @@ const IconPlay = () => (
   </svg>
 );
 
-const IconDownload = () => (
-  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-  </svg>
-);
-
 const IconPerson = () => (
   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -99,35 +91,7 @@ interface AdminSidebarProps {
 
 export function AdminSidebarContent({ onNavClick }: AdminSidebarProps) {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
-  const [downloading, setDownloading] = useState(false);
-
-  const handleExport = async () => {
-    setDownloading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}${adminApi.exportUrl()}`,
-        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `planforward-training-${new Date().toISOString().slice(0, 10)}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Excel download failed:', err);
-      alert('Excel download failed. Check the console for details.');
-    } finally {
-      setDownloading(false);
-    }
-  };
 
   // Active-state detection — mirrors the original AdminLayout logic, split across sidebar items
   const path = location.pathname;
@@ -169,6 +133,13 @@ export function AdminSidebarContent({ onNavClick }: AdminSidebarProps) {
           onClick={onNavClick}
         />
         <SideNavLink
+          to="/"
+          label="Run Practice"
+          active={false}
+          icon={<IconPlay />}
+          onClick={onNavClick}
+        />
+        <SideNavLink
           to="/admin/sessions"
           label="Sessions"
           active={onSessions}
@@ -207,29 +178,6 @@ export function AdminSidebarContent({ onNavClick }: AdminSidebarProps) {
 
       {/* Footer actions */}
       <div className="border-t border-navy-600 px-3 py-3 space-y-0.5">
-        <button
-          onClick={() => { navigate('/'); onNavClick?.(); }}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold font-body text-slate-muted hover:text-slate-text hover:bg-navy-800 transition-colors"
-          title="Run a practice session as a PM"
-        >
-          <IconPlay />
-          Run Practice
-        </button>
-
-        <button
-          onClick={handleExport}
-          disabled={downloading}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold font-body text-slate-muted hover:text-slate-text hover:bg-navy-800 transition-colors disabled:opacity-50"
-          title="Download all session data as Excel"
-        >
-          {downloading ? (
-            <span className="w-4 h-4 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <IconDownload />
-          )}
-          Export Excel
-        </button>
-
         <div className="px-3 py-2 flex items-center gap-2 text-xs font-body text-slate-muted">
           <IconPerson />
           <span className="truncate">{user?.name}</span>
