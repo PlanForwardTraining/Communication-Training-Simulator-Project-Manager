@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS users (
   disc_profile TEXT NOT NULL,
   role TEXT NOT NULL CHECK(role IN ('pm','admin')),
   active INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  user_type TEXT
 );
 
 CREATE TABLE IF NOT EXISTS scenarios (
@@ -16,7 +17,8 @@ CREATE TABLE IF NOT EXISTS scenarios (
   description TEXT NOT NULL,
   body_markdown TEXT NOT NULL,
   active INTEGER NOT NULL DEFAULT 1,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  visible_to_types TEXT
 );
 
 CREATE TABLE IF NOT EXISTS disc_profiles (
@@ -36,7 +38,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   elevenlabs_conversation_id TEXT,
   started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   ended_at TEXT,
-  total_score INTEGER
+  total_score INTEGER,
+  deleted_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS turns (
@@ -88,4 +91,9 @@ CREATE TABLE IF NOT EXISTS provider_keys (
   encrypted_key TEXT NOT NULL,
   last4 TEXT NOT NULL,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_types (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE
 );
