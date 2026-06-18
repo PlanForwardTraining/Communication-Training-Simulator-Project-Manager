@@ -120,7 +120,7 @@ router.get('/admin', requireAuth, requireAdmin, (_req: Request, res: Response): 
     SELECT
       s.id, s.slug, s.title, s.description, s.active, s.updated_at,
       s.visible_to_types,
-      (SELECT COUNT(*) FROM sessions WHERE scenario_id = s.id) AS session_count
+      (SELECT COUNT(*) FROM sessions WHERE scenario_id = s.id AND deleted_at IS NULL) AS session_count
     FROM scenarios s
     ORDER BY s.active DESC, s.slug ASC
   `).all();
@@ -253,6 +253,8 @@ router.delete('/:id', requireAuth, requireAdmin, (req: Request, res: Response): 
     return;
   }
 
+  // Intentionally counts ALL rows including soft-deleted: a physical FK row still
+  // references this scenario, so the DB would reject the DELETE regardless of deleted_at.
   const sessionCount = (db
     .prepare('SELECT COUNT(*) AS n FROM sessions WHERE scenario_id = ?')
     .get(id) as { n: number }).n;

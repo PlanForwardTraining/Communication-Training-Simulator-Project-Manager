@@ -240,6 +240,42 @@ describe('DELETE /api/admin/sessions/:id', () => {
   });
 });
 
+// ── Routes: GET /api/admin/sessions/:id ───────────────────────────────────
+
+describe('GET /api/admin/sessions/:id', () => {
+  it('returns 401 without a token', async () => {
+    const id = insertSession({ endedAt: '2026-05-01T00:00:00' });
+    const res = await request(app).get(`/api/admin/sessions/${id}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns session detail for a live session', async () => {
+    const id = insertSession({ endedAt: '2026-05-01T00:00:00' });
+    const res = await request(app)
+      .get(`/api/admin/sessions/${id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.session).toBeDefined();
+    expect(res.body.session.id).toBe(id);
+  });
+
+  it('returns 404 for a soft-deleted session', async () => {
+    const id = insertSession({ endedAt: '2026-05-01T00:00:00', deletedAt: '2026-05-02T00:00:00' });
+    const res = await request(app)
+      .get(`/api/admin/sessions/${id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Session not found');
+  });
+
+  it('returns 404 for a nonexistent session id', async () => {
+    const res = await request(app)
+      .get('/api/admin/sessions/999999')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(404);
+  });
+});
+
 // ── Routes: POST /api/admin/sessions/purge-empty ──────────────────────────
 
 describe('POST /api/admin/sessions/purge-empty', () => {

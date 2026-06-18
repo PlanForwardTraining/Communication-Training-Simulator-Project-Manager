@@ -437,7 +437,7 @@ router.get('/sessions/:id', (req: Request, res: Response): void => {
      JOIN users u ON u.id = s.user_id
      JOIN scenarios sc ON sc.id = s.scenario_id
      JOIN disc_profiles dp ON dp.id = s.client_disc_id
-     WHERE s.id = ?`,
+     WHERE s.id = ? AND s.deleted_at IS NULL`,
   ).get(sessionId);
 
   if (!session) {
