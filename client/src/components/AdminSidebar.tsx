@@ -147,7 +147,7 @@ export function AdminSidebarContent({ onNavClick }: AdminSidebarProps) {
           onClick={onNavClick}
         />
         <SideNavLink
-          to="/admin"
+          to="/admin/users"
           label="Users"
           active={onUsers}
           icon={<IconUsers />}

@@ -1,35 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { adminApi, type AdminSummary, type AdminUserStats, type FlaggedPM, type CategoryAverage, type UserType } from '../../api/admin';
+import { adminApi, type AdminSummary, type FlaggedPM, type CategoryAverage } from '../../api/admin';
 import { AdminLayout } from './AdminLayout';
-import { UserModalForm } from './UserModalForm';
 import { DiscBadge } from '../../components/DiscBadge';
-import { DataTable, type Column } from '../../components/DataTable';
-
-// AdminUserStats as returned by the API includes user_type (optional field not yet in the shared type)
-type AdminUserStatsWithType = AdminUserStats & { user_type?: string | null };
-
-function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
-  if (trend === 'up') {
-    return (
-      <span className="inline-flex items-center gap-0.5 text-green-400 font-body text-xs font-semibold">
-        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-        </svg>
-      </span>
-    );
-  }
-  if (trend === 'down') {
-    return (
-      <span className="inline-flex items-center gap-0.5 text-red-400 font-body text-xs font-semibold">
-        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </span>
-    );
-  }
-  return <span className="text-slate-muted font-body text-xs">—</span>;
-}
 
 function ScorePill({ score }: { score: number | null }) {
   if (score === null) return <span className="text-slate-muted font-body text-sm">—</span>;
@@ -107,223 +80,18 @@ function FlaggedCard({ pm, onClick }: { pm: FlaggedPM; onClick: () => void }) {
   );
 }
 
-function formatLastActive(pm: AdminUserStats): string {
-  if (!pm.lastSessionAt) return 'Never';
-  if (pm.daysSinceLastSession === 0) return 'Today';
-  if (pm.daysSinceLastSession === 1) return 'Yesterday';
-  return `${pm.daysSinceLastSession}d ago`;
-}
-
-const pmTableColumns: Column<AdminUserStatsWithType>[] = [
-  {
-    key: 'name',
-    header: 'Name',
-    sortable: true,
-    render: (pm) => (
-      <div className="flex items-center gap-2.5">
-        <DiscBadge code={pm.disc_profile} />
-        <span className="font-display font-semibold text-sm text-slate-text">{pm.name}</span>
-        {pm.active === 0 && (
-          <span className="font-body text-[10px] uppercase tracking-widest text-slate-muted border border-navy-600 rounded px-1">
-            Inactive
-          </span>
-        )}
-      </div>
-    ),
-  },
-  {
-    key: 'email',
-    header: 'Email',
-    sortable: true,
-    render: (pm) => (
-      <span className="font-body text-xs text-slate-muted">{pm.email}</span>
-    ),
-  },
-  {
-    key: 'user_type',
-    header: 'Type',
-    render: (pm) => (
-      <span className="font-body text-xs text-slate-text">{pm.user_type ?? '—'}</span>
-    ),
-  },
-  {
-    key: 'role',
-    header: 'Role',
-    render: (pm) => (
-      <span className="font-body text-xs text-slate-muted capitalize">{pm.role}</span>
-    ),
-  },
-  {
-    key: 'totalSessions',
-    header: 'Sessions',
-    sortable: true,
-    className: 'text-center',
-    render: (pm) => (
-      <span className="font-display font-semibold text-sm text-slate-text">{pm.totalSessions}</span>
-    ),
-  },
-  {
-    key: 'averageScore',
-    header: 'Avg Score',
-    sortable: true,
-    sortValue: (pm) => pm.averageScore ?? -1,
-    className: 'text-center',
-    render: (pm) => <ScorePill score={pm.averageScore} />,
-  },
-  {
-    key: 'daysSinceLastSession',
-    header: 'Last Active',
-    sortable: true,
-    sortValue: (pm) => pm.daysSinceLastSession ?? 99999,
-    className: 'text-center',
-    render: (pm) => (
-      <span className="font-body text-xs text-slate-muted">{formatLastActive(pm)}</span>
-    ),
-  },
-  {
-    key: 'focusAreas',
-    header: 'Focus Areas',
-    render: (pm) =>
-      pm.focusAreas.length === 0 ? (
-        <span className="font-body text-xs text-slate-muted">—</span>
-      ) : (
-        <div className="flex flex-wrap gap-1">
-          {pm.focusAreas.slice(0, 2).map(f => (
-            <span
-              key={f.key}
-              className="inline-flex items-center px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 font-body text-[10px] font-semibold whitespace-nowrap"
-              title={`Average ${f.average} across ${f.sessionsScored} sessions`}
-            >
-              {f.label}
-            </span>
-          ))}
-          {pm.focusAreas.length > 2 && (
-            <span className="font-body text-[10px] text-slate-muted">
-              +{pm.focusAreas.length - 2}
-            </span>
-          )}
-        </div>
-      ),
-  },
-  {
-    key: 'trend',
-    header: 'Trend',
-    className: 'text-center',
-    render: (pm) => <TrendIcon trend={pm.trend} />,
-  },
-];
-
-function UserTypesPanel() {
-  const [types, setTypes] = useState<UserType[]>([]);
-  const [newName, setNewName] = useState('');
-  const [adding, setAdding] = useState(false);
-  const [removeErrors, setRemoveErrors] = useState<Record<string, string>>({});
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const load = () => {
-    adminApi.userTypes().then(setTypes).catch(() => {/* non-blocking */});
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const handleAdd = async () => {
-    const trimmed = newName.trim();
-    if (!trimmed) return;
-    setAdding(true);
-    try {
-      const updated = await adminApi.addUserType(trimmed);
-      setTypes(updated);
-      setNewName('');
-      inputRef.current?.focus();
-    } catch (e) {
-      // silently surface in the input area — unlikely but possible
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  const handleRemove = async (name: string) => {
-    setRemoveErrors(prev => ({ ...prev, [name]: '' }));
-    try {
-      const updated = await adminApi.removeUserType(name);
-      setTypes(updated);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Cannot remove';
-      setRemoveErrors(prev => ({ ...prev, [name]: msg }));
-    }
-  };
-
-  return (
-    <section className="card p-5">
-      <h2 className="font-display font-semibold text-slate-text mb-1">User Types</h2>
-      <p className="font-body text-xs text-slate-muted mb-4 leading-relaxed">
-        Group users by role/team. Assign types to users and restrict scenario visibility by type.
-      </p>
-
-      {types.length === 0 ? (
-        <p className="font-body text-xs text-slate-muted italic mb-3">No types yet.</p>
-      ) : (
-        <ul className="space-y-2 mb-4">
-          {types.map(t => (
-            <li key={t.id}>
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-body text-sm text-slate-text">{t.name}</span>
-                <button
-                  type="button"
-                  onClick={() => handleRemove(t.name)}
-                  className="text-slate-muted hover:text-red-400 transition-colors text-xs px-1.5 py-0.5 rounded hover:bg-red-500/10"
-                  title={`Remove "${t.name}"`}
-                  aria-label={`Remove ${t.name}`}
-                >
-                  ×
-                </button>
-              </div>
-              {removeErrors[t.name] && (
-                <p className="font-body text-xs text-red-400 mt-0.5 pl-0">{removeErrors[t.name]}</p>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="flex gap-2">
-        <input
-          ref={inputRef}
-          type="text"
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } }}
-          placeholder="New type name…"
-          className="flex-1 bg-navy-800 border border-navy-600 rounded-lg px-3 py-1.5 text-sm text-slate-text font-body focus:outline-none focus:border-gold-500 placeholder:text-slate-muted/50"
-        />
-        <button
-          type="button"
-          onClick={handleAdd}
-          disabled={adding || !newName.trim()}
-          className="btn-primary text-xs px-3 py-1.5 disabled:opacity-50"
-        >
-          {adding ? '…' : 'Add'}
-        </button>
-      </div>
-    </section>
-  );
-}
-
 export function AdminDashboardPage() {
   const navigate = useNavigate();
   const [summary, setSummary] = useState<AdminSummary | null>(null);
-  const [allUsers, setAllUsers] = useState<AdminUserStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
 
   const reload = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [s, users] = await Promise.all([adminApi.summary(), adminApi.users()]);
+      const s = await adminApi.summary();
       setSummary(s);
-      setAllUsers(users);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load admin data');
     } finally {
@@ -342,9 +110,6 @@ export function AdminDashboardPage() {
           <h1 className="font-display text-3xl font-bold text-slate-text">Dashboard</h1>
           <p className="font-body text-sm text-slate-muted mt-1">Cohort health and per-PM focus areas</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary text-sm">
-          + Add User
-        </button>
       </div>
 
       {loading && (
@@ -429,32 +194,7 @@ export function AdminDashboardPage() {
               )}
             </section>
           </div>
-
-          {/* User Types management */}
-          <UserTypesPanel />
-
-          {/* All Users table */}
-          <section>
-            <h2 className="font-display font-semibold text-slate-text mb-4">All Users</h2>
-            <DataTable<AdminUserStatsWithType>
-              columns={pmTableColumns}
-              rows={allUsers as AdminUserStatsWithType[]}
-              onRowClick={(pm) => navigate(`/admin/users/${pm.id}`)}
-              empty='No users yet. Click "+ Add User" to onboard your first.'
-            />
-          </section>
         </div>
-      )}
-
-      {showModal && (
-        <UserModalForm
-          mode="create"
-          onClose={() => setShowModal(false)}
-          onSaved={() => {
-            setShowModal(false);
-            reload();
-          }}
-        />
       )}
     </AdminLayout>
   );
