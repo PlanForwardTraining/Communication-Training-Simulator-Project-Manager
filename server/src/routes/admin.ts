@@ -461,6 +461,8 @@ router.get('/sessions/:id', (req: Request, res: Response): void => {
         disc_adaptation: string;
         score_breakdown_json: string;
         total_score: number;
+        coaching_provider: string | null;
+        coaching_model: string | null;
       }
     | undefined;
 
@@ -472,6 +474,8 @@ router.get('/sessions/:id', (req: Request, res: Response): void => {
         discAdaptation: coachingRow.disc_adaptation,
         scoreBreakdown: safeParseBreakdown(coachingRow.score_breakdown_json),
         totalScore: coachingRow.total_score,
+        gradedProvider: coachingRow.coaching_provider ?? null,
+        gradedModel: coachingRow.coaching_model ?? null,
       }
     : null;
 

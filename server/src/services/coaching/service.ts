@@ -45,7 +45,10 @@ export async function generateCoachingStream(
     throw new Error(`No API key configured for coaching provider "${provider}". Add one in Admin → Coaching.`);
   }
   const rawText = await PROVIDERS[provider].streamCoaching({ prompt, model, apiKey, onProgress });
-  return parseCoachingFromText(rawText);
+  const result = parseCoachingFromText(rawText);
+  result.gradedProvider = provider;
+  result.gradedModel = model;
+  return result;
 }
 
 export async function generateCoaching(

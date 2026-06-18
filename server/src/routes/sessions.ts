@@ -194,8 +194,9 @@ router.post('/:id/end', requireAuth, async (req: Request, res: Response): Promis
     // Save coaching
     db.prepare(`
       INSERT OR REPLACE INTO coaching
-        (session_id, strengths, misses, alternatives, disc_adaptation, score_breakdown_json, total_score)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+        (session_id, strengths, misses, alternatives, disc_adaptation, score_breakdown_json, total_score,
+         coaching_provider, coaching_model)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       sessionId,
       coaching.strengths,
@@ -203,7 +204,9 @@ router.post('/:id/end', requireAuth, async (req: Request, res: Response): Promis
       coaching.alternatives,
       coaching.discAdaptation,
       JSON.stringify(coaching.scoreBreakdown),
-      coaching.totalScore
+      coaching.totalScore,
+      coaching.gradedProvider ?? null,
+      coaching.gradedModel ?? null
     );
 
     // Regenerate the Excel export so admin reports stay fresh.

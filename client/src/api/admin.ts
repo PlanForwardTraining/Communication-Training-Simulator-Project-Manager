@@ -97,6 +97,8 @@ export interface AdminSessionDetail {
       activeListening: number;
     } | null;
     totalScore: number;
+    gradedProvider: string | null;
+    gradedModel: string | null;
   } | null;
 }
 

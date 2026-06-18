@@ -15,6 +15,25 @@ const CATEGORY_LABELS: Record<string, string> = {
   activeListening: 'Active Listening',
 };
 
+const PROVIDER_LABELS: Record<string, string> = {
+  openai: 'OpenAI',
+  gemini: 'Google Gemini',
+  anthropic: 'Anthropic',
+};
+
+function GradedByLine({ provider, model }: { provider: string | null; model: string | null }) {
+  if (!provider && !model) {
+    return <span className="font-body text-[10px] text-slate-muted">Graded by —</span>;
+  }
+  const label = provider ? (PROVIDER_LABELS[provider] ?? provider) : '—';
+  return (
+    <span className="font-body text-[10px] text-slate-muted text-center leading-tight">
+      Graded by {label}
+      {model && <> · <span className="text-slate-muted/70">{model}</span></>}
+    </span>
+  );
+}
+
 function ScoreRing({ score }: { score: number }) {
   const radius = 44;
   const circumference = 2 * Math.PI * radius;
@@ -120,7 +139,13 @@ export function AdminSessionDetailPage() {
                 </div>
               </div>
               {detail.coaching && (
-                <ScoreRing score={detail.coaching.totalScore} />
+                <div className="flex flex-col items-center gap-2">
+                  <ScoreRing score={detail.coaching.totalScore} />
+                  <GradedByLine
+                    provider={detail.coaching.gradedProvider}
+                    model={detail.coaching.gradedModel}
+                  />
+                </div>
               )}
             </div>
           </section>

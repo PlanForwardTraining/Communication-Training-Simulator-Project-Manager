@@ -69,7 +69,9 @@ CREATE TABLE IF NOT EXISTS coaching (
   disc_adaptation TEXT NOT NULL,
   score_breakdown_json TEXT NOT NULL,
   total_score INTEGER NOT NULL,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  coaching_provider TEXT,
+  coaching_model TEXT
 );
 
 CREATE TABLE IF NOT EXISTS rubric_items (
