@@ -37,6 +37,9 @@ export interface CoachingResult {
     activeListening: number;
   };
   totalScore: number;
+  /** Which provider+model generated this coaching (set by service.ts after calling the LLM). */
+  gradedProvider?: string;
+  gradedModel?: string;
 }
 
 export interface TurnRecord {

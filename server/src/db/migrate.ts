@@ -30,5 +30,7 @@ ensureColumn('users', 'active', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('sessions', 'deleted_at', 'TEXT');
 ensureColumn('users', 'user_type', 'TEXT');
 ensureColumn('scenarios', 'visible_to_types', 'TEXT');
+ensureColumn('coaching', 'coaching_provider', 'TEXT');
+ensureColumn('coaching', 'coaching_model', 'TEXT');
 
 console.log('Migration complete.');

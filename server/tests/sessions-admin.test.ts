@@ -67,6 +67,26 @@ beforeAll(async () => {
   adminToken = res.body.token;
 });
 
+// ── Migration: coaching table has grading columns ──────────────────────────
+
+describe('Migration: coaching table schema', () => {
+  it('has coaching_provider column after runMigrations', () => {
+    const cols = (db as unknown as Database.Database)
+      .prepare('PRAGMA table_info(coaching)')
+      .all() as Array<{ name: string }>;
+    const names = cols.map(c => c.name);
+    expect(names).toContain('coaching_provider');
+  });
+
+  it('has coaching_model column after runMigrations', () => {
+    const cols = (db as unknown as Database.Database)
+      .prepare('PRAGMA table_info(coaching)')
+      .all() as Array<{ name: string }>;
+    const names = cols.map(c => c.name);
+    expect(names).toContain('coaching_model');
+  });
+});
+
 // ── Service: listSessions ───────────────────────────────────────────────────
 
 describe('listSessions — service', () => {
@@ -273,6 +293,43 @@ describe('GET /api/admin/sessions/:id', () => {
       .get('/api/admin/sessions/999999')
       .set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(404);
+  });
+
+  it('returns coaching.gradedProvider and coaching.gradedModel when persisted', async () => {
+    const id = insertSession({ endedAt: '2026-05-10T00:00:00' });
+    // Insert coaching row WITH provider + model
+    (db as unknown as Database.Database).prepare(
+      `INSERT INTO coaching
+         (session_id, strengths, misses, alternatives, disc_adaptation, score_breakdown_json, total_score,
+          coaching_provider, coaching_model)
+       VALUES (?, 'great', 'improve', 'try this', 'adapt', '{}', 80, 'gemini', 'gemini-2.5-pro')`,
+    ).run(id);
+
+    const res = await request(app)
+      .get(`/api/admin/sessions/${id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.coaching).not.toBeNull();
+    expect(res.body.coaching.gradedProvider).toBe('gemini');
+    expect(res.body.coaching.gradedModel).toBe('gemini-2.5-pro');
+  });
+
+  it('returns coaching.gradedProvider=null and coaching.gradedModel=null for older rows without those columns', async () => {
+    const id = insertSession({ endedAt: '2026-05-11T00:00:00' });
+    // Insert coaching row WITHOUT provider/model (simulates pre-migration row)
+    (db as unknown as Database.Database).prepare(
+      `INSERT INTO coaching
+         (session_id, strengths, misses, alternatives, disc_adaptation, score_breakdown_json, total_score)
+       VALUES (?, 'good', 'miss', 'alt', 'disc', '{}', 70)`,
+    ).run(id);
+
+    const res = await request(app)
+      .get(`/api/admin/sessions/${id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.coaching).not.toBeNull();
+    expect(res.body.coaching.gradedProvider).toBeNull();
+    expect(res.body.coaching.gradedModel).toBeNull();
   });
 });
 
