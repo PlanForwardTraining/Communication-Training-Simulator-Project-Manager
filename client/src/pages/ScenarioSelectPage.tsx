@@ -5,6 +5,10 @@ import { useAuth } from '../context/AuthContext';
 import { BrandLogo } from '../components/BrandLogo';
 import { DataTable, type Column } from '../components/DataTable';
 
+// Strip markdown emphasis markers so descriptions read cleanly in the table cell.
+const stripMd = (s: string) =>
+  s.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1');
+
 const scenarioColumns: Column<Scenario>[] = [
   {
     key: 'title',
@@ -30,7 +34,7 @@ const scenarioColumns: Column<Scenario>[] = [
           overflow: 'hidden',
         }}
       >
-        {s.description}
+        {stripMd(s.description)}
       </span>
     ),
   },
