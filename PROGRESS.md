@@ -716,7 +716,17 @@ A round of refinements done immediately after first production deploy. Each sub-
 - [x] Scenario picker is a `DataTable` (Name/Description/Role(s)); `GET /api/scenarios` returns `visible_to_types`; descriptions markdown-stripped
 - [x] `npm run dev` runs migrate + seed before serving (dev parity with prod)
 - [x] All server tests pass (114); client type-checks + builds clean
-- [ ] Review, then merge `feat/admin-ux-overhaul` → `main` (deploys live — do with Tyler)
+- [x] Merged `feat/admin-ux-overhaul` → `main` + deployed
+
+### 13.23 — Unified Role (branch `feat/unify-roles`)
+- [x] Roles registry = `user_types` table, seeded **Admin** + PM; **Admin reserved** (DELETE → 400; UI hides remove)
+- [x] Safe storage: role NAME in `users.user_type`; `users.role` kept as derived access flag (`admin` iff name=Admin, else `pm`) — no CHECK change, no table rebuild; `requireAdmin`/JWT/stat-filtering untouched
+- [x] `POST`/`PATCH /api/admin/users` accept single `role` = name, validate against registry, derive both columns
+- [x] Idempotent migration backfill (`migrate.ts`): admins→`Admin`, untyped members→`PM`, typed members preserved
+- [x] Frontend: single "Role" dropdown (UserModalForm), Roles panel (Admin not removable), one Role column (Users table), scenario "Visible to roles" excludes Admin
+- [x] Removed stale `/api/users` create/edit (second unvalidated write path)
+- [x] All server tests pass (136, incl. new `roles-unify.test.ts`); client builds clean; auth-focused review passed
+- [ ] Merge `feat/unify-roles` → `main` (deploys live — do with Tyler)
 
 ---
 

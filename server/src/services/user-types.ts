@@ -14,6 +14,9 @@ export function userTypeInUse(name: string): number {
   return u + s;
 }
 
+/** Reserved role name that maps to the admin access flag — cannot be removed. */
+export const RESERVED_ROLE = 'Admin';
+
 export function removeUserType(name: string): void {
   db.prepare('DELETE FROM user_types WHERE name = ?').run(name);
 }

@@ -253,6 +253,7 @@ function seedRubricItems(): number {
 }
 
 function seedUserTypes(): void {
+  db.prepare(`INSERT OR IGNORE INTO user_types (name) VALUES ('Admin')`).run();
   db.prepare(`INSERT OR IGNORE INTO user_types (name) VALUES ('PM')`).run();
 }
 

@@ -8,7 +8,7 @@ import { generateCoaching } from '../services/coaching/service';
 import { getDiscProfile, getRubric } from '../prompts/loader';
 import { TurnRecord, EventRecord } from '../types';
 import { listSessions, softDeleteSession, purgeEmptySessions, type SessionFilter } from '../services/sessions-admin';
-import { listUserTypes, addUserType, userTypeInUse, removeUserType } from '../services/user-types';
+import { listUserTypes, addUserType, userTypeInUse, removeUserType, RESERVED_ROLE } from '../services/user-types';
 import fs from 'fs';
 
 const router = Router();
@@ -603,22 +603,30 @@ router.post('/sessions/:id/regrade', async (req: Request, res: Response): Promis
 // ---------------------------------------------------------------------------
 
 router.post('/users', (req: Request, res: Response): void => {
-  const { name, email, password, disc_profile, role, user_type } = req.body;
+  const { name, email, password, disc_profile, role } = req.body;
   if (!name || !email || !password || !disc_profile || !role) {
     res.status(400).json({ error: 'Missing required fields' });
     return;
   }
-  if (!['pm', 'admin'].includes(role)) {
-    res.status(400).json({ error: 'Role must be pm or admin' });
+
+  // `role` is now a role NAME (e.g. 'Admin', 'PM', 'Sales').
+  // Validate that the name exists in the roles registry.
+  const roleName = String(role).trim();
+  const registryEntry = db.prepare('SELECT id FROM user_types WHERE name = ?').get(roleName) as { id: number } | undefined;
+  if (!registryEntry) {
+    res.status(400).json({ error: `Role '${roleName}' does not exist in the roles registry` });
     return;
   }
+
+  // Derive the access flag: 'admin' iff role name is the reserved Admin role.
+  const derivedAccessFlag = roleName === RESERVED_ROLE ? 'admin' : 'pm';
+
   const password_hash = bcrypt.hashSync(password, 10);
-  const userType = user_type != null ? String(user_type).trim() || null : null;
   try {
     const result = db.prepare(
       `INSERT INTO users (name, email, password_hash, disc_profile, role, user_type)
        VALUES (?, ?, ?, ?, ?, ?)`,
-    ).run(name, email, password_hash, disc_profile, role, userType);
+    ).run(name, email, password_hash, disc_profile, derivedAccessFlag, roleName);
     res.status(201).json({ id: result.lastInsertRowid });
   } catch (e: unknown) {
     if (e instanceof Error && e.message.includes('UNIQUE')) {
@@ -631,7 +639,7 @@ router.post('/users', (req: Request, res: Response): void => {
 
 router.patch('/users/:id', (req: Request, res: Response): void => {
   const id = Number(req.params.id);
-  const { name, disc_profile, role, password, active, user_type } = req.body;
+  const { name, disc_profile, role, password, active } = req.body;
 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as
     | { name: string; disc_profile: string; role: string; password_hash: string; active: number; user_type: string | null }
@@ -643,17 +651,28 @@ router.patch('/users/:id', (req: Request, res: Response): void => {
 
   const newName = name ?? user.name;
   const newDisc = disc_profile ?? user.disc_profile;
-  const newRole = role ?? user.role;
   const newHash = password ? bcrypt.hashSync(password, 10) : user.password_hash;
   const newActive = typeof active === 'boolean' ? (active ? 1 : 0) : user.active;
-  // user_type: explicit null clears it; string sets it; undefined leaves it unchanged
-  const newUserType = user_type !== undefined
-    ? (user_type === null ? null : String(user_type).trim() || null)
-    : user.user_type;
+
+  // `role` is now a role NAME (e.g. 'Admin', 'PM', 'Sales').
+  // When provided, validate it exists in the registry and derive both stored columns.
+  let newRoleFlag = user.role;       // derived access flag ('admin'|'pm')
+  let newUserType = user.user_type;  // role name stored in user_type
+
+  if (role !== undefined) {
+    const roleName = String(role).trim();
+    const registryEntry = db.prepare('SELECT id FROM user_types WHERE name = ?').get(roleName) as { id: number } | undefined;
+    if (!registryEntry) {
+      res.status(400).json({ error: `Role '${roleName}' does not exist in the roles registry` });
+      return;
+    }
+    newRoleFlag = roleName === RESERVED_ROLE ? 'admin' : 'pm';
+    newUserType = roleName;
+  }
 
   db.prepare(
     `UPDATE users SET name = ?, disc_profile = ?, role = ?, password_hash = ?, active = ?, user_type = ? WHERE id = ?`,
-  ).run(newName, newDisc, newRole, newHash, newActive, newUserType, id);
+  ).run(newName, newDisc, newRoleFlag, newHash, newActive, newUserType, id);
 
   res.json({ updated: true });
 });
@@ -709,6 +728,10 @@ router.post('/user-types', (req: Request, res: Response): void => {
 
 router.delete('/user-types/:name', (req: Request, res: Response): void => {
   const typeName = String(req.params.name);
+  if (typeName === RESERVED_ROLE) {
+    res.status(400).json({ error: 'The Admin role is reserved and cannot be removed.' });
+    return;
+  }
   const count = userTypeInUse(typeName);
   if (count > 0) {
     res.status(409).json({ error: `In use by ${count} user(s)/scenario(s)` });

@@ -43,28 +43,37 @@ export function UserTypesPanel() {
 
   return (
     <section className="card p-5">
-      <h2 className="font-display font-semibold text-slate-text mb-1">User Types</h2>
+      <h2 className="font-display font-semibold text-slate-text mb-1">Roles</h2>
       <p className="font-body text-xs text-slate-muted mb-4 leading-relaxed">
-        Group users by role/team. Assign types to users and restrict scenario visibility by type.
+        Define the roles people can have. <strong className="text-slate-text font-medium">Admin</strong> grants dashboard access; other roles are members and control which scenarios they see.
       </p>
 
       {types.length === 0 ? (
-        <p className="font-body text-xs text-slate-muted italic mb-3">No types yet.</p>
+        <p className="font-body text-xs text-slate-muted italic mb-3">No roles yet.</p>
       ) : (
         <ul className="space-y-2 mb-4">
           {types.map(t => (
             <li key={t.id}>
               <div className="flex items-center justify-between gap-2">
-                <span className="font-body text-sm text-slate-text">{t.name}</span>
-                <button
-                  type="button"
-                  onClick={() => handleRemove(t.name)}
-                  className="text-slate-muted hover:text-red-400 transition-colors text-xs px-1.5 py-0.5 rounded hover:bg-red-500/10"
-                  title={`Remove "${t.name}"`}
-                  aria-label={`Remove ${t.name}`}
-                >
-                  ×
-                </button>
+                <span className="font-body text-sm text-slate-text">
+                  {t.name}
+                  {t.name === 'Admin' && (
+                    <span className="ml-2 font-body text-[10px] uppercase tracking-widest text-slate-muted border border-navy-600 rounded px-1">
+                      reserved
+                    </span>
+                  )}
+                </span>
+                {t.name !== 'Admin' && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(t.name)}
+                    className="text-slate-muted hover:text-red-400 transition-colors text-xs px-1.5 py-0.5 rounded hover:bg-red-500/10"
+                    title={`Remove "${t.name}"`}
+                    aria-label={`Remove ${t.name}`}
+                  >
+                    ×
+                  </button>
+                )}
               </div>
               {removeErrors[t.name] && (
                 <p className="font-body text-xs text-red-400 mt-0.5 pl-0">{removeErrors[t.name]}</p>
@@ -81,7 +90,7 @@ export function UserTypesPanel() {
           value={newName}
           onChange={e => setNewName(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } }}
-          placeholder="New type name…"
+          placeholder="New role name…"
           className="flex-1 bg-navy-800 border border-navy-600 rounded-lg px-3 py-1.5 text-sm text-slate-text font-body focus:outline-none focus:border-gold-500 placeholder:text-slate-muted/50"
         />
         <button

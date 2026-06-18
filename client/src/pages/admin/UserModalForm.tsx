@@ -15,15 +15,30 @@ export function UserModalForm({ mode, user, onClose, onSaved }: Props) {
   const [email, setEmail] = useState(user?.email ?? '');
   const [password, setPassword] = useState('');
   const [discProfile, setDiscProfile] = useState(user?.disc_profile ?? 'D');
-  const [role, setRole] = useState<'pm' | 'admin'>(user?.role === 'admin' ? 'admin' : 'pm');
+  // Role is now the role *name* from the roles registry (e.g. 'Admin', 'PM', 'Sales').
+  // Pre-select from user_type; fall back to deriving from the access-flag for legacy rows.
+  const [roleName, setRoleName] = useState<string>(
+    user?.user_type
+      ? user.user_type
+      : user?.role === 'admin'
+        ? 'Admin'
+        : 'PM'
+  );
   const [active, setActive] = useState(user ? user.active === 1 : true);
-  const [userType, setUserType] = useState<string>((user as AdminUserStats & { user_type?: string | null })?.user_type ?? '');
   const [userTypes, setUserTypes] = useState<UserType[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    adminApi.userTypes().then(setUserTypes).catch(() => {/* non-blocking */});
+    adminApi.userTypes().then(types => {
+      setUserTypes(types);
+      // Once types load, ensure the default for create mode is the first non-Admin role
+      if (mode === 'create' && types.length > 0) {
+        const firstMember = types.find(t => t.name !== 'Admin');
+        if (firstMember) setRoleName(firstMember.name);
+      }
+    }).catch(() => {/* non-blocking */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const isCreate = mode === 'create';
@@ -44,16 +59,14 @@ export function UserModalForm({ mode, user, onClose, onSaved }: Props) {
           email,
           password,
           disc_profile: discProfile,
-          role,
-          user_type: userType || null,
+          role: roleName,
         });
       } else if (user) {
         await adminApi.updateUser(user.id, {
           name,
           disc_profile: discProfile,
-          role,
+          role: roleName,
           active,
-          user_type: userType || null,
           ...(password ? { password } : {}),
         });
       }
@@ -72,7 +85,7 @@ export function UserModalForm({ mode, user, onClose, onSaved }: Props) {
         className="card w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto"
       >
         <h2 className="font-display font-bold text-xl text-slate-text">
-          {isCreate ? 'Add New PM' : `Edit ${user?.name}`}
+          {isCreate ? 'Add New User' : `Edit ${user?.name}`}
         </h2>
 
         <div className="space-y-3">
@@ -129,30 +142,25 @@ export function UserModalForm({ mode, user, onClose, onSaved }: Props) {
           </label>
 
           <label className="block">
-            <span className="font-body text-xs text-slate-muted block mb-1">Role</span>
-            <select
-              value={role}
-              onChange={e => setRole(e.target.value as 'pm' | 'admin')}
-              className="w-full bg-navy-800 border border-navy-600 rounded-lg px-3 py-2 text-sm text-slate-text font-body focus:outline-none focus:border-gold-500"
-            >
-              <option value="pm">PM</option>
-              <option value="admin">Admin</option>
-            </select>
-          </label>
-
-          <label className="block">
             <span className="font-body text-xs text-slate-muted block mb-1">
-              User type <span className="opacity-60">(optional — controls scenario visibility)</span>
+              Role <span className="opacity-60">(Admin grants dashboard access; other roles are members and control scenario visibility)</span>
             </span>
             <select
-              value={userType}
-              onChange={e => setUserType(e.target.value)}
+              value={roleName}
+              onChange={e => setRoleName(e.target.value)}
               className="w-full bg-navy-800 border border-navy-600 rounded-lg px-3 py-2 text-sm text-slate-text font-body focus:outline-none focus:border-gold-500"
             >
-              <option value="">— None —</option>
-              {userTypes.map(t => (
-                <option key={t.id} value={t.name}>{t.name}</option>
-              ))}
+              {userTypes.length === 0 ? (
+                /* Fallback while types load — avoids blank dropdown flash */
+                <>
+                  <option value="PM">PM</option>
+                  <option value="Admin">Admin</option>
+                </>
+              ) : (
+                userTypes.map(t => (
+                  <option key={t.id} value={t.name}>{t.name}</option>
+                ))
+              )}
             </select>
           </label>
 
@@ -178,7 +186,7 @@ export function UserModalForm({ mode, user, onClose, onSaved }: Props) {
             Cancel
           </button>
           <button type="submit" disabled={submitting} className="btn-primary flex-1">
-            {submitting ? 'Saving…' : isCreate ? 'Create PM' : 'Save Changes'}
+            {submitting ? 'Saving…' : isCreate ? 'Create User' : 'Save Changes'}
           </button>
         </div>
       </form>
