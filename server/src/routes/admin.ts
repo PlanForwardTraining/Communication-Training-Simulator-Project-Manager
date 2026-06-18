@@ -210,11 +210,12 @@ function computeUserStats(userRow: {
 
 router.get('/summary', (_req: Request, res: Response): void => {
   const users = db.prepare(
-    `SELECT id, name, email, disc_profile, role, active, created_at FROM users WHERE role = 'pm'`,
+    `SELECT id, name, email, disc_profile, role, active, created_at FROM users`,
   ).all() as Parameters<typeof computeUserStats>[0][];
 
-  const activeUsers = users.filter(u => u.active === 1);
-  const stats = activeUsers.map(computeUserStats);
+  // Cohort stats (team averages, flagged, etc.) are computed over non-admin active users only
+  const activeNonAdminUsers = users.filter(u => u.role !== 'admin' && u.active === 1);
+  const stats = activeNonAdminUsers.map(computeUserStats);
 
   const totalSessions = stats.reduce((sum, s) => sum + s.totalSessions, 0);
 
@@ -281,9 +282,12 @@ router.get('/summary', (_req: Request, res: Response): void => {
     return (a.averageScore ?? 100) - (b.averageScore ?? 100);
   });
 
+  // Build the full user list (all roles, all active states) for the dashboard table
+  const allUserStats = users.map(computeUserStats);
+
   res.json({
     cohort: {
-      totalPMs: activeUsers.length,
+      totalPMs: activeNonAdminUsers.length,
       totalSessionsAllTime: totalSessions,
       sessionsThisWeek,
       teamAverageScore,
@@ -291,7 +295,7 @@ router.get('/summary', (_req: Request, res: Response): void => {
     teamCategoryAverages,
     teamFocusAreas,
     flaggedPMs: flagged.slice(0, 5),
-    pms: stats,
+    pms: allUserStats,
   });
 });
 
