@@ -706,6 +706,16 @@ A round of refinements done immediately after first production deploy. Each sub-
 - [x] Scenario `visible_to_types`; `GET /api/scenarios` filters by requester `user_type` (admin=all, untyped=all, NULL-type=untyped only)
 - [x] Frontend: user-type dropdown (UserModalForm), scenario "Visible to user types" selector (ScenarioFormModal), UserTypesPanel (Dashboard)
 - [x] All server tests pass (108, 14 suites); client type-checks + builds clean
+
+### 13.22 — Post-Overhaul Polish (branch `feat/admin-ux-overhaul`)
+- [x] Plan Forward teal rebrand as defaults: `#1C8CAB` accent / `#0E2A33` base / `#F8FAFC` text in `:root` + `DEFAULT_BRANDING` + applyBranding/AdminBrandingPage DEFAULTS (matches planforward.net)
+- [x] Score rings (DebriefPage, AdminSessionDetailPage) + TrendChart switched from hardcoded gold to theme-driven classes
+- [x] Text brand token: `brand_text` + `Branding.text`; `deriveBrandShades(primary,secondary,text)` emits `--slate-text`/`--slate-muted`; Text color control in the picker
+- [x] Sidebar: "Run Practice" moved into nav (Dashboard→Run Practice→Sessions); redundant "Export Excel" removed
+- [x] Dedicated `/admin/users` page (`AdminUsersPage.tsx`) — table + Add User + User Types; Dashboard slimmed to cohort analytics; `UserTypesPanel` extracted
+- [x] Scenario picker is a `DataTable` (Name/Description/Role(s)); `GET /api/scenarios` returns `visible_to_types`; descriptions markdown-stripped
+- [x] `npm run dev` runs migrate + seed before serving (dev parity with prod)
+- [x] All server tests pass (114); client type-checks + builds clean
 - [ ] Review, then merge `feat/admin-ux-overhaul` → `main` (deploys live — do with Tyler)
 
 ---

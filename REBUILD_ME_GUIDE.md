@@ -1580,6 +1580,19 @@ A batch of admin-experience improvements (branch `feat/admin-ux-overhaul`).
 
 ---
 
+### 13.22 — Post-Overhaul Polish (same branch)
+
+Refinements after the overhaul, all on `feat/admin-ux-overhaul`:
+
+- **Plan Forward teal rebrand (defaults).** The baked-in theme is now Plan Forward's teal (`#1C8CAB` accent / `#0E2A33` dark teal-slate base / `#F8FAFC` crisp text), matching planforward.net — set in `index.css` `:root`, `DEFAULT_BRANDING`, and the `applyBranding`/`AdminBrandingPage` DEFAULTS. Score rings + `TrendChart` switched from hardcoded gold to theme-driven (`stroke-gold-500`/`fill-gold-500`/`stroke-navy-*`) so all data-viz follows branding. (Orange — PF's logo accent — is not a second accent; the model has one accent slot.)
+- **Text brand token.** Branding gained a third control: **Text color** (`brand_text`, default `#F8FAFC`). `deriveBrandShades(primary, secondary, text)` now also emits `--slate-text` and `--slate-muted` (`mix(text, secondary, 0.5)`). `Branding = { primary, secondary, text, logoUrl }` end to end.
+- **Sidebar tweaks.** "Run Practice" moved into the nav between Dashboard and Sessions; the redundant sidebar "Export Excel" removed (Export lives on the Sessions page).
+- **Dedicated Users page.** `/admin/users` (`AdminUsersPage.tsx`) holds the All Users table + Add User + the User Types panel (moved off the Dashboard, which is now pure cohort analytics). `UserTypesPanel` extracted to `components/admin/`.
+- **Scenario picker is a table.** The PM "Select a Scenario" screen (`ScenarioSelectPage.tsx`) uses `DataTable` — Name · Description · Role(s) — replacing the pill grid. `GET /api/scenarios` now returns `visible_to_types` (array; `[]` = all → "All") for the Role(s) column; descriptions are markdown-stripped in the cell.
+- **Dev parity.** `npm run dev` now runs migrate + seed before serving (matches prod's `start`).
+
+---
+
 ## Part 12 — Billing & Payment Transfer
 
 This is the contractor-to-client handoff for billing. Keep accounts the same (preserves data, config, history) — just swap who's paying.
