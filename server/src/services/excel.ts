@@ -2,8 +2,9 @@ import path from 'path';
 import fs from 'fs';
 import ExcelJS from 'exceljs';
 import db from '../db/connection';
+import { listSessions, type SessionFilter } from './sessions-admin';
 
-export const EXCEL_PATH = process.env.EXCEL_PATH || path.resolve(process.cwd(), 'data/sessions.xlsx');
+export const EXCEL_PATH = path.resolve(process.env.EXCEL_PATH || path.join(process.cwd(), 'data/sessions.xlsx'));
 
 interface SessionExportRow {
   session_id: number;
@@ -53,10 +54,11 @@ function safeParseScore(json: string, key: string): number | null {
 
 /**
  * Regenerate the Excel workbook from current SQLite state.
- * Multi-sheet: Sessions (one row per completed session), PMs (rolled-up stats).
+ * Multi-sheet: Sessions (one row per completed/filtered session), PMs (rolled-up stats).
  * Idempotent — safe to call repeatedly. Writes to EXCEL_PATH.
+ * Pass a SessionFilter to restrict the Sessions sheet; omit/undefined for all non-deleted.
  */
-export async function regenerateExcel(): Promise<void> {
+export async function regenerateExcel(filter?: SessionFilter): Promise<void> {
   const dir = path.dirname(EXCEL_PATH);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
@@ -64,57 +66,48 @@ export async function regenerateExcel(): Promise<void> {
   wb.creator = 'Plan Forward Training Simulator';
   wb.created = new Date();
 
-  // ----- Sessions sheet -----
-  const sessions = db.prepare(
-    `SELECT
-       s.id AS session_id,
-       s.started_at AS date,
-       u.name AS pm_name,
-       u.email AS pm_email,
-       u.disc_profile AS pm_disc,
-       sc.title AS scenario,
-       dp.code AS client_disc,
-       s.voice_name,
-       s.total_score,
-       c.score_breakdown_json,
-       c.strengths,
-       c.misses,
-       c.alternatives,
-       c.disc_adaptation AS disc_adaptation_note
-     FROM sessions s
-     JOIN users u ON u.id = s.user_id
-     JOIN scenarios sc ON sc.id = s.scenario_id
-     JOIN disc_profiles dp ON dp.id = s.client_disc_id
-     LEFT JOIN coaching c ON c.session_id = s.id
-     WHERE s.ended_at IS NOT NULL
-     ORDER BY s.started_at DESC`,
-  ).all() as Array<{
-    session_id: number;
-    date: string;
-    pm_name: string;
-    pm_email: string;
-    pm_disc: string;
-    scenario: string;
-    client_disc: string;
-    voice_name: string | null;
+  // ----- Sessions sheet (uses listSessions so soft-deleted are always excluded) -----
+  // For the export we default to completed-only when no status filter is specified,
+  // preserving the original behaviour of exporting only finished sessions.
+  const sessionFilter: SessionFilter = { ...filter };
+  if (!sessionFilter.status) sessionFilter.status = 'completed';
+
+  const rawSessions = listSessions(sessionFilter) as Array<{
+    id: number;
+    started_at: string;
+    ended_at: string | null;
     total_score: number | null;
-    score_breakdown_json: string | null;
-    strengths: string | null;
-    misses: string | null;
-    alternatives: string | null;
-    disc_adaptation_note: string | null;
+    voice_name: string | null;
+    user_name: string;
+    user_email: string;
+    scenario_title: string;
+    client_disc_code: string;
+    status: string;
   }>;
 
-  const sessionRows: SessionExportRow[] = sessions.map(s => {
-    const json = s.score_breakdown_json || '{}';
+  // Enrich each session with coaching data via a secondary query
+  const enriched = rawSessions.map(s => {
+    const coaching = db.prepare(
+      `SELECT score_breakdown_json, strengths, misses, alternatives, disc_adaptation FROM coaching WHERE session_id = ?`,
+    ).get(s.id) as {
+      score_breakdown_json: string | null;
+      strengths: string | null;
+      misses: string | null;
+      alternatives: string | null;
+      disc_adaptation: string | null;
+    } | undefined;
+
+    const pmDisc = (db.prepare('SELECT disc_profile FROM users WHERE email = ?').get(s.user_email) as { disc_profile: string } | undefined)?.disc_profile ?? '';
+
+    const json = coaching?.score_breakdown_json || '{}';
     return {
-      session_id: s.session_id,
-      date: s.date,
-      pm_name: s.pm_name,
-      pm_email: s.pm_email,
-      pm_disc: s.pm_disc,
-      scenario: s.scenario,
-      client_disc: s.client_disc,
+      session_id: s.id,
+      date: s.started_at,
+      pm_name: s.user_name,
+      pm_email: s.user_email,
+      pm_disc: pmDisc,
+      scenario: s.scenario_title,
+      client_disc: s.client_disc_code,
       voice_name: s.voice_name,
       total_score: s.total_score,
       empathy: safeParseScore(json, 'empathy'),
@@ -124,12 +117,14 @@ export async function regenerateExcel(): Promise<void> {
       ownership: safeParseScore(json, 'ownership'),
       composure: safeParseScore(json, 'composure'),
       active_listening: safeParseScore(json, 'activeListening'),
-      strengths: s.strengths || '',
-      misses: s.misses || '',
-      alternatives: s.alternatives || '',
-      disc_adaptation_note: s.disc_adaptation_note || '',
-    };
+      strengths: coaching?.strengths || '',
+      misses: coaching?.misses || '',
+      alternatives: coaching?.alternatives || '',
+      disc_adaptation_note: coaching?.disc_adaptation || '',
+    } satisfies SessionExportRow;
   });
+
+  const sessionRows: SessionExportRow[] = enriched;
 
   const sessionsSheet = wb.addWorksheet('Sessions');
   sessionsSheet.columns = [
@@ -166,7 +161,7 @@ export async function regenerateExcel(): Promise<void> {
        MAX(s.started_at) AS last_session_at,
        AVG(s.total_score) AS average_score
      FROM users u
-     LEFT JOIN sessions s ON s.user_id = u.id AND s.ended_at IS NOT NULL
+     LEFT JOIN sessions s ON s.user_id = u.id AND s.ended_at IS NOT NULL AND s.deleted_at IS NULL
      GROUP BY u.id
      ORDER BY u.role DESC, u.name ASC`,
   ).all() as Array<{
