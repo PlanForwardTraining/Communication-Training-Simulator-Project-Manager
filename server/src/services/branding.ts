@@ -7,8 +7,8 @@ export interface Branding {
 }
 
 export const DEFAULT_BRANDING: Branding = {
-  primary: '#C9A84C',   // gold-500
-  secondary: '#111D35', // navy-800
+  primary: '#1C8CAB',   // Plan Forward teal (accent)
+  secondary: '#0E2A33', // dark teal-slate (dark-theme base)
   logoUrl: '',
 };
 

@@ -22,10 +22,10 @@ function ScoreRing({ score }: { score: number }) {
   return (
     <div className="relative w-28 h-28">
       <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-        <circle cx="50" cy="50" r={radius} fill="none" stroke="#1A2B4A" strokeWidth="8" />
+        <circle cx="50" cy="50" r={radius} fill="none" className="stroke-navy-700" strokeWidth="8" />
         <circle
           cx="50" cy="50" r={radius} fill="none"
-          stroke="#C9A84C" strokeWidth="8"
+          className="stroke-gold-500" strokeWidth="8"
           strokeDasharray={`${filled} ${circumference - filled}`}
           strokeLinecap="round"
         />

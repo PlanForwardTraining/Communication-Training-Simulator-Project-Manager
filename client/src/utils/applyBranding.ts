@@ -1,6 +1,6 @@
 import { deriveBrandShades } from './deriveBrandShades';
 
-const DEFAULTS = { primary: '#C9A84C', secondary: '#111D35' };
+const DEFAULTS = { primary: '#1C8CAB', secondary: '#0E2A33' };
 
 export function applyBrandingValues(primary: string, secondary: string): void {
   const root = document.documentElement;

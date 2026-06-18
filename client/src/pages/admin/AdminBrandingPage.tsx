@@ -4,7 +4,7 @@ import { adminApi } from '../../api/admin';
 import type { Branding } from '../../api/admin';
 import { applyBrandingValues } from '../../utils/applyBranding';
 
-const DEFAULTS: Branding = { primary: '#C9A84C', secondary: '#111D35', logoUrl: '' };
+const DEFAULTS: Branding = { primary: '#1C8CAB', secondary: '#0E2A33', logoUrl: '' };
 
 // Fix 1: hoisted to module scope so it never remounts on parent re-render
 function ColorRow({ label, hint, value, onChange }: { label: string; hint: string; value: string; onChange: (v: string) => void }) {

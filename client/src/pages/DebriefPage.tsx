@@ -18,10 +18,10 @@ function ScoreRing({ score }: { score: number }) {
     <div className="flex flex-col items-center gap-2">
       <div className="relative w-36 h-36">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
-          <circle cx="60" cy="60" r={radius} fill="none" stroke="#1A2B4A" strokeWidth="10" />
+          <circle cx="60" cy="60" r={radius} fill="none" className="stroke-navy-700" strokeWidth="10" />
           <circle
             cx="60" cy="60" r={radius} fill="none"
-            stroke="#C9A84C" strokeWidth="10"
+            className="stroke-gold-500" strokeWidth="10"
             strokeDasharray={`${filled} ${circumference - filled}`}
             strokeLinecap="round"
             style={{ transition: 'stroke-dasharray 1s ease-out' }}
