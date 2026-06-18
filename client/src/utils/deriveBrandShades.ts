@@ -17,9 +17,9 @@ const lighten = ([r, g, b]: number[], amt: number): number[] =>
 const darken = ([r, g, b]: number[], amt: number): number[] =>
   [r * (1 - amt), g * (1 - amt), b * (1 - amt)];
 const channels = (rgb: number[]): string => rgb.map(clamp).join(' ');
-/** Mix two RGB arrays at t=0.5 (equal blend). */
-const mix = (a: [number, number, number], b: [number, number, number]): number[] =>
-  [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+/** Blend two RGB arrays: t = fraction of `a` (default 0.5). */
+const mix = (a: [number, number, number], b: [number, number, number], t = 0.5): number[] =>
+  [a[0] * t + b[0] * (1 - t), a[1] * t + b[1] * (1 - t), a[2] * t + b[2] * (1 - t)];
 
 export function deriveBrandShades(
   primaryHex: string,
@@ -39,6 +39,6 @@ export function deriveBrandShades(
     '--navy-600': channels(lighten(secondary, 0.22)),
     '--navy-500': channels(lighten(secondary, 0.35)),
     '--slate-text': channels(text),
-    '--slate-muted': channels(mix(text, secondary)),
+    '--slate-muted': channels(mix(text, secondary, 0.68)),
   };
 }
