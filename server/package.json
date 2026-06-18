@@ -6,7 +6,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "npm run db:migrate && npm run db:seed && ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc && mkdir -p dist/db && cp src/db/schema.sql dist/db/schema.sql && cp -r ../content dist/content",
     "start": "node dist/db/migrate.js && node dist/db/seed.js && node dist/index.js",
     "db:migrate": "ts-node src/db/migrate.ts",

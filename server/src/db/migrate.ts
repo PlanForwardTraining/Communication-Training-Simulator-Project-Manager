@@ -27,5 +27,8 @@ function ensureColumn(table: string, column: string, ddl: string): void {
 }
 
 ensureColumn('users', 'active', 'INTEGER NOT NULL DEFAULT 1');
+ensureColumn('sessions', 'deleted_at', 'TEXT');
+ensureColumn('users', 'user_type', 'TEXT');
+ensureColumn('scenarios', 'visible_to_types', 'TEXT');
 
 console.log('Migration complete.');

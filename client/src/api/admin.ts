@@ -100,12 +100,18 @@ export interface AdminSessionDetail {
   } | null;
 }
 
+export interface UserType {
+  id: number;
+  name: string;
+}
+
 export interface CreateUserPayload {
   name: string;
   email: string;
   password: string;
   disc_profile: string;
   role: 'pm' | 'admin';
+  user_type?: string | null;
 }
 
 export interface UpdateUserPayload {
@@ -114,6 +120,7 @@ export interface UpdateUserPayload {
   role?: 'pm' | 'admin';
   password?: string;
   active?: boolean;
+  user_type?: string | null;
 }
 
 export interface CoachingProviderRow {
@@ -134,7 +141,21 @@ export interface CoachingSettings {
 export interface Branding {
   primary: string;
   secondary: string;
+  text: string;
   logoUrl: string;
+}
+
+export interface AdminSessionRow {
+  id: number;
+  started_at: string;
+  ended_at: string | null;
+  total_score: number | null;
+  voice_name: string | null;
+  user_name: string;
+  user_email: string;
+  scenario_title: string | null;
+  client_disc_code: string | null;
+  status: 'completed' | 'in_progress' | 'empty';
 }
 
 export const adminApi = {
@@ -156,4 +177,11 @@ export const adminApi = {
   branding: () => api.get<Branding>('/api/branding'),
   setBranding: (b: Branding) => api.patch<Branding>('/api/branding', b),
   resetBranding: () => api.delete<Branding>('/api/branding'),
+  sessions: (q: Record<string, string> = {}) =>
+    api.get<AdminSessionRow[]>(`/api/admin/sessions?${new URLSearchParams(q)}`),
+  deleteSession: (id: number) => api.delete<{ deleted: boolean }>(`/api/admin/sessions/${id}`),
+  purgeEmpty: () => api.post<{ purged: number }>(`/api/admin/sessions/purge-empty`, {}),
+  userTypes: () => api.get<UserType[]>('/api/admin/user-types'),
+  addUserType: (name: string) => api.post<UserType[]>('/api/admin/user-types', { name }),
+  removeUserType: (name: string) => api.delete<UserType[]>(`/api/admin/user-types/${encodeURIComponent(name)}`),
 };

@@ -17,10 +17,18 @@ const lighten = ([r, g, b]: number[], amt: number): number[] =>
 const darken = ([r, g, b]: number[], amt: number): number[] =>
   [r * (1 - amt), g * (1 - amt), b * (1 - amt)];
 const channels = (rgb: number[]): string => rgb.map(clamp).join(' ');
+/** Blend two RGB arrays: t = fraction of `a` (default 0.5). */
+const mix = (a: [number, number, number], b: [number, number, number], t = 0.5): number[] =>
+  [a[0] * t + b[0] * (1 - t), a[1] * t + b[1] * (1 - t), a[2] * t + b[2] * (1 - t)];
 
-export function deriveBrandShades(primaryHex: string, secondaryHex: string): Record<string, string> {
+export function deriveBrandShades(
+  primaryHex: string,
+  secondaryHex: string,
+  textHex: string,
+): Record<string, string> {
   const primary = hexToRgb(primaryHex);
   const secondary = hexToRgb(secondaryHex);
+  const text = hexToRgb(textHex);
   return {
     '--gold-400': channels(lighten(primary, 0.18)),
     '--gold-500': channels(primary),
@@ -30,5 +38,7 @@ export function deriveBrandShades(primaryHex: string, secondaryHex: string): Rec
     '--navy-700': channels(lighten(secondary, 0.12)),
     '--navy-600': channels(lighten(secondary, 0.22)),
     '--navy-500': channels(lighten(secondary, 0.35)),
+    '--slate-text': channels(text),
+    '--slate-muted': channels(mix(text, secondary, 0.8)),
   };
 }

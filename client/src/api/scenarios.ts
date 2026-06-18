@@ -6,6 +6,7 @@ export interface Scenario {
   title: string;
   description: string;
   active: number;
+  visible_to_types?: string[];
 }
 
 export interface ScenarioBriefing {
@@ -23,6 +24,7 @@ export interface AdminScenarioRow {
   active: number;
   updated_at: string;
   session_count: number;
+  visible_to_types?: string[] | null;
 }
 
 export interface ScenarioFull {
@@ -33,6 +35,7 @@ export interface ScenarioFull {
   body_markdown: string;
   active: number;
   updated_at: string;
+  visible_to_types?: string[] | string | null;
 }
 
 export interface ScenarioCreatePayload {
@@ -40,6 +43,7 @@ export interface ScenarioCreatePayload {
   title: string;
   description: string;
   body_markdown: string;
+  visible_to_types?: string[];
 }
 
 export interface ScenarioUpdatePayload {
@@ -47,6 +51,7 @@ export interface ScenarioUpdatePayload {
   description?: string;
   body_markdown?: string;
   active?: boolean;
+  visible_to_types?: string[];
 }
 
 export const scenariosApi = {

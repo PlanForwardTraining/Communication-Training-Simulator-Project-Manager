@@ -252,6 +252,10 @@ function seedRubricItems(): number {
   return count;
 }
 
+function seedUserTypes(): void {
+  db.prepare(`INSERT OR IGNORE INTO user_types (name) VALUES ('PM')`).run();
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 function main() {
@@ -259,6 +263,7 @@ function main() {
   const scenarioCount = seedScenarios();
   const discCount = seedDiscProfiles();
   const rubricCount = seedRubricItems();
+  seedUserTypes();
 
   console.log(
     `Seeded: ${adminCount} admin, ${scenarioCount} scenarios, ${discCount} DISC profiles, ${rubricCount} rubric items`

@@ -1,21 +1,59 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { scenariosApi, type Scenario } from '../api/scenarios';
-import { useAuth } from '../context/AuthContext';
-import { BrandLogo } from '../components/BrandLogo';
+import { DataTable, type Column } from '../components/DataTable';
+import { PracticeLayout } from '../components/PracticeLayout';
 
-function stripMarkdown(text: string): string {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, '$1')
-    .replace(/\*(.+?)\*/g, '$1')
-    .replace(/_(.+?)_/g, '$1')
-    .replace(/`(.+?)`/g, '$1')
-    .replace(/#{1,6}\s/g, '')
-    .trim();
-}
+// Strip markdown emphasis markers so descriptions read cleanly in the table cell.
+const stripMd = (s: string) =>
+  s.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1');
+
+const scenarioColumns: Column<Scenario>[] = [
+  {
+    key: 'title',
+    header: 'Name',
+    sortable: true,
+    render: (s) => (
+      <span className="font-body font-medium text-slate-text">
+        {s.title.replace(/^Scenario \d+:\s*/i, '')}
+      </span>
+    ),
+  },
+  {
+    key: 'description',
+    header: 'Description',
+    className: 'w-1/2',
+    render: (s) => (
+      <span
+        className="font-body text-slate-muted"
+        style={{
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        }}
+      >
+        {stripMd(s.description)}
+      </span>
+    ),
+  },
+  {
+    key: 'visible_to_types',
+    header: 'Role(s)',
+    render: (s) => {
+      const label = s.visible_to_types?.length
+        ? s.visible_to_types.join(', ')
+        : 'All';
+      return (
+        <span className="inline-block font-body text-xs text-slate-muted bg-navy-700 rounded px-2 py-0.5 whitespace-nowrap">
+          {label}
+        </span>
+      );
+    },
+  },
+];
 
 export function ScenarioSelectPage() {
-  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,37 +67,7 @@ export function ScenarioSelectPage() {
   }, []);
 
   return (
-    <div className="page">
-      {/* Top bar */}
-      <header className="border-b border-navy-600 px-4 sm:px-6 py-4">
-        <div className="container-lg flex items-center justify-between">
-          <div>
-            <BrandLogo>
-              <span className="font-wordmark text-sm font-bold tracking-widest text-gold-500 uppercase">
-                Plan Forward
-              </span>
-            </BrandLogo>
-            <p className="font-body text-xs text-slate-muted mt-0.5">Welcome, {user?.name}</p>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-4">
-            {user?.role === 'admin' && (
-              <button
-                onClick={() => navigate('/admin')}
-                className="btn-ghost text-sm text-gold-500"
-              >
-                Admin
-              </button>
-            )}
-            <button onClick={() => navigate('/history')} className="btn-ghost text-sm">
-              History
-            </button>
-            <button onClick={logout} className="btn-ghost text-sm text-slate-muted">
-              Sign out
-            </button>
-          </div>
-        </div>
-      </header>
-
+    <PracticeLayout>
       <main className="flex-1 py-8 sm:py-10">
         <div className="container-lg">
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-slate-text mb-2">
@@ -70,14 +78,16 @@ export function ScenarioSelectPage() {
           </p>
 
           {loading && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="card p-6 animate-pulse h-40">
-                  <div className="h-5 bg-navy-700 rounded w-3/4 mb-3" />
-                  <div className="h-3 bg-navy-700 rounded w-full mb-2" />
-                  <div className="h-3 bg-navy-700 rounded w-2/3" />
-                </div>
-              ))}
+            <div className="card overflow-hidden animate-pulse">
+              <div className="p-4 space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="h-4 bg-navy-700 rounded w-1/4" />
+                    <div className="h-4 bg-navy-700 rounded w-1/2" />
+                    <div className="h-4 bg-navy-700 rounded w-1/8" />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -88,41 +98,15 @@ export function ScenarioSelectPage() {
           )}
 
           {!loading && !error && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {scenarios.map(scenario => (
-                <button
-                  key={scenario.id}
-                  onClick={() => navigate(`/sessions/new/${scenario.slug}`)}
-                  className="card p-7 text-left hover:bg-navy-700 transition-all duration-200 group border-l-4 border-l-gold-500 hover:border-l-gold-400 active:scale-[0.99]"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-display font-semibold text-base leading-snug text-slate-text group-hover:text-gold-400 transition-colors duration-200 mb-2.5">
-                        {scenario.title.replace(/^Scenario \d+:\s*/i, '')}
-                      </h3>
-                      <p className="font-body text-sm text-slate-muted" style={{
-                        display: '-webkit-box',
-                        WebkitLineClamp: 4,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        lineHeight: '1.85',
-                      }}>
-                        {stripMarkdown(scenario.description)}
-                      </p>
-                    </div>
-                    <svg
-                      className="w-5 h-5 text-navy-500 group-hover:text-gold-500 group-hover:translate-x-1 transition-all duration-200 flex-shrink-0 mt-0.5"
-                      fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </button>
-              ))}
-            </div>
+            <DataTable<Scenario>
+              columns={scenarioColumns}
+              rows={scenarios}
+              onRowClick={(s) => navigate(`/sessions/new/${s.slug}`)}
+              empty="No scenarios available."
+            />
           )}
         </div>
       </main>
-    </div>
+    </PracticeLayout>
   );
 }

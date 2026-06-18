@@ -83,17 +83,17 @@ export function TrendChart({ points, height = 180 }: Props) {
         x2={W - PAD_X}
         y1={scaleY(mean)}
         y2={scaleY(mean)}
-        stroke="#C9A84C"
+        className="stroke-gold-500"
         strokeOpacity={0.3}
         strokeWidth={1}
         strokeDasharray="3 3"
       />
 
       {/* Area */}
-      <path d={areaPath} fill="#C9A84C" fillOpacity={0.1} />
+      <path d={areaPath} className="fill-gold-500" fillOpacity={0.1} />
 
       {/* Line */}
-      <path d={path} fill="none" stroke="#C9A84C" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={path} fill="none" className="stroke-gold-500" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
 
       {/* Points */}
       {points.map((p, i) => (
@@ -102,8 +102,7 @@ export function TrendChart({ points, height = 180 }: Props) {
           cx={scaleX(i)}
           cy={scaleY(p.score)}
           r={3.5}
-          fill="#C9A84C"
-          stroke="#0F172A"
+          className="fill-gold-500 stroke-navy-900"
           strokeWidth={2}
         >
           <title>{`${new Date(p.date).toLocaleDateString()} — ${p.score}`}</title>

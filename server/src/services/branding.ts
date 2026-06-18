@@ -3,18 +3,21 @@ import db from '../db/connection';
 export interface Branding {
   primary: string;
   secondary: string;
+  text: string;
   logoUrl: string;
 }
 
 export const DEFAULT_BRANDING: Branding = {
-  primary: '#C9A84C',   // gold-500
-  secondary: '#111D35', // navy-800
+  primary: '#1C8CAB',   // Plan Forward teal (accent)
+  secondary: '#0E2A33', // dark teal-slate (dark-theme base)
+  text: '#F8FAFC',      // crisp cool near-white body text
   logoUrl: '',
 };
 
 const KEYS = {
   primary: 'brand_primary',
   secondary: 'brand_secondary',
+  text: 'brand_text',
   logoUrl: 'brand_logo_url',
 } as const;
 
@@ -41,6 +44,7 @@ export function getBranding(): Branding {
   return {
     primary: get(KEYS.primary) ?? DEFAULT_BRANDING.primary,
     secondary: get(KEYS.secondary) ?? DEFAULT_BRANDING.secondary,
+    text: get(KEYS.text) ?? DEFAULT_BRANDING.text,
     logoUrl: get(KEYS.logoUrl) ?? DEFAULT_BRANDING.logoUrl,
   };
 }
@@ -48,11 +52,12 @@ export function getBranding(): Branding {
 export function setBranding(b: Branding): void {
   set(KEYS.primary, b.primary);
   set(KEYS.secondary, b.secondary);
+  set(KEYS.text, b.text);
   set(KEYS.logoUrl, b.logoUrl);
 }
 
 export function resetBranding(): void {
-  db.prepare('DELETE FROM app_settings WHERE key IN (?, ?, ?)').run(
-    KEYS.primary, KEYS.secondary, KEYS.logoUrl,
+  db.prepare('DELETE FROM app_settings WHERE key IN (?, ?, ?, ?)').run(
+    KEYS.primary, KEYS.secondary, KEYS.text, KEYS.logoUrl,
   );
 }

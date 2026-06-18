@@ -1,31 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { adminApi, type AdminSummary, type AdminUserStats, type FlaggedPM, type CategoryAverage } from '../../api/admin';
+import { adminApi, type AdminSummary, type FlaggedPM, type CategoryAverage } from '../../api/admin';
 import { AdminLayout } from './AdminLayout';
-import { UserModalForm } from './UserModalForm';
 import { DiscBadge } from '../../components/DiscBadge';
-
-function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
-  if (trend === 'up') {
-    return (
-      <span className="inline-flex items-center gap-0.5 text-green-400 font-body text-xs font-semibold">
-        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-        </svg>
-      </span>
-    );
-  }
-  if (trend === 'down') {
-    return (
-      <span className="inline-flex items-center gap-0.5 text-red-400 font-body text-xs font-semibold">
-        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </span>
-    );
-  }
-  return <span className="text-slate-muted font-body text-xs">—</span>;
-}
 
 function ScorePill({ score }: { score: number | null }) {
   if (score === null) return <span className="text-slate-muted font-body text-sm">—</span>;
@@ -103,93 +80,18 @@ function FlaggedCard({ pm, onClick }: { pm: FlaggedPM; onClick: () => void }) {
   );
 }
 
-function PmRow({
-  pm,
-  onClick,
-}: {
-  pm: AdminUserStats;
-  onClick: () => void;
-}) {
-  const lastSession = pm.lastSessionAt
-    ? pm.daysSinceLastSession === 0 ? 'Today'
-    : pm.daysSinceLastSession === 1 ? 'Yesterday'
-    : `${pm.daysSinceLastSession}d ago`
-    : 'Never';
-
-  return (
-    <tr
-      onClick={onClick}
-      className="border-b border-navy-700 hover:bg-navy-800 cursor-pointer transition-colors"
-    >
-      <td className="py-3 pl-4 pr-2">
-        <div className="flex items-center gap-2.5">
-          <DiscBadge code={pm.disc_profile} />
-          <div className="flex flex-col">
-            <span className="font-display font-semibold text-sm text-slate-text">{pm.name}</span>
-            <span className="font-body text-xs text-slate-muted">{pm.email}</span>
-          </div>
-        </div>
-      </td>
-      <td className="py-3 px-2 text-center">
-        <span className="font-display font-semibold text-sm text-slate-text">{pm.totalSessions}</span>
-      </td>
-      <td className="py-3 px-2 text-center font-body text-xs text-slate-muted">
-        {lastSession}
-      </td>
-      <td className="py-3 px-2 text-center">
-        <ScorePill score={pm.averageScore} />
-      </td>
-      <td className="py-3 px-2 text-center">
-        <TrendIcon trend={pm.trend} />
-      </td>
-      <td className="py-3 px-2">
-        {pm.focusAreas.length === 0 ? (
-          <span className="font-body text-xs text-slate-muted">—</span>
-        ) : (
-          <div className="flex flex-wrap gap-1">
-            {pm.focusAreas.slice(0, 2).map(f => (
-              <span
-                key={f.key}
-                className="inline-flex items-center px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 font-body text-[10px] font-semibold whitespace-nowrap"
-                title={`Average ${f.average} across ${f.sessionsScored} sessions`}
-              >
-                {f.label}
-              </span>
-            ))}
-            {pm.focusAreas.length > 2 && (
-              <span className="font-body text-[10px] text-slate-muted">
-                +{pm.focusAreas.length - 2}
-              </span>
-            )}
-          </div>
-        )}
-      </td>
-      <td className="py-3 pl-2 pr-4 text-right">
-        {pm.active === 0 && (
-          <span className="font-body text-[10px] uppercase tracking-widest text-slate-muted">
-            Inactive
-          </span>
-        )}
-      </td>
-    </tr>
-  );
-}
-
 export function AdminDashboardPage() {
   const navigate = useNavigate();
   const [summary, setSummary] = useState<AdminSummary | null>(null);
-  const [allUsers, setAllUsers] = useState<AdminUserStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
 
   const reload = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [s, users] = await Promise.all([adminApi.summary(), adminApi.users()]);
+      const s = await adminApi.summary();
       setSummary(s);
-      setAllUsers(users);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load admin data');
     } finally {
@@ -208,9 +110,6 @@ export function AdminDashboardPage() {
           <h1 className="font-display text-3xl font-bold text-slate-text">Dashboard</h1>
           <p className="font-body text-sm text-slate-muted mt-1">Cohort health and per-PM focus areas</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary text-sm">
-          + Add PM
-        </button>
       </div>
 
       {loading && (
@@ -295,50 +194,7 @@ export function AdminDashboardPage() {
               )}
             </section>
           </div>
-
-          {/* All PMs table */}
-          <section>
-            <h2 className="font-display font-semibold text-slate-text mb-4">All PMs</h2>
-            <div className="card overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-navy-700 text-left">
-                      <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 pl-4 pr-2">PM</th>
-                      <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 px-2 text-center">Sessions</th>
-                      <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 px-2 text-center">Last</th>
-                      <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 px-2 text-center">Avg</th>
-                      <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 px-2 text-center">Trend</th>
-                      <th className="font-body text-[10px] uppercase tracking-widest text-slate-muted py-3 px-2">Focus Areas</th>
-                      <th className="py-3 pl-2 pr-4"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allUsers.filter(u => u.role === 'pm').map(pm => (
-                      <PmRow key={pm.id} pm={pm} onClick={() => navigate(`/admin/users/${pm.id}`)} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {allUsers.filter(u => u.role === 'pm').length === 0 && (
-                <div className="py-12 text-center font-body text-sm text-slate-muted">
-                  No PMs yet. Click "+ Add PM" to onboard your first.
-                </div>
-              )}
-            </div>
-          </section>
         </div>
-      )}
-
-      {showModal && (
-        <UserModalForm
-          mode="create"
-          onClose={() => setShowModal(false)}
-          onSaved={() => {
-            setShowModal(false);
-            reload();
-          }}
-        />
       )}
     </AdminLayout>
   );

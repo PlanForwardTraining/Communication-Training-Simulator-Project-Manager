@@ -11,6 +11,7 @@ import adminRouter from './routes/admin';
 import coachingCardsRouter from './routes/coaching-cards';
 import brandingRouter from './routes/branding';
 import elevenLabsWebhookRouter from './routes/elevenlabs-webhook';
+import { purgeExpiredSoftDeletes } from './services/sessions-admin';
 
 dotenv.config();
 
@@ -63,6 +64,13 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  // Retention sweep: hard-delete sessions soft-deleted >30 days ago
+  try {
+    const purged = purgeExpiredSoftDeletes();
+    if (purged > 0) console.log(`[retention] Purged ${purged} expired session(s) (>30d soft-delete)`);
+  } catch (err) {
+    console.error('[retention] purgeExpiredSoftDeletes failed at startup:', err);
+  }
 });
 
 export default app;

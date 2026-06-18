@@ -11,11 +11,12 @@ router.get('/', (_req: Request, res: Response): void => {
 });
 
 router.patch('/', requireAuth, requireAdmin, (req: Request, res: Response): void => {
-  const { primary, secondary, logoUrl } = req.body ?? {};
+  const { primary, secondary, text, logoUrl } = req.body ?? {};
   if (!isHexColor(primary)) { res.status(400).json({ error: 'primary must be a #RRGGBB hex color' }); return; }
   if (!isHexColor(secondary)) { res.status(400).json({ error: 'secondary must be a #RRGGBB hex color' }); return; }
+  if (!isHexColor(text)) { res.status(400).json({ error: 'text must be a #RRGGBB hex color' }); return; }
   if (!isLogoUrl(logoUrl)) { res.status(400).json({ error: 'logoUrl must be empty or an http(s) URL' }); return; }
-  setBranding({ primary, secondary, logoUrl });
+  setBranding({ primary, secondary, text, logoUrl });
   res.json(getBranding());
 });
 

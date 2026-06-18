@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { sessionsApi, type CoachingResult, type SessionDetail } from '../api/sessions';
 import { MarkdownLite } from '../utils/MarkdownLite';
+import { PracticeLayout } from '../components/PracticeLayout';
 
 function ScoreRing({ score }: { score: number }) {
   const radius = 52;
@@ -18,10 +19,10 @@ function ScoreRing({ score }: { score: number }) {
     <div className="flex flex-col items-center gap-2">
       <div className="relative w-36 h-36">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
-          <circle cx="60" cy="60" r={radius} fill="none" stroke="#1A2B4A" strokeWidth="10" />
+          <circle cx="60" cy="60" r={radius} fill="none" className="stroke-navy-700" strokeWidth="10" />
           <circle
             cx="60" cy="60" r={radius} fill="none"
-            stroke="#C9A84C" strokeWidth="10"
+            className="stroke-gold-500" strokeWidth="10"
             strokeDasharray={`${filled} ${circumference - filled}`}
             strokeLinecap="round"
             style={{ transition: 'stroke-dasharray 1s ease-out' }}
@@ -81,18 +82,22 @@ export function DebriefPage() {
 
   if (loading) {
     return (
-      <div className="page items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" />
-      </div>
+      <PracticeLayout>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </PracticeLayout>
     );
   }
 
   if (!coaching) {
     return (
-      <div className="page items-center justify-center px-4">
-        <p className="text-slate-muted font-body">No coaching data found.</p>
-        <button onClick={() => navigate('/')} className="btn-secondary mt-4">Back to Home</button>
-      </div>
+      <PracticeLayout>
+        <div className="flex-1 flex items-center justify-center px-4">
+          <p className="text-slate-muted font-body">No coaching data found.</p>
+          <button onClick={() => navigate('/')} className="btn-secondary mt-4">Back to Home</button>
+        </div>
+      </PracticeLayout>
     );
   }
 
@@ -107,13 +112,7 @@ export function DebriefPage() {
   ];
 
   return (
-    <div className="page">
-      <header className="border-b border-navy-600 px-4 py-4">
-        <div className="container-md flex items-center justify-between mx-auto">
-          <span className="font-wordmark text-sm font-bold tracking-widest text-gold-500 uppercase">Coaching Debrief</span>
-        </div>
-      </header>
-
+    <PracticeLayout>
       <main className="flex-1 py-8 px-4 pb-24">
         <div className="container-md mx-auto space-y-8">
           {/* Score */}
@@ -198,6 +197,6 @@ export function DebriefPage() {
           </button>
         </div>
       </div>
-    </div>
+    </PracticeLayout>
   );
 }

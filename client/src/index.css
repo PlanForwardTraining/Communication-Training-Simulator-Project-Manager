@@ -6,16 +6,17 @@
 
 @layer base {
   :root {
-    --navy-900: 11 20 38;
-    --navy-800: 17 29 53;
-    --navy-700: 26 43 74;
-    --navy-600: 30 58 95;
-    --navy-500: 42 74 117;
-    --gold-400: 232 201 106;
-    --gold-500: 201 168 76;
-    --gold-600: 168 136 46;
-    --slate-text: 240 237 232;
-    --slate-muted: 138 155 181;
+    /* Plan Forward brand: teal accent (--gold-*) on a dark teal-slate base (--navy-*) */
+    --navy-900: 11 32 38;
+    --navy-800: 14 42 51;
+    --navy-700: 43 68 75;
+    --navy-600: 67 89 96;
+    --navy-500: 98 117 122;
+    --gold-400: 69 161 186;
+    --gold-500: 28 140 171;
+    --gold-600: 21 105 128;
+    --slate-text: 248 250 252;
+    --slate-muted: 201 208 212;
   }
 
   * {
@@ -24,7 +25,7 @@
 
   html {
     font-family: 'DM Sans', sans-serif;
-    background-color: #0B1426;
+    background-color: #0B2026;
     color: rgb(var(--slate-text));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

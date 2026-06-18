@@ -4,6 +4,8 @@ import db from '../db/connection';
 import { requireAuth } from '../middleware/auth';
 import { requireAdmin } from '../middleware/roleGuard';
 import { regenerateExcel, EXCEL_PATH } from '../services/excel';
+import { listSessions, softDeleteSession, purgeEmptySessions, type SessionFilter } from '../services/sessions-admin';
+import { listUserTypes, addUserType, userTypeInUse, removeUserType } from '../services/user-types';
 import fs from 'fs';
 
 const router = Router();
@@ -125,6 +127,7 @@ interface UserStats {
   role: string;
   active: number;
   created_at: string;
+  user_type: string | null;
   totalSessions: number;
   lastSessionAt: string | null;
   daysSinceLastSession: number | null;
@@ -141,10 +144,11 @@ function computeUserStats(userRow: {
   role: string;
   active: number;
   created_at: string;
+  user_type?: string | null;
 }): UserStats {
   const sessions = db.prepare(
     `SELECT id, started_at, total_score FROM sessions
-     WHERE user_id = ? AND ended_at IS NOT NULL
+     WHERE user_id = ? AND ended_at IS NOT NULL AND deleted_at IS NULL
      ORDER BY started_at ASC`,
   ).all(userRow.id) as { id: number; started_at: string; total_score: number | null }[];
 
@@ -195,6 +199,7 @@ function computeUserStats(userRow: {
     role: userRow.role,
     active: userRow.active,
     created_at: userRow.created_at,
+    user_type: userRow.user_type ?? null,
     totalSessions,
     lastSessionAt,
     daysSinceLastSession: lastSessionAt ? daysSince(lastSessionAt) : null,
@@ -210,17 +215,18 @@ function computeUserStats(userRow: {
 
 router.get('/summary', (_req: Request, res: Response): void => {
   const users = db.prepare(
-    `SELECT id, name, email, disc_profile, role, active, created_at FROM users WHERE role = 'pm'`,
+    `SELECT id, name, email, disc_profile, role, active, created_at, user_type FROM users`,
   ).all() as Parameters<typeof computeUserStats>[0][];
 
-  const activeUsers = users.filter(u => u.active === 1);
-  const stats = activeUsers.map(computeUserStats);
+  // Cohort stats (team averages, flagged, etc.) are computed over non-admin active users only
+  const activeNonAdminUsers = users.filter(u => u.role !== 'admin' && u.active === 1);
+  const stats = activeNonAdminUsers.map(computeUserStats);
 
   const totalSessions = stats.reduce((sum, s) => sum + s.totalSessions, 0);
 
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const sessionsThisWeek = (db.prepare(
-    `SELECT COUNT(*) as n FROM sessions WHERE ended_at IS NOT NULL AND started_at >= ?`,
+    `SELECT COUNT(*) as n FROM sessions WHERE ended_at IS NOT NULL AND deleted_at IS NULL AND started_at >= ?`,
   ).get(oneWeekAgo) as { n: number }).n;
 
   const allScores = stats
@@ -236,7 +242,7 @@ router.get('/summary', (_req: Request, res: Response): void => {
   const allSessions = db.prepare(
     `SELECT s.id FROM sessions s
      JOIN users u ON u.id = s.user_id
-     WHERE s.ended_at IS NOT NULL AND u.role = 'pm' AND u.active = 1`,
+     WHERE s.ended_at IS NOT NULL AND s.deleted_at IS NULL AND u.role = 'pm' AND u.active = 1`,
   ).all() as { id: number }[];
   const allBreakdowns = loadCoachingFor(allSessions.map(s => s.id));
   for (const bd of allBreakdowns.values()) {
@@ -281,9 +287,12 @@ router.get('/summary', (_req: Request, res: Response): void => {
     return (a.averageScore ?? 100) - (b.averageScore ?? 100);
   });
 
+  // Build the full user list (all roles, all active states) for the dashboard table
+  const allUserStats = users.map(computeUserStats);
+
   res.json({
     cohort: {
-      totalPMs: activeUsers.length,
+      totalPMs: activeNonAdminUsers.length,
       totalSessionsAllTime: totalSessions,
       sessionsThisWeek,
       teamAverageScore,
@@ -291,7 +300,7 @@ router.get('/summary', (_req: Request, res: Response): void => {
     teamCategoryAverages,
     teamFocusAreas,
     flaggedPMs: flagged.slice(0, 5),
-    pms: stats,
+    pms: allUserStats,
   });
 });
 
@@ -301,7 +310,7 @@ router.get('/summary', (_req: Request, res: Response): void => {
 
 router.get('/users', (_req: Request, res: Response): void => {
   const users = db.prepare(
-    `SELECT id, name, email, disc_profile, role, active, created_at FROM users
+    `SELECT id, name, email, disc_profile, role, active, created_at, user_type FROM users
      ORDER BY active DESC, name ASC`,
   ).all() as Parameters<typeof computeUserStats>[0][];
 
@@ -316,7 +325,7 @@ router.get('/users', (_req: Request, res: Response): void => {
 router.get('/users/:id', (req: Request, res: Response): void => {
   const id = Number(req.params.id);
   const user = db.prepare(
-    `SELECT id, name, email, disc_profile, role, active, created_at FROM users WHERE id = ?`,
+    `SELECT id, name, email, disc_profile, role, active, created_at, user_type FROM users WHERE id = ?`,
   ).get(id) as Parameters<typeof computeUserStats>[0] | undefined;
   if (!user) {
     res.status(404).json({ error: 'User not found' });
@@ -334,14 +343,14 @@ router.get('/users/:id', (req: Request, res: Response): void => {
      FROM sessions s
      JOIN scenarios sc ON sc.id = s.scenario_id
      JOIN disc_profiles dp ON dp.id = s.client_disc_id
-     WHERE s.user_id = ? AND s.ended_at IS NOT NULL
+     WHERE s.user_id = ? AND s.ended_at IS NOT NULL AND s.deleted_at IS NULL
      ORDER BY s.started_at DESC`,
   ).all(id);
 
   // Trend data: chronological [{ date, score }] for chart
   const trendRows = db.prepare(
     `SELECT id, started_at, total_score FROM sessions
-     WHERE user_id = ? AND ended_at IS NOT NULL AND total_score IS NOT NULL
+     WHERE user_id = ? AND ended_at IS NOT NULL AND deleted_at IS NULL AND total_score IS NOT NULL
      ORDER BY started_at ASC`,
   ).all(id) as { id: number; started_at: string; total_score: number }[];
 
@@ -380,6 +389,38 @@ router.get('/users/:id', (req: Request, res: Response): void => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /api/admin/sessions — filtered list of sessions (excludes soft-deleted)
+// DELETE /api/admin/sessions/:id — soft-delete a session
+// POST /api/admin/sessions/purge-empty — soft-delete all turn-less sessions
+// ---------------------------------------------------------------------------
+
+router.get('/sessions', (req: Request, res: Response): void => {
+  const filter: SessionFilter = {};
+  if (req.query.userId)     filter.userId     = Number(req.query.userId);
+  if (req.query.scenarioId) filter.scenarioId = Number(req.query.scenarioId);
+  if (req.query.from)       filter.from       = String(req.query.from);
+  if (req.query.to)         filter.to         = String(req.query.to);
+  if (req.query.status)     filter.status     = req.query.status as SessionFilter['status'];
+  res.json(listSessions(filter));
+});
+
+// NOTE: "purge-empty" must come BEFORE /:id so Express doesn't treat "purge-empty" as an id
+router.post('/sessions/purge-empty', (_req: Request, res: Response): void => {
+  const purged = purgeEmptySessions();
+  res.json({ purged });
+});
+
+router.delete('/sessions/:id', (req: Request, res: Response): void => {
+  const id = Number(req.params.id);
+  const changes = softDeleteSession(id);
+  if (changes === 0) {
+    res.status(404).json({ error: 'Session not found or already deleted' });
+    return;
+  }
+  res.json({ deleted: true });
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/admin/sessions/:id — admin can view any session in detail
 // ---------------------------------------------------------------------------
 
@@ -396,7 +437,7 @@ router.get('/sessions/:id', (req: Request, res: Response): void => {
      JOIN users u ON u.id = s.user_id
      JOIN scenarios sc ON sc.id = s.scenario_id
      JOIN disc_profiles dp ON dp.id = s.client_disc_id
-     WHERE s.id = ?`,
+     WHERE s.id = ? AND s.deleted_at IS NULL`,
   ).get(sessionId);
 
   if (!session) {
@@ -442,7 +483,7 @@ router.get('/sessions/:id', (req: Request, res: Response): void => {
 // ---------------------------------------------------------------------------
 
 router.post('/users', (req: Request, res: Response): void => {
-  const { name, email, password, disc_profile, role } = req.body;
+  const { name, email, password, disc_profile, role, user_type } = req.body;
   if (!name || !email || !password || !disc_profile || !role) {
     res.status(400).json({ error: 'Missing required fields' });
     return;
@@ -452,11 +493,12 @@ router.post('/users', (req: Request, res: Response): void => {
     return;
   }
   const password_hash = bcrypt.hashSync(password, 10);
+  const userType = user_type != null ? String(user_type).trim() || null : null;
   try {
     const result = db.prepare(
-      `INSERT INTO users (name, email, password_hash, disc_profile, role)
-       VALUES (?, ?, ?, ?, ?)`,
-    ).run(name, email, password_hash, disc_profile, role);
+      `INSERT INTO users (name, email, password_hash, disc_profile, role, user_type)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(name, email, password_hash, disc_profile, role, userType);
     res.status(201).json({ id: result.lastInsertRowid });
   } catch (e: unknown) {
     if (e instanceof Error && e.message.includes('UNIQUE')) {
@@ -469,10 +511,10 @@ router.post('/users', (req: Request, res: Response): void => {
 
 router.patch('/users/:id', (req: Request, res: Response): void => {
   const id = Number(req.params.id);
-  const { name, disc_profile, role, password, active } = req.body;
+  const { name, disc_profile, role, password, active, user_type } = req.body;
 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as
-    | { name: string; disc_profile: string; role: string; password_hash: string; active: number }
+    | { name: string; disc_profile: string; role: string; password_hash: string; active: number; user_type: string | null }
     | undefined;
   if (!user) {
     res.status(404).json({ error: 'User not found' });
@@ -484,20 +526,34 @@ router.patch('/users/:id', (req: Request, res: Response): void => {
   const newRole = role ?? user.role;
   const newHash = password ? bcrypt.hashSync(password, 10) : user.password_hash;
   const newActive = typeof active === 'boolean' ? (active ? 1 : 0) : user.active;
+  // user_type: explicit null clears it; string sets it; undefined leaves it unchanged
+  const newUserType = user_type !== undefined
+    ? (user_type === null ? null : String(user_type).trim() || null)
+    : user.user_type;
 
   db.prepare(
-    `UPDATE users SET name = ?, disc_profile = ?, role = ?, password_hash = ?, active = ? WHERE id = ?`,
-  ).run(newName, newDisc, newRole, newHash, newActive, id);
+    `UPDATE users SET name = ?, disc_profile = ?, role = ?, password_hash = ?, active = ?, user_type = ? WHERE id = ?`,
+  ).run(newName, newDisc, newRole, newHash, newActive, newUserType, id);
 
   res.json({ updated: true });
 });
 
 // ---------------------------------------------------------------------------
-// GET /api/admin/export.xlsx — Excel download
+// GET /api/admin/export.xlsx — Excel download (supports same filter params as GET /sessions)
 // ---------------------------------------------------------------------------
 
-router.get('/export.xlsx', async (_req: Request, res: Response): Promise<void> => {
-  await regenerateExcel();
+router.get('/export.xlsx', async (req: Request, res: Response): Promise<void> => {
+  const filter: SessionFilter = {};
+  if (req.query.userId)     filter.userId     = Number(req.query.userId);
+  if (req.query.scenarioId) filter.scenarioId = Number(req.query.scenarioId);
+  if (req.query.from)       filter.from       = String(req.query.from);
+  if (req.query.to)         filter.to         = String(req.query.to);
+  if (req.query.status)     filter.status     = req.query.status as SessionFilter['status'];
+
+  // Determine whether a filter was actually applied (any param present)
+  const hasFilter = Object.keys(filter).length > 0;
+
+  await regenerateExcel(hasFilter ? filter : undefined);
   if (!fs.existsSync(EXCEL_PATH)) {
     res.status(500).json({ error: 'Excel file could not be generated' });
     return;
@@ -511,6 +567,35 @@ router.get('/export.xlsx', async (_req: Request, res: Response): Promise<void> =
     `attachment; filename="planforward-training-${new Date().toISOString().slice(0, 10)}.xlsx"`,
   );
   res.sendFile(EXCEL_PATH);
+});
+
+// ---------------------------------------------------------------------------
+// User types CRUD
+// ---------------------------------------------------------------------------
+
+router.get('/user-types', (_req: Request, res: Response): void => {
+  res.json(listUserTypes());
+});
+
+router.post('/user-types', (req: Request, res: Response): void => {
+  const name = (req.body?.name || '').trim();
+  if (!name) {
+    res.status(400).json({ error: 'name required' });
+    return;
+  }
+  addUserType(name);
+  res.json(listUserTypes());
+});
+
+router.delete('/user-types/:name', (req: Request, res: Response): void => {
+  const typeName = String(req.params.name);
+  const count = userTypeInUse(typeName);
+  if (count > 0) {
+    res.status(409).json({ error: `In use by ${count} user(s)/scenario(s)` });
+    return;
+  }
+  removeUserType(typeName);
+  res.json(listUserTypes());
 });
 
 // ---------------------------------------------------------------------------
