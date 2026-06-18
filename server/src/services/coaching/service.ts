@@ -13,7 +13,59 @@ const PROVIDERS: Record<PickerProvider, CoachingProvider> = {
   anthropic: anthropicProvider,
 };
 
-function parseCoachingFromText(rawText: string): CoachingResult {
+/** Map internal provider IDs to human-readable labels shown in error messages. */
+function providerLabel(provider: string): string {
+  if (provider === 'openai') return 'OpenAI';
+  if (provider === 'gemini') return 'Google Gemini';
+  if (provider === 'anthropic') return 'Anthropic';
+  return provider;
+}
+
+/**
+ * Convert a raw provider error into a concise, user-facing message.
+ * NEVER leaks raw JSON or HTTP response bodies to the caller.
+ *
+ * Exported so it can be unit-tested directly.
+ */
+export function friendlyCoachingError(err: unknown, provider: string): string {
+  const label = providerLabel(provider);
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  const errObj = err != null && typeof err === 'object' ? err as Record<string, unknown> : {};
+  const status = (errObj.status as number | undefined) ?? (errObj.statusCode as number | undefined);
+
+  // Quota / rate-limit: HTTP 429 or well-known message tokens
+  const isRateLimit =
+    status === 429 ||
+    /RESOURCE_EXHAUSTED|quota|rate.?limit|too many requests/i.test(msg);
+
+  // Auth / bad key: HTTP 401 / 403 or well-known message tokens
+  const isAuthError =
+    status === 401 ||
+    status === 403 ||
+    /api.?key|invalid.{0,30}key|unauthorized|permission denied/i.test(msg);
+
+  if (isRateLimit) {
+    return (
+      `Coaching couldn't be generated — the ${label} AI is rate-limited or out of quota. ` +
+      `An admin can switch the coaching provider in Admin → Coaching, or try again shortly.`
+    );
+  }
+
+  if (isAuthError) {
+    return (
+      `Coaching couldn't be generated — the ${label} API key was rejected. ` +
+      `An admin can update it in Admin → Coaching.`
+    );
+  }
+
+  // Fall-through: non-JSON parse failure or unknown
+  return (
+    `Coaching couldn't be generated (${label}). ` +
+    `Please retry; if it persists, an admin can check Admin → Coaching.`
+  );
+}
+
+function parseCoachingFromText(rawText: string, provider: string): CoachingResult {
   const jsonMatch = rawText.match(/\{[\s\S]*\}/);
   const jsonText = jsonMatch ? jsonMatch[0] : rawText.trim();
   let result: CoachingResult;
@@ -21,7 +73,10 @@ function parseCoachingFromText(rawText: string): CoachingResult {
     result = JSON.parse(jsonText);
   } catch {
     console.error('Coaching JSON parse failed. Raw response:', rawText.slice(0, 1000));
-    throw new Error(`Coaching model returned non-JSON response: ${rawText.slice(0, 300)}`);
+    const label = providerLabel(provider);
+    throw new Error(
+      `Coaching couldn't be generated — the ${label} AI returned an unexpected response. Please retry.`
+    );
   }
   if (typeof result.totalScore !== 'number' || !result.scoreBreakdown) {
     throw new Error('Coaching response missing required fields');
@@ -44,8 +99,18 @@ export async function generateCoachingStream(
   if (!apiKey) {
     throw new Error(`No API key configured for coaching provider "${provider}". Add one in Admin → Coaching.`);
   }
-  const rawText = await PROVIDERS[provider].streamCoaching({ prompt, model, apiKey, onProgress });
-  const result = parseCoachingFromText(rawText);
+
+  let rawText: string;
+  try {
+    rawText = await PROVIDERS[provider].streamCoaching({ prompt, model, apiKey, onProgress });
+  } catch (err) {
+    // Log the raw error server-side, then re-throw a friendly message so the
+    // route handler forwards something readable — never the raw provider JSON.
+    console.error(`[coaching] provider "${provider}" threw:`, err);
+    throw new Error(friendlyCoachingError(err, provider));
+  }
+
+  const result = parseCoachingFromText(rawText, provider);
   result.gradedProvider = provider;
   result.gradedModel = model;
   return result;

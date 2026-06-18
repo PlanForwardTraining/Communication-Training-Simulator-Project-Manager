@@ -463,6 +463,31 @@ function SimulationInner({ sessionData, briefing, coachingCard, generalCues, sce
     }
   }, [conversation, sessionData]);
 
+  const doEndSession = useCallback(async () => {
+    try {
+      setCoachingChars(0);
+      const result = await sessionsApi.end(
+        sessionData.sessionId,
+        turns,
+        events,
+        chars => setCoachingChars(chars),
+      );
+      navigate(`/sessions/${result.sessionId}/debrief`);
+    } catch (err) {
+      console.error('Save session failed:', err);
+      const raw = err instanceof Error ? err.message : 'Failed to save session.';
+      // Guard: never show a raw JSON blob to the user. If the message is very
+      // long or looks like JSON, substitute a generic fallback.
+      const looksLikeJson = raw.trimStart().startsWith('{') || raw.length > 300;
+      setEndingError(
+        looksLikeJson
+          ? "Coaching couldn't be generated — please retry."
+          : raw,
+      );
+      setEnding(false);
+    }
+  }, [sessionData.sessionId, turns, events, navigate]);
+
   const handleEndConfirmed = useCallback(async () => {
     setShowConfirm(false);
     setEnding(true);
@@ -483,23 +508,8 @@ function SimulationInner({ sessionData, briefing, coachingCard, generalCues, sce
       return;
     }
 
-    try {
-      setCoachingChars(0);
-      const result = await sessionsApi.end(
-        sessionData.sessionId,
-        turns,
-        events,
-        chars => setCoachingChars(chars),
-      );
-      navigate(`/sessions/${result.sessionId}/debrief`);
-    } catch (err) {
-      console.error('Save session failed:', err);
-      setEndingError(
-        err instanceof Error ? `Failed to save: ${err.message}` : 'Failed to save session.',
-      );
-      setEnding(false);
-    }
-  }, [conversation, sessionData.sessionId, turns, events, navigate]);
+    await doEndSession();
+  }, [conversation, doEndSession, turns, navigate]);
 
   // Countdown tick + auto-trigger when it hits zero
   useEffect(() => {
@@ -735,7 +745,19 @@ function SimulationInner({ sessionData, briefing, coachingCard, generalCues, sce
           </p>
         )}
         {endingError && (
-          <p className="text-red-400 font-body text-sm">{endingError}</p>
+          <div className="w-full max-w-sm rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 space-y-2">
+            <p className="font-body text-sm text-red-300 leading-relaxed">{endingError}</p>
+            <button
+              onClick={() => {
+                setEndingError(null);
+                setEnding(true);
+                doEndSession();
+              }}
+              className="font-body text-xs font-semibold text-red-300 hover:text-red-200 underline underline-offset-2 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
         )}
 
         {!sessionStarted ? (
