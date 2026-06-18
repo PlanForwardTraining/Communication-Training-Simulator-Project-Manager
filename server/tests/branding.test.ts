@@ -14,11 +14,15 @@ describe('branding service', () => {
     expect(getBranding()).toEqual(DEFAULT_BRANDING);
   });
   it('persists and reads back a partial update', () => {
-    setBranding({ primary: '#FF8800', secondary: '#222222', logoUrl: 'https://x.com/l.png' });
-    expect(getBranding()).toEqual({ primary: '#FF8800', secondary: '#222222', logoUrl: 'https://x.com/l.png' });
+    setBranding({ primary: '#FF8800', secondary: '#222222', text: '#FFFFFF', logoUrl: 'https://x.com/l.png' });
+    expect(getBranding()).toEqual({ primary: '#FF8800', secondary: '#222222', text: '#FFFFFF', logoUrl: 'https://x.com/l.png' });
+  });
+  it('round-trips text color', () => {
+    setBranding({ primary: '#FF8800', secondary: '#222222', text: '#AABBCC', logoUrl: '' });
+    expect(getBranding().text).toBe('#AABBCC');
   });
   it('reset reverts to defaults', () => {
-    setBranding({ primary: '#FF8800', secondary: '#222222', logoUrl: '' });
+    setBranding({ primary: '#FF8800', secondary: '#222222', text: '#FFFFFF', logoUrl: '' });
     resetBranding();
     expect(getBranding()).toEqual(DEFAULT_BRANDING);
   });
@@ -48,18 +52,21 @@ describe('branding routes', () => {
     expect(res.body).toEqual(DEFAULT_BRANDING);
   });
   it('PATCH requires admin', async () => {
-    const res = await request(app).patch('/api/branding').send({ primary: '#FF8800', secondary: '#222222', logoUrl: '' });
+    const res = await request(app).patch('/api/branding').send({ primary: '#FF8800', secondary: '#222222', text: '#FFFFFF', logoUrl: '' });
     expect(res.status).toBe(401);
   });
   it('PATCH validates and saves', async () => {
-    const bad = await request(app).patch('/api/branding').set('Authorization', `Bearer ${token}`).send({ primary: 'nope', secondary: '#222222', logoUrl: '' });
+    const bad = await request(app).patch('/api/branding').set('Authorization', `Bearer ${token}`).send({ primary: 'nope', secondary: '#222222', text: '#FFFFFF', logoUrl: '' });
     expect(bad.status).toBe(400);
-    const ok = await request(app).patch('/api/branding').set('Authorization', `Bearer ${token}`).send({ primary: '#FF8800', secondary: '#222222', logoUrl: '' });
+    const badText = await request(app).patch('/api/branding').set('Authorization', `Bearer ${token}`).send({ primary: '#FF8800', secondary: '#222222', text: 'not-a-color', logoUrl: '' });
+    expect(badText.status).toBe(400);
+    const ok = await request(app).patch('/api/branding').set('Authorization', `Bearer ${token}`).send({ primary: '#FF8800', secondary: '#222222', text: '#FFFFFF', logoUrl: '' });
     expect(ok.status).toBe(200);
     expect(ok.body.primary).toBe('#FF8800');
+    expect(ok.body.text).toBe('#FFFFFF');
   });
   it('DELETE resets to defaults', async () => {
-    await request(app).patch('/api/branding').set('Authorization', `Bearer ${token}`).send({ primary: '#FF8800', secondary: '#222222', logoUrl: '' });
+    await request(app).patch('/api/branding').set('Authorization', `Bearer ${token}`).send({ primary: '#FF8800', secondary: '#222222', text: '#FFFFFF', logoUrl: '' });
     const res = await request(app).delete('/api/branding').set('Authorization', `Bearer ${token}`);
     expect(res.body).toEqual(DEFAULT_BRANDING);
   });

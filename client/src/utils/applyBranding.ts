@@ -1,11 +1,14 @@
 import { deriveBrandShades } from './deriveBrandShades';
 
-const DEFAULTS = { primary: '#1C8CAB', secondary: '#0E2A33' };
+const DEFAULTS = { primary: '#1C8CAB', secondary: '#0E2A33', text: '#F8FAFC' };
 
-export function applyBrandingValues(primary: string, secondary: string): void {
+export function applyBrandingValues(primary: string, secondary: string, text: string): void {
   const root = document.documentElement;
-  const shades = deriveBrandShades(primary, secondary);
-  const isDefault = primary === DEFAULTS.primary && secondary === DEFAULTS.secondary;
+  const shades = deriveBrandShades(primary, secondary, text);
+  const isDefault =
+    primary === DEFAULTS.primary &&
+    secondary === DEFAULTS.secondary &&
+    text === DEFAULTS.text;
   for (const [k, v] of Object.entries(shades)) {
     if (isDefault) root.style.removeProperty(k); // Fix 2: remove inline props so CSS :root defaults take over
     else root.style.setProperty(k, v);
@@ -22,7 +25,7 @@ export async function applyBranding(): Promise<void> {
     clearTimeout(timer);
     if (!res.ok) return;
     const b = await res.json();
-    if (b?.primary && b?.secondary) applyBrandingValues(b.primary, b.secondary);
+    if (b?.primary && b?.secondary && b?.text) applyBrandingValues(b.primary, b.secondary, b.text);
   } catch {
     /* timeout or network error — fall back to baked-in :root defaults */
   }

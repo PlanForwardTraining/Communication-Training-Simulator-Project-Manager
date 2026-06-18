@@ -4,7 +4,7 @@ import { adminApi } from '../../api/admin';
 import type { Branding } from '../../api/admin';
 import { applyBrandingValues } from '../../utils/applyBranding';
 
-const DEFAULTS: Branding = { primary: '#1C8CAB', secondary: '#0E2A33', logoUrl: '' };
+const DEFAULTS: Branding = { primary: '#1C8CAB', secondary: '#0E2A33', text: '#F8FAFC', logoUrl: '' };
 
 // Fix 1: hoisted to module scope so it never remounts on parent re-render
 function ColorRow({ label, hint, value, onChange }: { label: string; hint: string; value: string; onChange: (v: string) => void }) {
@@ -35,7 +35,7 @@ export function AdminBrandingPage() {
     try {
       const next = await adminApi.setBranding(b);
       setB(next);
-      applyBrandingValues(next.primary, next.secondary);
+      applyBrandingValues(next.primary, next.secondary, next.text);
       // Fix 4: dispatch live logo update
       window.dispatchEvent(new CustomEvent('branding:logo', { detail: next.logoUrl }));
       setNotice('Saved — colors applied.'); // Fix 5
@@ -47,7 +47,7 @@ export function AdminBrandingPage() {
     try {
       const next = await adminApi.resetBranding();
       setB(next);
-      applyBrandingValues(next.primary, next.secondary);
+      applyBrandingValues(next.primary, next.secondary, next.text);
       // Fix 4: dispatch live logo update
       window.dispatchEvent(new CustomEvent('branding:logo', { detail: next.logoUrl }));
       setNotice('Reset to default colors.'); // Fix 5
@@ -69,12 +69,13 @@ export function AdminBrandingPage() {
         </div>
         <ColorRow label="Primary color" hint="Buttons, accents, highlights." value={b.primary} onChange={v => field('primary', v)} />
         <ColorRow label="Secondary color" hint="Backgrounds, sidebar, headers (use a dark color — the app is a dark theme)." value={b.secondary} onChange={v => field('secondary', v)} />
+        <ColorRow label="Text color" hint="Body text and headings across the app." value={b.text} onChange={v => field('text', v)} />
 
         {/* Live preview */}
         <div className="mt-4">
           <div className="text-xs uppercase tracking-wide text-slate-muted mb-2">Preview</div>
           <div className="rounded-xl overflow-hidden border border-navy-600">
-            <div className="px-4 py-3 font-display text-sm" style={{ background: b.secondary, color: '#F0EDE8' }}>
+            <div className="px-4 py-3 font-display text-sm" style={{ background: b.secondary, color: b.text }}>
               {b.logoUrl ? <img src={b.logoUrl} alt="Logo" className="h-6 w-auto" /> : 'Plan Forward'}
             </div>
             <div className="px-4 py-3 text-center font-semibold" style={{ background: b.primary, color: b.secondary }}>

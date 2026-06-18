@@ -141,6 +141,7 @@ export interface CoachingSettings {
 export interface Branding {
   primary: string;
   secondary: string;
+  text: string;
   logoUrl: string;
 }
 
