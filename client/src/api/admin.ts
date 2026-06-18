@@ -186,4 +186,9 @@ export const adminApi = {
   userTypes: () => api.get<UserType[]>('/api/admin/user-types'),
   addUserType: (name: string) => api.post<UserType[]>('/api/admin/user-types', { name }),
   removeUserType: (name: string) => api.delete<UserType[]>(`/api/admin/user-types/${encodeURIComponent(name)}`),
+  regradeSession: (id: number) =>
+    api.post<{ regraded: boolean; gradedProvider: string; gradedModel: string; totalScore: number }>(
+      `/api/admin/sessions/${id}/regrade`,
+      {},
+    ),
 };
