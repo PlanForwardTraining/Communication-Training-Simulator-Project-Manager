@@ -4,6 +4,9 @@ import db from '../db/connection';
 import { requireAuth } from '../middleware/auth';
 import { requireAdmin } from '../middleware/roleGuard';
 import { regenerateExcel, EXCEL_PATH } from '../services/excel';
+import { generateCoaching } from '../services/coaching/service';
+import { getDiscProfile, getRubric } from '../prompts/loader';
+import { TurnRecord, EventRecord } from '../types';
 import { listSessions, softDeleteSession, purgeEmptySessions, type SessionFilter } from '../services/sessions-admin';
 import { listUserTypes, addUserType, userTypeInUse, removeUserType } from '../services/user-types';
 import fs from 'fs';
@@ -480,6 +483,119 @@ router.get('/sessions/:id', (req: Request, res: Response): void => {
     : null;
 
   res.json({ session, turns, events, coaching });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/sessions/:id/regrade — re-run coaching on an existing session
+// ---------------------------------------------------------------------------
+
+router.post('/sessions/:id/regrade', async (req: Request, res: Response): Promise<void> => {
+  const sessionId = Number(req.params.id);
+
+  // Load session (must exist and not be soft-deleted)
+  const session = db.prepare(
+    `SELECT s.id, s.user_id, s.client_disc_id, s.ended_at
+     FROM sessions s
+     WHERE s.id = ? AND s.deleted_at IS NULL`,
+  ).get(sessionId) as {
+    id: number;
+    user_id: number;
+    client_disc_id: number;
+    ended_at: string | null;
+  } | undefined;
+
+  if (!session) {
+    res.status(404).json({ error: 'Session not found' });
+    return;
+  }
+
+  // Load turns and events (same queries as /:id/end)
+  const turns = db.prepare(
+    'SELECT * FROM turns WHERE session_id = ? ORDER BY created_at',
+  ).all(sessionId) as TurnRecord[];
+
+  const events = db.prepare(
+    'SELECT * FROM events WHERE session_id = ? ORDER BY occurred_at',
+  ).all(sessionId) as EventRecord[];
+
+  if (turns.length === 0) {
+    res.status(400).json({ error: 'Session has no transcript to grade' });
+    return;
+  }
+
+  // Gather coaching inputs — replicate /:id/end exactly
+  const pmUser = db.prepare('SELECT disc_profile FROM users WHERE id = ?').get(session.user_id) as
+    | { disc_profile: string }
+    | undefined;
+  if (!pmUser) {
+    res.status(404).json({ error: 'PM user not found' });
+    return;
+  }
+
+  const clientDiscRow = db.prepare('SELECT code FROM disc_profiles WHERE id = ?').get(session.client_disc_id) as
+    | { code: string }
+    | undefined;
+  if (!clientDiscRow) {
+    res.status(404).json({ error: 'Client DISC profile not found' });
+    return;
+  }
+
+  const pmDisc = getDiscProfile(pmUser.disc_profile);
+  const clientDisc = getDiscProfile(clientDiscRow.code);
+
+  if (!pmDisc || !clientDisc) {
+    res.status(400).json({ error: 'DISC profile content not found in /content/' });
+    return;
+  }
+
+  const rubric = getRubric();
+
+  try {
+    const coaching = await generateCoaching(turns, events, pmDisc, clientDisc, rubric);
+
+    // Save coaching — same INSERT OR REPLACE as /:id/end
+    db.prepare(`
+      INSERT OR REPLACE INTO coaching
+        (session_id, strengths, misses, alternatives, disc_adaptation, score_breakdown_json, total_score,
+         coaching_provider, coaching_model)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      sessionId,
+      coaching.strengths,
+      coaching.misses,
+      coaching.alternatives,
+      coaching.discAdaptation,
+      JSON.stringify(coaching.scoreBreakdown),
+      coaching.totalScore,
+      coaching.gradedProvider ?? null,
+      coaching.gradedModel ?? null,
+    );
+
+    // Update session score; set ended_at if it was null (marks it completed)
+    db.prepare(
+      `UPDATE sessions
+       SET total_score = ?,
+           ended_at = CASE WHEN ended_at IS NULL THEN CURRENT_TIMESTAMP ELSE ended_at END
+       WHERE id = ?`,
+    ).run(coaching.totalScore, sessionId);
+
+    // Non-blocking Excel refresh
+    regenerateExcel().catch(err => {
+      console.error('Excel regeneration failed after regrade (non-fatal):', err);
+    });
+
+    res.json({
+      regraded: true,
+      gradedProvider: coaching.gradedProvider ?? null,
+      gradedModel: coaching.gradedModel ?? null,
+      totalScore: coaching.totalScore,
+    });
+  } catch (err) {
+    console.error('[regrade] coaching generation failed:', err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : 'Failed to generate coaching',
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------

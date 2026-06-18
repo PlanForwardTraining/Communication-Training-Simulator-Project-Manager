@@ -1,11 +1,12 @@
 import { buildCoachingPrompt } from '../../prompts/coaching-prompt';
 import { CoachingResult, TurnRecord, EventRecord } from '../../types';
 import { DiscProfileContent, RubricItemContent, getSandlerPrimer } from '../../prompts/loader';
-import { getActiveProvider, getActiveModel, getProviderKey } from './settings';
+import { getActiveProvider, getActiveModel, getProviderKey, getProviderStatus } from './settings';
 import { openaiProvider } from './openai';
 import { geminiProvider } from './gemini';
 import { anthropicProvider } from './anthropic';
 import { CoachingProvider, PickerProvider } from './types';
+import { PROVIDER_ORDER, DEFAULT_MODEL } from './models';
 
 const PROVIDERS: Record<PickerProvider, CoachingProvider> = {
   openai: openaiProvider,
@@ -93,27 +94,57 @@ export async function generateCoachingStream(
   onProgress: (info: { charsReceived: number }) => void,
 ): Promise<CoachingResult> {
   const prompt = buildCoachingPrompt(turns, events, pmDisc, clientDisc, rubric, getSandlerPrimer());
-  const provider = getActiveProvider();
-  const model = getActiveModel(provider);
-  const apiKey = getProviderKey(provider);
-  if (!apiKey) {
-    throw new Error(`No API key configured for coaching provider "${provider}". Add one in Admin → Coaching.`);
+  const activeProvider = getActiveProvider();
+
+  // Build the ordered try list: active provider first, then every OTHER connected
+  // provider in PROVIDER_ORDER. Deduplicate while preserving order.
+  const seen = new Set<PickerProvider>();
+  const tryOrder: PickerProvider[] = [];
+  for (const p of [activeProvider, ...PROVIDER_ORDER]) {
+    if (!seen.has(p) && getProviderStatus(p).connected) {
+      seen.add(p);
+      tryOrder.push(p);
+    }
   }
 
-  let rawText: string;
-  try {
-    rawText = await PROVIDERS[provider].streamCoaching({ prompt, model, apiKey, onProgress });
-  } catch (err) {
-    // Log the raw error server-side, then re-throw a friendly message so the
-    // route handler forwards something readable — never the raw provider JSON.
-    console.error(`[coaching] provider "${provider}" threw:`, err);
-    throw new Error(friendlyCoachingError(err, provider));
+  if (tryOrder.length === 0) {
+    throw new Error(
+      `No API key configured for coaching provider "${activeProvider}". Add one in Admin → Coaching.`,
+    );
   }
 
-  const result = parseCoachingFromText(rawText, provider);
-  result.gradedProvider = provider;
-  result.gradedModel = model;
-  return result;
+  let lastError: unknown;
+  for (const provider of tryOrder) {
+    const apiKey = getProviderKey(provider);
+    if (!apiKey) continue; // key disappeared between status check and use — skip
+    const model =
+      provider === activeProvider ? getActiveModel(provider) : DEFAULT_MODEL[provider];
+
+    let rawText: string;
+    try {
+      rawText = await PROVIDERS[provider].streamCoaching({ prompt, model, apiKey, onProgress });
+    } catch (err) {
+      console.warn(`[coaching] provider "${provider}" failed (will try next):`, err);
+      lastError = err;
+      continue;
+    }
+
+    try {
+      const result = parseCoachingFromText(rawText, provider);
+      result.gradedProvider = provider;
+      result.gradedModel = model;
+      if (provider !== activeProvider) {
+        console.warn(`[coaching] fell back from "${activeProvider}" → "${provider}"`);
+      }
+      return result;
+    } catch (err) {
+      console.warn(`[coaching] parse failed for provider "${provider}":`, err);
+      lastError = err;
+    }
+  }
+
+  // All candidates exhausted
+  throw new Error(friendlyCoachingError(lastError, activeProvider));
 }
 
 export async function generateCoaching(

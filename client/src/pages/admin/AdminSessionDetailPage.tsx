@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { adminApi, type AdminSessionDetail } from '../../api/admin';
 import { AdminLayout } from './AdminLayout';
@@ -84,14 +84,37 @@ export function AdminSessionDetailPage() {
   const [detail, setDetail] = useState<AdminSessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [regrading, setRegrading] = useState(false);
+  const [regradeError, setRegradeError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadSession = useCallback(() => {
     if (!id) return;
+    setLoading(true);
+    setError(null);
     adminApi.session(Number(id))
       .then(setDetail)
       .catch(e => setError(e instanceof Error ? e.message : 'Failed to load session'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    loadSession();
+  }, [loadSession]);
+
+  const handleRegrade = async () => {
+    if (!id) return;
+    if (!window.confirm('Re-grade this session? This will replace the existing coaching with a fresh AI evaluation.')) return;
+    setRegrading(true);
+    setRegradeError(null);
+    try {
+      await adminApi.regradeSession(Number(id));
+      loadSession();
+    } catch (e) {
+      setRegradeError(e instanceof Error ? e.message : 'Re-grade failed');
+    } finally {
+      setRegrading(false);
+    }
+  };
 
   return (
     <AdminLayout
@@ -138,15 +161,27 @@ export function AdminSessionDetailPage() {
                   </span>
                 </div>
               </div>
-              {detail.coaching && (
-                <div className="flex flex-col items-center gap-2">
-                  <ScoreRing score={detail.coaching.totalScore} />
-                  <GradedByLine
-                    provider={detail.coaching.gradedProvider}
-                    model={detail.coaching.gradedModel}
-                  />
-                </div>
-              )}
+              <div className="flex flex-col items-center gap-2">
+                {detail.coaching && (
+                  <>
+                    <ScoreRing score={detail.coaching.totalScore} />
+                    <GradedByLine
+                      provider={detail.coaching.gradedProvider}
+                      model={detail.coaching.gradedModel}
+                    />
+                  </>
+                )}
+                <button
+                  onClick={handleRegrade}
+                  disabled={regrading}
+                  className="mt-1 px-3 py-1.5 text-xs font-semibold font-body rounded-lg border border-navy-600 text-slate-muted hover:text-slate-text hover:border-gold-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {regrading ? 'Re-grading…' : 'Re-grade'}
+                </button>
+                {regradeError && (
+                  <p className="text-[10px] text-red-400 font-body text-center max-w-[140px] leading-tight">{regradeError}</p>
+                )}
+              </div>
             </div>
           </section>
 
