@@ -1,8 +1,8 @@
-# Coaching Rubric — Scoring Levels (1-5)
+# Coaching Rubric — Scoring Levels (0-5)
 
 > **Status:** Placeholder content. Replace with your company's real scoring criteria before going live.
 
-For each category, the AI evaluates the PM on a 1-5 scale. This file defines what each level looks like. The AI references these definitions when scoring AND when writing the coaching debrief.
+For each category, the AI evaluates the PM on a 0-5 scale. This file defines what each level looks like. The AI references these definitions when scoring AND when writing the coaching debrief.
 
 For Category 7 (Active Listening), the AI also receives the **interruption events log** captured during the live call — not just the transcript. This makes scoring quantitative rather than inferred.
 
@@ -13,6 +13,7 @@ For Category 7 (Active Listening), the AI also receives the **interruption event
 - **3 — Meets Standard:** Solid, professional, what we expect of every PM. Clear opportunities to grow.
 - **2 — Below Standard:** Important gaps. Coachable in one session.
 - **1 — Significantly Below:** Material concern. Schedule focused practice with the owner.
+- **0 — Harmful:** The PM actively damaged the relationship in this dimension — dismissed the client's concern, refused a firm commitment when one was demanded, talked over or hung up on the client, or abandoned the call. Not a low-effort attempt; a genuinely counterproductive one. A call exhibiting any of these should score at or near 0 overall.
 
 ---
 

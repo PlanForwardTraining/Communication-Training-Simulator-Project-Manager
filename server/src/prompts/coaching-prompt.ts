@@ -44,11 +44,23 @@ ${pmInterruptions > 0 ? `Note: This is significant. The client's DISC profile sh
 
 ## Scoring Rubric
 
-Score the PM 1-5 on each of the following categories:
+Score the PM 0-5 on each of the following categories:
 
 ${rubricText}
 
-**Scoring scale:** 1 = Significantly below standard, 2 = Below standard, 3 = Meets standard, 4 = Above standard, 5 = Exceptional
+**Scoring scale:** 0 = Harmful, 1 = Significantly below standard, 2 = Below standard, 3 = Meets standard, 4 = Above standard, 5 = Exceptional
+
+## Scoring Discipline — read before scoring
+
+Use the **full 0-5 range, including 0.** You are a tough, honest evaluator, not a cheerleader. Do NOT inflate. Politeness, showing up, or saying a few words is **not** worth points on its own.
+
+**Automatic fail behaviors.** When the PM does any of the following, the affected categories MUST be scored **0 or 1**, and the overall result should land **near the floor** — do not let unrelated minor positives pull it back up to a "middling" score:
+- Refuses to give a firm answer/date when the client explicitly demands one, or only hedges ("probably," "give or take," "best I can do") when pressed for a hard commitment.
+- Dismisses or minimizes the client's concern ("you'll have to just deal with it," "you'll be okay") instead of genuinely engaging it.
+- Talks over, hangs up on, or **abandons** the client while they are still asking for help.
+- Offers no real plan, no ownership, and no path forward.
+
+A short, dismissive, or abandoning call is a **failing** call. Score it like one (near 0) — never a charitable 2. A genuine, well-handled call earns 4-5; a solid-but-imperfect one earns 3; reserve 0-1 for the failures above and clearly negligent handling.
 
 ## Output Format
 
@@ -60,13 +72,13 @@ Return a JSON object with EXACTLY this structure (no markdown wrapper, no explan
   "alternatives": "<bullet list>",
   "discAdaptation": "<bullet list>",
   "scoreBreakdown": {
-    "empathy": <1-5>,
-    "clarity": <1-5>,
-    "discAdaptation": <1-5>,
-    "solutionOrientation": <1-5>,
-    "ownership": <1-5>,
-    "composure": <1-5>,
-    "activeListening": <1-5>
+    "empathy": <0-5>,
+    "clarity": <0-5>,
+    "discAdaptation": <0-5>,
+    "solutionOrientation": <0-5>,
+    "ownership": <0-5>,
+    "composure": <0-5>,
+    "activeListening": <0-5>
   },
   "totalScore": <0-100 weighted score>
 }
@@ -107,7 +119,7 @@ Example bullet:
 ## Score Calculation
 
 The totalScore formula:
-\`((empathy * 0.13) + (clarity * 0.13) + (discAdaptation * 0.22) + (solutionOrientation * 0.12) + (ownership * 0.12) + (composure * 0.13) + (activeListening * 0.15)) / 5 * 100\`, rounded to nearest integer.
+\`((empathy * 0.13) + (clarity * 0.13) + (discAdaptation * 0.22) + (solutionOrientation * 0.12) + (ownership * 0.12) + (composure * 0.13) + (activeListening * 0.15)) / 5 * 100\`, rounded to nearest integer. Because 0 is a valid category score, a dismissive or abandoned call correctly produces a total near 0 — that is the expected outcome, not an error. Do not floor scores at 1.
 
 Be specific, be direct, be honest. This is a learning tool — vague or overly positive feedback does not help the PM improve. The PM should leave the debrief with **one or two specific Sandler techniques to practice next session**, not a generic directive to "be more empathetic."`;
 }
